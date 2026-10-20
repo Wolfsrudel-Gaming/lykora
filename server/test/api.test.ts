@@ -158,7 +158,7 @@ describe("Ein Event von Anfang bis Ende", () => {
     // Foto-Aufgabe: Upload, dann Antwort
     const upload = await ctx.app.inject({
       method: "POST",
-      url: `${ctx.api}/play/uploads`,
+      url: `${ctx.api}/play/uploads?id=6f1c1b9e-0c3a-4c1e-9a5b-2d6c0f3a9b11`,
       headers: { authorization: `Bearer ${a.token}`, "content-type": "image/jpeg" },
       payload: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
     });
@@ -332,5 +332,25 @@ describe("NFC-Armbänder", () => {
     await team.post("/play/sync", { actions: [action("headcount", { tags: [m1, m2] }, 3)] });
     const after = await orga.get(`/events/${event.id}/overview`);
     expect(after.body.teams[0].lastHeadcount.complete).toBe(true);
+  });
+});
+
+describe("Mehrere Handys pro Team", () => {
+  it("liefert das Aktionsprotokoll inklusive Eingriffen der Spielleitung", async () => {
+    const orga = client(ctx);
+    const { event } = await createEvent();
+    const a = await joinTeam(event.join.code, "Ottern", event.supervisorPin);
+    const second = await client(ctx, "").post("/join", { code: event.join.code, deviceCode: a.team.deviceCode });
+    await orga.post(`/events/${event.id}/start`);
+    await client(ctx, a.token).post("/play/sync", { actions: [action("trigger", { station: "baum", method: "gps" }, 1)] });
+    await orga.post(`/events/${event.id}/teams/${a.team.id}/actions`, { type: "staff_points", payload: { amount: 5 } });
+    const res = await client(ctx, second.body.token).post("/play/sync", { actionsAfter: 0 });
+    expect(res.body.actions.map((x: any) => [x.source, x.type])).toEqual([
+      ["team", "trigger"],
+      ["staff", "staff_points"],
+    ]);
+    const cursor = res.body.actions.at(-1).seq;
+    expect((await client(ctx, second.body.token).post("/play/sync", { actionsAfter: cursor })).body.actions).toEqual([]);
+    expect(res.body.team.supervisorPresent).toBe(true);
   });
 });

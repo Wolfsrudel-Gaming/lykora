@@ -66,6 +66,7 @@ interface SyncBody {
   positions?: { lat: number; lon: number; accuracy?: number; time: string }[];
   battery?: number;
   messagesAfter?: number;
+  actionsAfter?: number;
 }
 
 function leaderboardVisible(event: EventRow, state: TeamState): boolean {
@@ -259,6 +260,7 @@ export default async function playRoutes(app: FastifyInstance) {
             },
             battery: { type: "number", minimum: 0, maximum: 1 },
             messagesAfter: { type: "integer", minimum: 0 },
+            actionsAfter: { type: "integer", minimum: 0, description: "Liefert alle Aktionen des Teams ab dieser Nummer, auch von anderen Handys und der Spielleitung" },
           },
         },
       },
@@ -348,9 +350,17 @@ export default async function playRoutes(app: FastifyInstance) {
         const names = new Map(states.map(({ team }) => [team.id, team.name]));
         leaderboard = computeStandings(event, states).map((r) => ({ rank: r.rank, name: names.get(r.teamId), points: r.points, finished: r.finished, own: r.teamId === auth.teamId }));
       }
+      // Vollständiges Protokoll seit dem Cursor, damit alle Handys des Teams denselben Stand rechnen.
+      const log = await db.query<{ seq: number; client_id: string; source: string; type: string; payload: unknown; client_time: Date }>(
+        "select id as seq, client_id, source, type, payload, client_time from actions where team_id = $1 and id > $2 order by id limit 2000",
+        [auth.teamId, req.body.actionsAfter ?? 0],
+      );
+      const current = await loadTeam(db, event.id, auth.teamId);
       return {
         serverTime: new Date(now),
         event: eventInfo(event),
+        team: { ...publicTeam(current), members: normalizeMembers(current.members), deviceCode: current.device_code },
+        actions: log.map((a) => ({ seq: a.seq, id: a.client_id, source: a.source, type: a.type, payload: a.payload, time: a.client_time })),
         accepted: inserted.length,
         outcomes: actions.map((a) => outcomes.get(a.id) ?? { clientId: a.id, status: "ignored", reason: "unknown" }),
         state: summarizeState(state),
@@ -444,15 +454,17 @@ export default async function playRoutes(app: FastifyInstance) {
   // Fotos, Videos und Audio als Rohdaten mit passendem Content-Type.
   app.addContentTypeParser(Object.keys(UPLOAD_TYPES), { parseAs: "buffer", bodyLimit: 50 * 1024 * 1024 }, (_req, body, done) => done(null, body));
 
-  app.post(
+  app.post<{ Querystring: { id?: string } }>(
     "/play/uploads",
     {
       bodyLimit: 50 * 1024 * 1024,
       schema: {
         tags: ["play"],
-        summary: "Foto, Video oder Audio hochladen; die zurückgegebene id kommt in die Antwort der Aufgabe",
+        summary: "Foto, Video oder Audio hochladen; die id kommt in die Antwort der Aufgabe",
+        description: "Die App kann die id selbst vergeben (UUID), damit sie offline schon antworten und die Datei später nachreichen kann.",
         security: team,
         consumes: Object.keys(UPLOAD_TYPES),
+        querystring: { type: "object", properties: { id: { type: "string", format: "uuid" } } },
       },
     },
     async (req, reply) => {
@@ -460,7 +472,9 @@ export default async function playRoutes(app: FastifyInstance) {
       const type = (req.headers["content-type"] ?? "").split(";")[0]!.trim();
       const ext = UPLOAD_TYPES[type];
       if (!ext || !Buffer.isBuffer(req.body)) throw badRequest("unsupported_type", "Dateityp nicht unterstützt");
-      const id = randomUUID();
+      const id = req.query.id ?? randomUUID();
+      const existing = await db.one("select id from uploads where id = $1", [id]);
+      if (existing) return reply.status(200).send({ id });
       const rel = join("uploads", auth.eventId, `${id}.${ext}`);
       await mkdir(join(config.dataDir, "uploads", auth.eventId), { recursive: true });
       await writeFile(join(config.dataDir, rel), req.body);
