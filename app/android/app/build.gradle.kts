@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "io.github.wolfsrudelgaming.lykora"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android verlangt SDK 37 zum Kompilieren. Betrifft nur den Bau,
+    // nicht, auf welchen Geräten die App läuft (minSdk) oder wie sie sich verhält (targetSdk).
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
