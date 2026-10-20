@@ -61,7 +61,7 @@ Mit einem laufenden Server prüft `flutter test` zusätzlich das Zusammenspiel:
 LYKORA_TEST_SERVER=http://localhost:3000/lykora LYKORA_TEST_ADMIN=admin@example.org:passwort flutter test
 ```
 
-Die CI baut bei jedem Pull Request eine APK (Artefakt `lykora-apk`). Ein Tag wie `app-v0.1.0` veröffentlicht sie als Vorabversion unter GitHub Releases. Die APK ist noch mit dem Debug-Schlüssel signiert und nur für Tests gedacht.
+Die CI baut bei jedem Push eine APK und lädt die arm64-Variante als Artefakt `lykora-apk-arm64` hoch (7 Tage, soweit das Speicherkontingent des Kontos reicht). Ein Tag wie `app-v0.1.0` veröffentlicht sie als Vorabversion unter GitHub Releases. Die APK ist noch mit dem Debug-Schlüssel signiert und nur für Tests gedacht.
 
 ## Aufbau
 

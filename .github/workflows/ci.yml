@@ -93,9 +93,13 @@ jobs:
           LYKORA_TEST_SERVER: http://localhost:3000/lykora
           LYKORA_TEST_ADMIN: admin@example.org:geheim-geheim
       - name: APK bauen
-        run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+        # Eine APK pro Prozessortyp; arm64 passt auf praktisch alle aktuellen Handys.
+        run: flutter build apk --release --split-per-abi
+      - name: APK als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        # Das Speicherkontingent für Artefakte ist begrenzt; ein volles Kontingent soll die CI nicht rot färben.
+        continue-on-error: true
         with:
-          name: lykora-apk
-          path: app/build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
+          name: lykora-apk-arm64
+          path: app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          retention-days: 7
