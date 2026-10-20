@@ -351,7 +351,7 @@ Die App spielt offline und synchronisiert, sobald Netz da ist. Boxen reden per B
 | Punkt | Festlegung |
 | --- | --- |
 | Server | Rootserver von Alexander (Details noch offen) |
-| Domain | `lykora.riegel-troisdorf.de`; API, Editor, Dashboard und Karten zunächst als Pfade dahinter |
+| Adresse | `riegel-troisdorf.de/lykora`; API, Editor, Dashboard und Karten als Pfade darunter, alle Teile müssen deshalb mit einem Basispfad laufen |
 | HTTPS | Caddy mit Let's Encrypt, Ports 80 und 443 offen |
 | Später | Umzug auf eine eigene Domain betrifft nur DNS, weil die Server-Adresse im Einstiegs-QR steckt |
 
@@ -383,7 +383,7 @@ Der erste Testlauf kommt schon nach M1. Die Nachtwanderung findet am 19.10.2027 
 - [x] Projektname festlegen: Lykora
 - [ ] GitHub-Repo `Wolfsrudel-Gaming/lykora` mit AGPL-3.0 anlegen
 - [ ] Spielformat v0.1 als JSON-Schema entwerfen
-- [ ] Server-Grundgerüst mit Docker Compose auf dem Rootserver unter `lykora.riegel-troisdorf.de`
+- [ ] Server-Grundgerüst mit Docker Compose auf dem Rootserver unter `riegel-troisdorf.de/lykora`
 - [ ] Flutter-App: Einstieg per QR, Offline-Karte, Basis-Aufgaben, GPS/QR/NFC/BLE
 - [ ] Hintergrund-GPS und Lebenszeichen auf echten Geräten der Tester prüfen
 - [ ] Web-Editor (Basis) und Dashboard mit Live-Karte und SOS
@@ -413,7 +413,7 @@ Der erste Testlauf kommt schon nach M1. Die Nachtwanderung findet am 19.10.2027 
 | App-Verteilung | später entscheiden, für Tests APK |
 | iOS | mindestens ein Android-Gerät pro Team |
 | Offline oder Server | pro Mechanik festgelegt |
-| Domain für den Test | `lykora.riegel-troisdorf.de` |
+| Adresse für den Test | `riegel-troisdorf.de/lykora` |
 
 ## Offene Punkte und ehrliche Hinweise
 
@@ -427,7 +427,7 @@ Der Umfang ist groß. Bei 8–15 Stunden pro Woche bleiben bis zum Termin etwa 4
 - [ ] Elternbrief und Einwilligungen vom DRK-Datenschutz prüfen lassen, zusammen mit dem Vertrag zur Auftragsverarbeitung
 - [ ] Repo `Wolfsrudel-Gaming/lykora` anlegen und der Claude GitHub App Zugriff geben
 - [ ] Name Lykora absichern: Domain (`lykora.de`, `lykora.org`), GitHub-Name, Marke bei DPMA und EUIPO (Klassen 9 und 41)
-- [ ] Rootserver: Anbieter, CPU und RAM, Betriebssystem, was dort schon läuft; DNS-Eintrag für `lykora.riegel-troisdorf.de`
+- [ ] Rootserver: Anbieter, CPU und RAM, Betriebssystem, was dort schon läuft; Einbindung unter `riegel-troisdorf.de/lykora` in den bestehenden Webserver
 - [ ] Meilensteine M1–M5 mit Gates und Architektur-Grafik nachreichen
 - [ ] Bedeutung von „R30“ klären
 

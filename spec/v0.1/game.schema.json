@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lykora.riegel-troisdorf.de/spec/v0.1/game.schema.json",
+  "$id": "https://riegel-troisdorf.de/lykora/spec/v0.1/game.schema.json",
   "title": "Lykora Spielformat v0.1",
   "description": "Ein Lykora-Spiel: Grundregeln, Spielfeld, Stationen, Aufgaben, Story und Sicherheit. Gemeinsamer Vertrag für Server, Web und App.",
   "type": "object",
