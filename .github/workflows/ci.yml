@@ -6,8 +6,24 @@ on:
   pull_request:
 
 jobs:
-  spec:
+  test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lykora
+          POSTGRES_PASSWORD: lykora
+          POSTGRES_DB: lykora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lykora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://lykora:lykora@localhost:5432/lykora_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,5 +31,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Typen aus dem Schema sind aktuell
+        run: npm run generate -w @lykora/spec && git diff --exit-code spec/
       - run: npm run validate
+      - run: npm run typecheck -w @lykora/server
       - run: npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f server/Dockerfile -t lykora-server:ci .

@@ -8,6 +8,8 @@ Das Spielformat beschreibt ein Lykora-Spiel vollständig als JSON-Datei. Es ist 
 
 Beispiel: [`v0.1/examples/testspiel.json`](v0.1/examples/testspiel.json)
 
+TypeScript-Typen: [`v0.1/game.d.ts`](v0.1/game.d.ts), erzeugt mit `npm run generate -w @lykora/spec`. Nach jeder Schema-Änderung neu erzeugen; die CI prüft das.
+
 ## Aufbau
 
 | Feld | Inhalt |

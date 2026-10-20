@@ -1,0 +1,45 @@
+# Lykora mit PostgreSQL. Start: cp .env.example .env, Werte anpassen, dann docker compose up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lykora
+      POSTGRES_USER: lykora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD in .env setzen}
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lykora -d lykora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: lykora-server:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://lykora:${POSTGRES_PASSWORD}@db:5432/lykora
+      BASE_PATH: ${BASE_PATH:-/lykora}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000/lykora}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      SMS_WEBHOOK_SECRET: ${SMS_WEBHOOK_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - data:/data
+    # Nur lokal erreichbar; davor sitzt der Webserver mit HTTPS, der /lykora weiterleitet.
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+
+volumes:
+  db:
+  data:

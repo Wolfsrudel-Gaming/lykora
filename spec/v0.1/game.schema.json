@@ -225,10 +225,7 @@
       "properties": {
         "boundary": { "$ref": "#/$defs/area" },
         "start": { "$ref": "#/$defs/point" },
-        "assemblyPoint": {
-          "description": "Sammelpunkt, z. B. für „Alle zurück“.",
-          "$ref": "#/$defs/namedPoint"
-        },
+        "assemblyPoint": { "$ref": "#/$defs/namedPoint" },
         "restrictedZones": {
           "type": "array",
           "items": {
@@ -396,7 +393,7 @@
           "properties": {
             "type": { "const": "gps" },
             "radius": { "type": "number", "exclusiveMinimum": 0, "default": 20, "description": "Radius in Metern; wächst bei schlechter GPS-Genauigkeit." },
-            "location": { "$ref": "#/$defs/point", "description": "Abweichender Ort; Standard ist der Ort der Station." }
+            "location": { "$ref": "#/$defs/point" }
           }
         },
         {
@@ -578,7 +575,7 @@
       }
     },
     "rule": {
-      "description": "Visueller Block: wenn alle Bedingungen erfüllt sind, dann Aktionen, sonst andere Aktionen.",
+      "description": "Visueller Block: Wenn alle Bedingungen erfüllt sind, laufen die Dann-Aktionen. Ist nur die erste Bedingung erfüllt, laufen die Sonst-Aktionen.",
       "type": "object",
       "required": ["id", "when", "then"],
       "additionalProperties": false,

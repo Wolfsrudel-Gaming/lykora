@@ -14,26 +14,35 @@
 
 ## Stand
 
-Das Projekt steht am Anfang. Als Erstes entsteht das **Spielformat** als JSON-Schema, weil Server, Web und App darauf aufbauen.
+Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, der **Server** läuft mit Docker.
 
 | Teil | Ort | Stand |
 | --- | --- | --- |
 | Konzept | [`docs/de/konzept.md`](docs/de/konzept.md) | Version vom 20.10.2026 |
 | Spielformat v0.1 | [`spec/`](spec/) | Entwurf |
-| Server (TypeScript, PostgreSQL) | – | geplant |
+| Server (TypeScript, PostgreSQL, Docker) | [`server/`](server/) | erste Fassung |
 | Web: Editor und Dashboard | – | geplant |
 | App (Flutter, Android) | – | geplant |
 | ESP32-Boxen (PlatformIO) | – | geplant |
 
 ## Entwickeln
 
-Voraussetzung: Node.js 20 oder neuer.
+Server mit Docker starten:
+
+```sh
+cp .env.example .env      # Passwörter und Adresse eintragen
+docker compose up -d --build
+```
+
+Danach ist die API-Doku unter `http://localhost:3000/lykora/api/docs` erreichbar. Details in [`server/README.md`](server/README.md).
+
+Zum Entwickeln: Node.js 22 und PostgreSQL 16.
 
 ```sh
 npm install
 npm run validate          # Beispielspiele gegen das Schema prüfen
 npm run validate -- spiel.json
-npm test
+npm test                  # braucht eine Testdatenbank, siehe server/README.md
 ```
 
 Beiträge sind willkommen, siehe [CONTRIBUTING.md](CONTRIBUTING.md).
