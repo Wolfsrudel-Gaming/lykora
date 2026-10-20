@@ -558,7 +558,13 @@ class GameController extends ChangeNotifier {
         s.pendingUploads.remove(u);
         continue;
       }
-      await _api!.upload(u['id'] as String, u['contentType'] as String, await file.readAsBytes());
+      try {
+        await _api!.upload(u['id'] as String, u['contentType'] as String, await file.readAsBytes());
+      } on ApiException catch (e) {
+        if (e.offline) rethrow;
+        // Datei passt nicht (Typ oder Größe): verwerfen statt ewig neu zu versuchen.
+        lastError = 'Foto nicht angenommen: ${e.message}';
+      }
       s.pendingUploads.remove(u);
       await file.delete();
     }
@@ -580,8 +586,14 @@ class GameController extends ChangeNotifier {
     notifyListeners();
     try {
       for (final sos in s.pendingSos.toList()) {
-        await _api!.sos(sos);
-        s.pendingSos.remove(sos);
+        try {
+          await _api!.sos(sos);
+          s.pendingSos.remove(sos);
+        } on ApiException catch (e) {
+          // Ohne Netz abbrechen; lehnt der Server ab, bleibt der Alarm sichtbar, blockiert aber den Abgleich nicht.
+          if (e.offline) rethrow;
+          lastError = 'SOS abgelehnt: ${e.message}';
+        }
       }
       final unsynced = s.actions.where((a) => !a.synced && a.source == 'team').toList();
       final positions = [...s.pendingPositions];

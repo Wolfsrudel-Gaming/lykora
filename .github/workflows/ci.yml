@@ -42,3 +42,59 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -f server/Dockerfile -t lykora-server:ci .
+
+  app:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lykora
+          POSTGRES_PASSWORD: lykora
+          POSTGRES_DB: lykora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lykora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+      - name: Server für den Live-Test starten
+        working-directory: .
+        run: |
+          npm ci
+          DATABASE_URL=postgres://lykora:lykora@localhost:5432/lykora PORT=3000 \
+          ADMIN_EMAIL=admin@example.org ADMIN_PASSWORD=geheim-geheim LOG_LEVEL=warn \
+            nohup node server/src/server.ts > server.log 2>&1 &
+          for i in $(seq 30); do curl -sf http://localhost:3000/lykora/api/health && break; sleep 1; done
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+        env:
+          LYKORA_TEST_SERVER: http://localhost:3000/lykora
+          LYKORA_TEST_ADMIN: admin@example.org:geheim-geheim
+      - name: APK bauen
+        run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lykora-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

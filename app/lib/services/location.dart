@@ -7,20 +7,30 @@ import 'package:geolocator/geolocator.dart';
 /// Android beendet Apps im Hintergrund gern. Ein Vordergrunddienst mit Benachrichtigung
 /// hält die Ortung am Leben; dazu muss das Team die Akku-Optimierung für Lykora abschalten.
 class LocationService {
+  LocationService._();
+
+  /// Eine Ortung für die ganze App, damit Bildschirmwechsel sie nicht unterbrechen.
+  static final instance = LocationService._();
+
   StreamSubscription<Position>? _sub;
+  bool get running => _sub != null;
 
   Future<String?> ensurePermission() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return 'Standort ist ausgeschaltet. Bitte in den Einstellungen einschalten.';
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      return 'Lykora braucht den Standort, um Stationen auszulösen und euch im Notfall zu finden.';
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return 'Standort ist ausgeschaltet. Bitte in den Einstellungen einschalten.';
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return 'Lykora braucht den Standort, um Stationen auszulösen und euch im Notfall zu finden.';
+      }
+      return null;
+    } catch (_) {
+      return 'Ortung ist auf diesem Gerät nicht verfügbar.';
     }
-    return null;
   }
 
   Future<void> start(void Function(Position p) onPosition) async {
-    await stop();
+    if (running) return;
     final settings = AndroidSettings(
       accuracy: LocationAccuracy.best,
       distanceFilter: 3,

@@ -14,7 +14,7 @@
 
 ## Stand
 
-Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, der **Server** läuft mit Docker.
+Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, der **Server** läuft mit Docker, die **Android-App** ist spielbar.
 
 | Teil | Ort | Stand |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, d
 | Spielformat v0.1 | [`spec/`](spec/) | Entwurf |
 | Server (TypeScript, PostgreSQL, Docker) | [`server/`](server/) | erste Fassung |
 | Web: Editor und Dashboard | – | geplant |
-| App (Flutter, Android) | – | geplant |
+| App (Flutter, Android) | [`app/`](app/) | erste Fassung, Test-APK über die CI |
 | ESP32-Boxen (PlatformIO) | – | geplant |
 
 ## Entwickeln
