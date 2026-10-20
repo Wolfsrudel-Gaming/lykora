@@ -1,0 +1,231 @@
+{
+  "description": "Gemeinsame Testfälle für die Spiel-Engine. Server (TypeScript) und App (Dart) müssen alle Fälle gleich auswerten. Zeiten in Minuten ab Event-Start (T0). Aktionen: [Minute, Typ, Payload, Quelle?]. Erwartete Ergebnisse je Aktion als \"ok\" oder \"status:grund\".",
+  "game": "../v0.1/examples/testspiel.json",
+  "t0": "2027-10-19T18:00:00Z",
+  "cases": [
+    {
+      "name": "Beispielspiel komplett bis zum Finale",
+      "actions": [
+        [0, "start", {}],
+        [1, "trigger", { "station": "briefing", "method": "qr" }],
+        [2, "answer", { "station": "briefing", "choice": [0] }],
+        [5, "trigger", { "station": "baum", "method": "gps" }],
+        [6, "answer", { "station": "baum", "text": " eule " }],
+        [9, "trigger", { "station": "schloss", "method": "gps" }],
+        [10, "answer", { "station": "schloss", "text": "372" }],
+        [12, "trigger", { "station": "versteck", "method": "gps" }],
+        [13, "answer", { "station": "versteck", "upload": "foto-1" }],
+        [15, "trigger", { "station": "finale", "method": "qr" }],
+        [16, "answer", { "station": "finale", "text": "191" }]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok"],
+        "solved": ["briefing", "baum", "schloss", "versteck", "finale"],
+        "fragments": ["f1", "f2", "f3"],
+        "items": ["uv-lampe"],
+        "points": 450,
+        "finishedAt": 16,
+        "messages": ["rule:versteck-freischalten:then:1"]
+      }
+    },
+    {
+      "name": "Versteckte Station und Finale sind gesperrt, Antwort ohne Auslöser zählt nicht",
+      "actions": [
+        [1, "trigger", { "station": "versteck", "method": "gps" }],
+        [2, "trigger", { "station": "finale", "method": "qr" }],
+        [3, "answer", { "station": "baum", "text": "Eule" }],
+        [4, "trigger", { "station": "gibtsnicht", "method": "qr" }]
+      ],
+      "expect": {
+        "outcomes": ["rejected:hidden", "rejected:fragments_missing", "rejected:not_triggered", "rejected:unknown_station"],
+        "solved": []
+      }
+    },
+    {
+      "name": "Fehler und Hinweise kosten Zeit",
+      "actions": [
+        [0, "trigger", { "station": "baum", "method": "gps" }],
+        [1, "answer", { "station": "baum", "text": "Fuchs" }],
+        [2, "hint", { "station": "baum", "level": 1 }],
+        [3, "hint", { "station": "baum", "level": 2 }],
+        [4, "hint", { "station": "baum", "level": 2 }],
+        [5, "hint", { "station": "baum", "level": 4 }]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "ok", "ignored:already_used", "rejected:invalid_level"],
+        "wrongAnswers": 1,
+        "hintsUsed": 2,
+        "timePenalty": 210
+      }
+    },
+    {
+      "name": "Tippfehler-Toleranz und exakte Codes",
+      "actions": [
+        [0, "trigger", { "station": "baum", "method": "gps" }],
+        [1, "answer", { "station": "baum", "text": "Uhi" }],
+        [2, "answer", { "station": "baum", "text": "EULE" }],
+        [3, "trigger", { "station": "schloss", "method": "gps" }],
+        [4, "answer", { "station": "schloss", "text": "0372" }],
+        [5, "answer", { "station": "schloss", "text": " 372 " }]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "ok", "ok", "ok"],
+        "verdicts": [null, "wrong", "correct", null, "wrong", "correct"],
+        "solved": ["baum", "schloss"],
+        "timePenalty": 60
+      }
+    },
+    {
+      "name": "Lockout sperrt Antworten für eine Weile",
+      "patch": [{ "path": "settings.wrongAnswer", "value": { "type": "lockout", "amount": 120 } }],
+      "actions": [
+        [0, "trigger", { "station": "baum", "method": "gps" }],
+        [1, "answer", { "station": "baum", "text": "Fuchs" }],
+        [2, "answer", { "station": "baum", "text": "Eule" }],
+        [4, "answer", { "station": "baum", "text": "Eule" }]
+      ],
+      "expect": { "outcomes": ["ok", "ok", "rejected:locked_out", "ok"], "solved": ["baum"] }
+    },
+    {
+      "name": "Zeitlimit pro Team; Pausen zählen nicht",
+      "ctx": { "pauses": [[10, 20]] },
+      "actions": [
+        [0, "start", {}],
+        [15, "trigger", { "station": "baum", "method": "gps" }],
+        [50, "trigger", { "station": "schloss", "method": "gps" }],
+        [60, "trigger", { "station": "briefing", "method": "qr" }]
+      ],
+      "expect": { "outcomes": ["ok", "rejected:paused", "ok", "rejected:time_up"] }
+    },
+    {
+      "name": "Vor dem Start, nach dem Ende und ohne Betreuer",
+      "ctx": { "eventStartedAt": 10, "endedAt": 30 },
+      "actions": [
+        [5, "trigger", { "station": "baum", "method": "gps" }],
+        [15, "trigger", { "station": "baum", "method": "gps" }],
+        [35, "trigger", { "station": "schloss", "method": "gps" }]
+      ],
+      "expect": { "outcomes": ["rejected:not_started", "ok", "rejected:ended"] }
+    },
+    {
+      "name": "Fehlender Betreuer blockiert alles",
+      "ctx": { "blockReason": "supervisor_required" },
+      "actions": [
+        [1, "start", {}],
+        [2, "heartbeat", {}]
+      ],
+      "expect": { "outcomes": ["rejected:supervisor_required", "ok"] }
+    },
+    {
+      "name": "Foto mit Prüfung durch die Spielleitung",
+      "patch": [{ "path": "stations[versteck].task", "value": { "type": "photo", "prompt": "Foto", "review": "live" } }],
+      "actions": [
+        [0, "trigger", { "station": "schloss", "method": "gps" }],
+        [1, "answer", { "station": "schloss", "text": "372" }],
+        [2, "trigger", { "station": "versteck", "method": "gps" }],
+        [3, "answer", { "station": "versteck", "upload": "u1" }],
+        [4, "answer", { "station": "versteck", "upload": "u2" }],
+        [5, "staff_solve", { "station": "versteck" }, "staff"]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "ok", "ignored:review_pending", "ok"],
+        "verdicts": [null, "correct", null, "pending", null, null],
+        "fragments": ["f2", "f3"],
+        "pendingReviews": []
+      }
+    },
+    {
+      "name": "Sonst-Zweig, wenn nur die erste Bedingung erfüllt ist",
+      "patch": [
+        {
+          "path": "rules",
+          "value": [
+            {
+              "id": "mit-lampe",
+              "when": [{ "station_solved": "baum" }, { "has_item": "uv-lampe" }],
+              "then": [{ "add_points": 10 }],
+              "else": [{ "add_points": -5 }]
+            }
+          ]
+        }
+      ],
+      "actions": [
+        [0, "trigger", { "station": "baum", "method": "gps" }],
+        [1, "answer", { "station": "baum", "text": "Eule" }]
+      ],
+      "expect": { "points": 95, "solved": ["baum"] }
+    },
+    {
+      "name": "Serien-Bonus nur bei sauberen Lösungen",
+      "patch": [{ "path": "settings.scoring.streakBonus", "value": 25 }],
+      "actions": [
+        [0, "trigger", { "station": "briefing", "method": "qr" }],
+        [1, "answer", { "station": "briefing", "choice": [0] }],
+        [2, "trigger", { "station": "baum", "method": "gps" }],
+        [3, "answer", { "station": "baum", "text": "Eule" }],
+        [4, "trigger", { "station": "schloss", "method": "gps" }],
+        [5, "answer", { "station": "schloss", "text": "111" }],
+        [6, "answer", { "station": "schloss", "text": "372" }]
+      ],
+      "expect": { "points": 275 }
+    },
+    {
+      "name": "Versteckte Station erscheint bei Annäherung",
+      "patch": [{ "path": "stations[versteck].revealRadius", "value": 30 }],
+      "actions": [
+        [0, "trigger", { "station": "versteck", "method": "qr" }],
+        [1, "trigger", { "station": "versteck", "method": "gps" }]
+      ],
+      "expect": { "outcomes": ["rejected:hidden", "ok"], "revealed": ["versteck"] }
+    },
+    {
+      "name": "Eingriffe der Spielleitung",
+      "actions": [
+        [0, "staff_lock", { "station": "baum" }, "staff"],
+        [1, "trigger", { "station": "baum", "method": "gps" }],
+        [2, "staff_unlock", { "station": "baum" }, "staff"],
+        [3, "trigger", { "station": "baum", "method": "gps" }],
+        [4, "staff_points", { "amount": -20 }, "staff"],
+        [5, "staff_time", { "seconds": 90 }, "staff"],
+        [6, "staff_item", { "item": "uv-lampe" }, "staff"],
+        [7, "staff_reveal", { "station": "versteck" }, "staff"]
+      ],
+      "expect": {
+        "outcomes": ["ok", "rejected:locked", "ok", "ok", "ok", "ok", "ok", "ok"],
+        "points": -20,
+        "timePenalty": 90,
+        "items": ["uv-lampe"],
+        "revealed": ["baum", "versteck"]
+      }
+    },
+    {
+      "name": "Betreuer bestätigt Station mit Armband",
+      "ctx": { "staffTags": ["aa11"] },
+      "actions": [
+        [1, "tag_solve", { "station": "baum", "tag": "ffff" }],
+        [2, "tag_solve", { "station": "baum", "tag": "aa11" }]
+      ],
+      "expect": { "outcomes": ["rejected:unknown_tag", "ok"], "solved": ["baum"], "fragments": ["f1"] }
+    },
+    {
+      "name": "Armband-Aufgabe: alle Teammitglieder scannen",
+      "ctx": { "memberTags": ["m1", "m2", "m3"] },
+      "patch": [{ "path": "stations[baum].task", "value": { "type": "wristband", "prompt": "Alle scannen ihr Armband" } }],
+      "actions": [
+        [0, "trigger", { "station": "baum", "method": "gps" }],
+        [1, "answer", { "station": "baum", "tags": ["m1", "m2", "fremd"] }],
+        [2, "answer", { "station": "baum", "tags": ["m3", "m1", "m2"] }],
+        [3, "headcount", { "tags": ["m1"] }]
+      ],
+      "expect": { "outcomes": ["ok", "ok", "ok", "ok"], "verdicts": [null, "wrong", "correct", null], "solved": ["baum"] }
+    },
+    {
+      "name": "Reihenfolge nach Zeit, nicht nach Eingang",
+      "actions": [
+        [6, "answer", { "station": "baum", "text": "Eule" }],
+        [5, "trigger", { "station": "baum", "method": "gps" }]
+      ],
+      "expect": { "solved": ["baum"] }
+    }
+  ]
+}

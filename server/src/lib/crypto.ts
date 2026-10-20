@@ -40,3 +40,16 @@ export function newCode(length: number): string {
   for (let i = 0; i < length; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   return code;
 }
+
+/** Armband-ID ohne Trennzeichen in Großbuchstaben, z. B. "04A1B2C3D4E5F6". */
+export function normalizeTagId(uid: string): string {
+  return uid.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
+}
+
+/**
+ * Hash einer Armband-ID, gebunden an das Event. Die App rechnet genauso:
+ * sha256("lykora:<eventId>:<ID>") als Hex. Rohe IDs verlassen das Handy nicht.
+ */
+export function tagHash(eventId: string, uid: string): string {
+  return createHash("sha256").update(`lykora:${eventId}:${normalizeTagId(uid)}`).digest("hex");
+}

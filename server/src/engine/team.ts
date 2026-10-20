@@ -8,7 +8,18 @@ import { checkAnswer, type AnswerInput } from "./answers.ts";
  * dadurch kann sich der Stand nachträglich ändern. Der Server entscheidet.
  */
 
-export const TEAM_ACTIONS = ["start", "trigger", "answer", "hint", "heartbeat", "arrived"] as const;
+export const TEAM_ACTIONS = [
+  "start",
+  "trigger",
+  "answer",
+  "hint",
+  "heartbeat",
+  "arrived",
+  // NFC-Armbänder: Betreuer bestätigt eine Station, Betreuer ist dabei, Vollzähligkeits-Check
+  "tag_solve",
+  "supervisor_tag",
+  "headcount",
+] as const;
 export const STAFF_ACTIONS = [
   "staff_reveal",
   "staff_lock",
@@ -81,6 +92,10 @@ export interface TeamContext {
   endedAt?: number | null;
   /** Grund, warum das Team gerade nicht spielen darf, z. B. fehlender Betreuer */
   blockReason?: string | null;
+  /** Hashes der Armbänder von Spielleitung und Betreuern */
+  staffTags?: string[];
+  /** Hashes der Armbänder der Teammitglieder */
+  memberTags?: string[];
 }
 
 export function pausedBetween(pauses: TeamContext["pauses"], from: number, to: number): number {
@@ -252,7 +267,7 @@ export function reduceTeam(ctx: TeamContext, actions: EngineAction[]): TeamState
     if (p.location && typeof p.location.lat === "number") lastLocation = p.location;
 
     if (action.source === "team") {
-      if (action.type === "heartbeat" || action.type === "arrived") continue;
+      if (action.type === "heartbeat" || action.type === "arrived" || action.type === "headcount" || action.type === "supervisor_tag") continue;
       const gate = gateReason(ctx, t);
       if (gate) {
         reject(gate);
@@ -312,7 +327,7 @@ export function reduceTeam(ctx: TeamContext, actions: EngineAction[]): TeamState
           reject("locked_out");
           break;
         }
-        const verdict = checkAnswer(s.task, p as AnswerInput);
+        const verdict = checkAnswer(s.task, p as AnswerInput, ctx.memberTags ?? []);
         out.verdict = verdict;
         if (verdict === "correct") {
           solve(s, t, cleanSinceLastSolve);
@@ -358,6 +373,14 @@ export function reduceTeam(ctx: TeamContext, actions: EngineAction[]): TeamState
       case "staff_unlock":
         remove(state.locked, station!.id);
         add(state.revealed, station!.id);
+        break;
+      case "tag_solve":
+        if (typeof p.tag !== "string" || !(ctx.staffTags ?? []).includes(p.tag)) {
+          reject("unknown_tag");
+          break;
+        }
+        add(state.triggered, station!.id);
+        solve(station!, t, false);
         break;
       case "staff_solve":
         add(state.triggered, station!.id);

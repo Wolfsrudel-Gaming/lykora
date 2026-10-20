@@ -17,10 +17,28 @@ import {
   refreshTeam,
   summarizeState,
   supervisorRequired,
+  eventTags,
+  memberTags,
+  normalizeMembers,
   type EventRow,
+  type Member,
   type TeamRow,
 } from "../services/events.ts";
 import type { TeamState } from "../engine/team.ts";
+
+const memberSchema = {
+  oneOf: [
+    { type: "string", minLength: 1, maxLength: 40 },
+    {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string", minLength: 1, maxLength: 40 },
+        tag: { type: "string", pattern: "^[0-9a-f]{64}$", description: "Hash des NFC-Armbands" },
+      },
+    },
+  ],
+} as const;
 
 const team = [{ team: [] }];
 /** Bei „live mit verdeckten letzten Minuten“ wird die Rangliste so lange vor Schluss ausgeblendet. */
@@ -74,7 +92,14 @@ export default async function playRoutes(app: FastifyInstance) {
       code: string;
       deviceCode?: string;
       device?: string;
-      team?: { name: string; color?: string; members?: string[]; emergencyPhone?: string; supervisorPin?: string };
+      team?: {
+        name: string;
+        color?: string;
+        members?: (string | Member)[];
+        emergencyPhone?: string;
+        supervisorPin?: string;
+        supervisorTag?: string;
+      };
     };
   }>(
     "/join",
@@ -96,9 +121,10 @@ export default async function playRoutes(app: FastifyInstance) {
               properties: {
                 name: { type: "string", minLength: 1, maxLength: 60 },
                 color: { type: "string", maxLength: 20 },
-                members: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 40 } },
+                members: { type: "array", maxItems: 20, items: memberSchema },
                 emergencyPhone: { type: "string", pattern: "^\\+?[0-9 ()/-]{5,}$" },
                 supervisorPin: { type: "string" },
+                supervisorTag: { type: "string", description: "Hash des Betreuer-Armbands, siehe Doku" },
               },
             },
           },
@@ -118,12 +144,14 @@ export default async function playRoutes(app: FastifyInstance) {
           if (!row) throw notFound("Team");
         } else if (req.body.team) {
           const t = req.body.team;
-          const supervisor = !!t.supervisorPin && t.supervisorPin.trim().toUpperCase() === ev.supervisor_pin;
+          const pinOk = !!t.supervisorPin && t.supervisorPin.trim().toUpperCase() === ev.supervisor_pin;
+          const tagOk = !!t.supervisorTag && (await eventTags(tx, ev.id)).some((x) => x.tag_hash === t.supervisorTag);
+          const supervisor = pinOk || tagOk;
           for (let i = 0; i < 10 && !row; i++) {
             row = await tx.one<TeamRow>(
               `insert into teams (event_id, name, color, members, emergency_phone, device_code, supervisor_present)
                values ($1, $2, $3, $4, $5, $6, $7) on conflict (event_id, device_code) do nothing returning *`,
-              [ev.id, t.name.trim(), t.color ?? null, JSON.stringify(t.members ?? []), t.emergencyPhone ?? null, newCode(4), supervisor],
+              [ev.id, t.name.trim(), t.color ?? null, JSON.stringify(normalizeMembers(t.members)), t.emergencyPhone ?? null, newCode(4), supervisor],
             ).catch((err) => {
               if (err.code === "23505") throw conflict("team_name_taken", "Diesen Teamnamen gibt es schon");
               throw err;
@@ -159,10 +187,38 @@ export default async function playRoutes(app: FastifyInstance) {
       return {
         serverTime: new Date(),
         event: eventInfo(event),
-        team: { ...publicTeam(t), deviceCode: t.device_code },
+        team: { ...publicTeam(t), members: normalizeMembers(t.members), deviceCode: t.device_code },
         supervisorRequired: supervisorRequired(event.game),
+        // Damit die App Betreuer-Armbänder auch offline erkennt; nur Hashes, keine IDs.
+        staffTags: (await eventTags(db, event.id)).map((x) => ({ hash: x.tag_hash, role: x.role })),
         game: event.game,
       };
+    },
+  );
+
+  app.put<{ Body: { members: (string | Member)[]; color?: string } }>(
+    "/play/team",
+    {
+      schema: {
+        tags: ["play"],
+        summary: "Teammitglieder und ihre NFC-Armbänder aktualisieren",
+        security: team,
+        body: {
+          type: "object",
+          required: ["members"],
+          properties: { members: { type: "array", maxItems: 20, items: memberSchema }, color: { type: "string", maxLength: 20 } },
+        },
+      },
+    },
+    async (req) => {
+      const auth = await requireTeam(db, req);
+      const members = normalizeMembers(req.body.members);
+      const tags = members.flatMap((m) => (m.tag ? [m.tag] : []));
+      if (new Set(tags).size !== tags.length) throw badRequest("duplicate_tag", "Ein Armband ist mehrfach vergeben");
+      await db.query("update teams set members = $2, color = coalesce($3, color) where id = $1", [auth.teamId, JSON.stringify(members), req.body.color ?? null]);
+      const t = await loadTeam(db, auth.eventId, auth.teamId);
+      await logEvent(db, live, auth.eventId, "team_members_updated", { members: members.length, wristbands: tags.length }, { teamId: auth.teamId });
+      return { ...publicTeam(t), members: normalizeMembers(t.members), deviceCode: t.device_code };
     },
   );
 
@@ -232,6 +288,23 @@ export default async function playRoutes(app: FastifyInstance) {
           }
           if (row && a.type === "arrived") {
             await tx.query("update teams set arrived_at = coalesce(arrived_at, $2) where id = $1", [auth.teamId, fix(a.time)]);
+          }
+          if (row && a.type === "supervisor_tag" && typeof a.payload?.tag === "string") {
+            const known = (await eventTags(tx, event.id)).some((x) => x.tag_hash === a.payload!.tag);
+            if (known) await tx.query("update teams set supervisor_present = true where id = $1", [auth.teamId]);
+          }
+          if (row && a.type === "headcount") {
+            const current = await loadTeam(tx, event.id, auth.teamId);
+            const registered = memberTags(current);
+            const scanned = Array.isArray(a.payload?.tags) ? (a.payload!.tags as unknown[]) : [];
+            const present = new Set(scanned.filter((x): x is string => typeof x === "string" && registered.includes(x))).size;
+            const at = fix(a.time).toISOString();
+            // Nur der neueste Check zählt.
+            await tx.query(
+              `update teams set last_headcount = $2 where id = $1
+               and (last_headcount is null or (last_headcount->>'at')::timestamptz <= $3::timestamptz)`,
+              [auth.teamId, JSON.stringify({ at, present, total: registered.length, complete: present >= registered.length, reason: a.payload?.reason ?? null }), at],
+            );
           }
         }
         if (positions.length) {

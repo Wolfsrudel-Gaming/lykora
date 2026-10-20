@@ -10,6 +10,8 @@ export interface AnswerInput {
   choice?: number[];
   /** Upload-ID für photo */
   upload?: string;
+  /** Gescannte Armbänder (Hashes) für wristband */
+  tags?: string[];
   /** Position für find_location */
   location?: { lat: number; lon: number; accuracy?: number };
 }
@@ -47,7 +49,7 @@ function allowedTypos(answer: string, maxTypos: number): number {
   return maxTypos;
 }
 
-export function checkAnswer(task: Task, input: AnswerInput): Verdict {
+export function checkAnswer(task: Task, input: AnswerInput, memberTags: string[] = []): Verdict {
   switch (task.type) {
     case "text": {
       if (typeof input.text !== "string") return "wrong";
@@ -82,6 +84,12 @@ export function checkAnswer(task: Task, input: AnswerInput): Verdict {
       const tolerance = task.radius ?? 20;
       const slack = Math.min(input.location.accuracy ?? 0, tolerance);
       return distance(input.location, task.location) <= tolerance + slack ? "correct" : "wrong";
+    }
+    case "wristband": {
+      if (!Array.isArray(input.tags)) return "wrong";
+      const scanned = new Set(input.tags.filter((t) => memberTags.includes(t)));
+      const needed = task.count === undefined || task.count === "all" ? memberTags.length : task.count;
+      return needed > 0 && scanned.size >= needed ? "correct" : "wrong";
     }
   }
 }

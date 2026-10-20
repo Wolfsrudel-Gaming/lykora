@@ -159,6 +159,14 @@ export type Task =
       prompt: Text;
       location: Point;
       radius?: number;
+    }
+  | {
+      type: "wristband";
+      prompt: Text;
+      /**
+       * Wie viele verschiedene Armbänder des Teams gescannt werden müssen; "all" für alle registrierten.
+       */
+      count?: "all" | number;
     };
 /**
  * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
@@ -572,6 +580,20 @@ export interface Safety {
    * Pflicht-Ausrüstung je Team, z. B. Lampe und Warnweste.
    */
   requiredGear?: Text[];
+  /**
+   * Vollzähligkeits-Check: Alle Teammitglieder scannen ihr NFC-Armband am Team-Handy.
+   */
+  headcount?: {
+    enabled?: boolean;
+    /**
+     * Wann der Check verlangt wird.
+     */
+    at?: ("start" | "finish" | "recall")[];
+    /**
+     * Dauer in Sekunden.
+     */
+    interval?: number;
+  };
 }
 /**
  * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
