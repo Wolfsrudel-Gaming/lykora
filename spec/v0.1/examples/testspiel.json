@@ -1,0 +1,189 @@
+{
+  "$schema": "../game.schema.json",
+  "format": { "name": "lykora-game", "version": "0.1" },
+  "id": "testspiel-garten",
+  "meta": {
+    "title": { "de": "Das verschwundene Funkgerät", "en": "The Missing Radio" },
+    "summary": { "de": "Kleines Testspiel mit vier Stationen für den ersten Testlauf." },
+    "authors": ["Lykora-Team"],
+    "languages": ["de", "en"],
+    "ageGroups": ["10-13", "adult"],
+    "genre": "rescue",
+    "scareLevel": 0,
+    "night": false,
+    "expectedDuration": 1800,
+    "license": "CC-BY-SA-4.0"
+  },
+  "settings": {
+    "mode": "competitive",
+    "winCondition": "first_escape",
+    "time": { "limit": "per_team", "duration": 2700 },
+    "teamSize": { "min": 2, "max": 5 },
+    "wrongAnswer": { "type": "time", "amount": 30 },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        { "type": "time", "amount": 60 },
+        { "type": "time", "amount": 120 },
+        { "type": "time", "amount": 300 }
+      ]
+    },
+    "scoring": { "solvePoints": 100, "speedBonus": false, "tieBreak": "fewer_hints" },
+    "leaderboard": "live_hidden_last_minutes"
+  },
+  "field": {
+    "boundary": { "center": { "lat": 50.8155, "lon": 7.1550 }, "radius": 300 },
+    "start": { "lat": 50.8155, "lon": 7.1550 },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": { "de": "Sammelpunkt Haupteingang" },
+      "location": { "lat": 50.8155, "lon": 7.1550 }
+    },
+    "restrictedZones": [
+      {
+        "id": "strasse",
+        "name": { "de": "Straße" },
+        "kind": "road",
+        "area": {
+          "polygon": [
+            { "lat": 50.8170, "lon": 7.1520 },
+            { "lat": 50.8172, "lon": 7.1580 },
+            { "lat": 50.8168, "lon": 7.1580 },
+            { "lat": 50.8166, "lon": 7.1520 }
+          ]
+        },
+        "penalty": { "type": "time", "amount": 120 }
+      }
+    ],
+    "rescuePoints": [
+      {
+        "id": "rp1",
+        "name": { "de": "Zufahrt Parkplatz" },
+        "location": { "lat": 50.8150, "lon": 7.1540 }
+      }
+    ]
+  },
+  "story": {
+    "intro": {
+      "speaker": "hq",
+      "text": { "de": "Zentrale an alle Teams: Unser Funkgerät ist verschwunden. Findet die vier Teile des Zugangscodes!" }
+    },
+    "hq": { "name": { "de": "Zentrale" } },
+    "outro": { "text": { "de": "Funkgerät gefunden. Gute Arbeit, Team!" } }
+  },
+  "fragments": [
+    { "id": "f1", "position": 1, "value": "1" },
+    { "id": "f2", "position": 2, "value": "9" },
+    { "id": "f3", "position": 3, "value": "1" }
+  ],
+  "items": [
+    { "id": "uv-lampe", "name": { "de": "UV-Lampe" } }
+  ],
+  "stations": [
+    {
+      "id": "briefing",
+      "name": { "de": "Sicherheits-Briefing" },
+      "location": { "lat": 50.8156, "lon": 7.1552 },
+      "triggers": [
+        { "type": "gps" },
+        { "type": "qr", "code": "LYK-BRIEFING" }
+      ],
+      "task": {
+        "type": "choice",
+        "question": { "de": "Was tut ihr, wenn jemand verletzt ist?" },
+        "options": [
+          { "text": { "de": "SOS drücken und bei der Person bleiben" }, "correct": true },
+          { "text": { "de": "Weiterspielen und später Bescheid sagen" }, "correct": false }
+        ]
+      },
+      "rewards": { "points": 50, "items": ["uv-lampe"] }
+    },
+    {
+      "id": "baum",
+      "name": { "de": "Der alte Baum" },
+      "location": { "lat": 50.8160, "lon": 7.1565 },
+      "triggers": [
+        { "type": "gps", "radius": 25 },
+        { "type": "nfc", "tag": "lyk-baum" },
+        { "type": "manual", "code": "4711" }
+      ],
+      "story": { "speaker": "hq", "text": { "de": "Hier wurde das Funkgerät zuletzt gesehen." } },
+      "task": {
+        "type": "text",
+        "question": { "de": "Welches Tier ist auf dem Schild am Baum abgebildet?" },
+        "answers": ["Eule", "Uhu"]
+      },
+      "hints": [
+        { "text": { "de": "Schaut auf Augenhöhe." } },
+        { "text": { "de": "Das Tier ist nachtaktiv." } },
+        { "text": { "de": "Es macht „Huhu“." } }
+      ],
+      "rewards": { "fragments": ["f1"] },
+      "props": [{ "name": "Schild mit Eule", "kind": "hidden_object" }]
+    },
+    {
+      "id": "schloss",
+      "name": { "de": "Die verschlossene Kiste" },
+      "location": { "lat": 50.8148, "lon": 7.1560 },
+      "triggers": [
+        { "type": "gps" },
+        { "type": "qr", "code": "LYK-SCHLOSS" }
+      ],
+      "task": {
+        "type": "code",
+        "question": { "de": "Leuchtet mit der UV-Lampe auf den Deckel. Wie lautet der Code?" },
+        "answers": ["372"]
+      },
+      "rewards": { "fragments": ["f2"] },
+      "props": [
+        { "name": "Kiste mit Zahlenschloss", "kind": "lock", "note": "Code 372" },
+        { "name": "UV-Botschaft auf dem Deckel", "kind": "uv_message" }
+      ]
+    },
+    {
+      "id": "versteck",
+      "name": { "de": "Das Versteck" },
+      "location": { "lat": 50.8152, "lon": 7.1575 },
+      "visibility": "hidden",
+      "triggers": [
+        { "type": "gps" },
+        { "type": "box", "box": "demo-box-1" }
+      ],
+      "task": {
+        "type": "photo",
+        "prompt": { "de": "Macht ein Teamfoto mit dem Fundstück." },
+        "review": "auto_accept"
+      },
+      "rewards": { "fragments": ["f3"] }
+    },
+    {
+      "id": "finale",
+      "name": { "de": "Finale: das Funkgerät" },
+      "location": { "lat": 50.8155, "lon": 7.1550 },
+      "final": true,
+      "triggers": [{ "type": "gps" }, { "type": "qr", "code": "LYK-FINALE" }],
+      "task": {
+        "type": "code",
+        "question": { "de": "Gebt den Zugangscode aus allen Fragmenten ein." },
+        "answers": ["191"]
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "versteck-freischalten",
+      "when": [{ "station_solved": "schloss" }],
+      "then": [
+        { "reveal_station": "versteck" },
+        { "message": { "from": "hq", "text": { "de": "Neue Spur! Auf eurer Karte ist ein Versteck aufgetaucht." } } }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": { "gameMasterPhone": "+49 170 0000000" },
+    "heartbeat": { "enabled": true, "interval": 900, "grace": 300 },
+    "sos": { "smsFallback": "+49 170 0000000", "lora": false },
+    "requireSupervisor": true,
+    "requiredGear": [{ "de": "Lampe" }, { "de": "Warnweste" }]
+  }
+}

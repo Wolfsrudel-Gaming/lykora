@@ -1,0 +1,745 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lykora.riegel-troisdorf.de/spec/v0.1/game.schema.json",
+  "title": "Lykora Spielformat v0.1",
+  "description": "Ein Lykora-Spiel: Grundregeln, Spielfeld, Stationen, Aufgaben, Story und Sicherheit. Gemeinsamer Vertrag für Server, Web und App.",
+  "type": "object",
+  "required": ["format", "id", "meta", "settings", "field", "stations", "safety"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": {
+      "description": "Name und Version des Spielformats.",
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "lykora-game" },
+        "version": { "const": "0.1" }
+      }
+    },
+    "id": { "$ref": "#/$defs/id" },
+    "meta": { "$ref": "#/$defs/meta" },
+    "settings": { "$ref": "#/$defs/settings" },
+    "field": { "$ref": "#/$defs/field" },
+    "story": { "$ref": "#/$defs/story" },
+    "fragments": {
+      "description": "Code-Fragmente. Jedes Fragment trägt seine Position im Finalcode; die Reihenfolge beim Sammeln ist egal.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/fragment" }
+    },
+    "items": {
+      "description": "Inventar-Gegenstände, die Teams sammeln können.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "stations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/station" }
+    },
+    "rules": {
+      "description": "Spiellogik als visuelle Blöcke: wenn – dann – sonst.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "safety": { "$ref": "#/$defs/safety" },
+    "media": {
+      "description": "Medien des Spiels. Werden vor dem Spiel aufs Gerät geladen.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/media" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "Stabile ID, eindeutig innerhalb des Spiels.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "lang": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+    },
+    "text": {
+      "description": "Text in einer Sprache oder als Übersetzungen je Sprachcode.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/lang" },
+          "additionalProperties": { "type": "string" }
+        }
+      ]
+    },
+    "duration": {
+      "description": "Dauer in Sekunden.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "point": {
+      "description": "WGS84-Koordinate.",
+      "type": "object",
+      "required": ["lat", "lon"],
+      "additionalProperties": false,
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "area": {
+      "description": "Fläche als Polygon (mindestens 3 Punkte, nicht geschlossen) oder als Kreis.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["polygon"],
+          "additionalProperties": false,
+          "properties": {
+            "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["center", "radius"],
+          "additionalProperties": false,
+          "properties": {
+            "center": { "$ref": "#/$defs/point" },
+            "radius": { "type": "number", "exclusiveMinimum": 0, "description": "Radius in Metern." }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "required": ["title", "languages"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/text" },
+        "summary": { "$ref": "#/$defs/text" },
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "languages": {
+          "description": "Sprachen des Spiels; die erste ist die Standardsprache.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/lang" }
+        },
+        "ageGroups": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["6-9", "10-13", "14-17", "adult"] }
+        },
+        "genre": { "enum": ["crime", "mystery", "agents", "rescue", "other"] },
+        "scareLevel": {
+          "description": "Grusel-Stufe von 0 (kein Grusel) bis 3.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "night": { "type": "boolean", "default": false },
+        "expectedDuration": { "$ref": "#/$defs/duration" },
+        "license": { "type": "string", "description": "SPDX-Lizenz der Spielinhalte, z. B. CC-BY-SA-4.0." }
+      }
+    },
+    "settings": {
+      "description": "Grundregeln des Spiels. Alles ist einstellbar, die Standards sind sinnvoll gewählt.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["competitive", "time_trial", "cooperative"], "default": "competitive" },
+        "winCondition": { "enum": ["first_escape", "most_points", "all_fragments_in_time"], "default": "first_escape" },
+        "time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "limit": { "enum": ["global", "per_team", "none"], "default": "per_team" },
+            "duration": { "$ref": "#/$defs/duration" }
+          }
+        },
+        "teamSize": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "integer", "minimum": 1, "default": 2 },
+            "max": { "type": "integer", "minimum": 1, "default": 6 }
+          }
+        },
+        "wrongAnswer": { "$ref": "#/$defs/penalty" },
+        "hints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "defaultCost": {
+              "description": "Kosten je Hinweisstufe, wenn die Station keine eigenen festlegt.",
+              "type": "array",
+              "items": { "$ref": "#/$defs/penalty" }
+            }
+          }
+        },
+        "scoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "solvePoints": { "type": "integer", "minimum": 0, "default": 100 },
+            "speedBonus": {
+              "description": "Schnelligkeitspunkte. Bei Nachtspielen standardmäßig aus.",
+              "type": "boolean",
+              "default": false
+            },
+            "firstOnSiteBonus": { "type": "integer", "minimum": 0, "default": 0 },
+            "streakBonus": { "type": "integer", "minimum": 0, "default": 0 },
+            "tieBreak": { "enum": ["fewer_hints", "earlier_finish"], "default": "fewer_hints" }
+          }
+        },
+        "leaderboard": { "enum": ["live", "end_only", "live_hidden_last_minutes"], "default": "live" },
+        "showOwnPosition": { "type": "boolean", "default": true },
+        "map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": { "enum": ["standard", "topo", "treasure"], "default": "standard" },
+            "tiles": { "type": "string", "description": "URL oder Media-ID eines PMTiles-Pakets." }
+          }
+        }
+      }
+    },
+    "penalty": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["none", "time", "points", "lockout"] },
+        "amount": {
+          "description": "Sekunden bei time und lockout, Punkte bei points.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "field": {
+      "description": "Spielfeld mit Grenze, Sperrzonen, Sammel- und Rettungspunkten.",
+      "type": "object",
+      "required": ["boundary", "assemblyPoint"],
+      "additionalProperties": false,
+      "properties": {
+        "boundary": { "$ref": "#/$defs/area" },
+        "start": { "$ref": "#/$defs/point" },
+        "assemblyPoint": {
+          "description": "Sammelpunkt, z. B. für „Alle zurück“.",
+          "$ref": "#/$defs/namedPoint"
+        },
+        "restrictedZones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "area"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "$ref": "#/$defs/text" },
+              "kind": { "enum": ["road", "water", "slope", "ditch", "private", "other"] },
+              "area": { "$ref": "#/$defs/area" },
+              "warnDistance": { "type": "number", "minimum": 0, "default": 15, "description": "Warnung ab diesem Abstand in Metern." },
+              "penalty": { "$ref": "#/$defs/penalty" },
+              "alertGameMaster": { "type": "boolean", "default": true }
+            }
+          }
+        },
+        "rescuePoints": {
+          "description": "Rettungspunkte und Zufahrten für den Rettungsdienst.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/namedPoint" }
+        },
+        "supplyPoints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/namedPoint" }
+        }
+      }
+    },
+    "namedPoint": {
+      "type": "object",
+      "required": ["location"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "location": { "$ref": "#/$defs/point" }
+      }
+    },
+    "story": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intro": { "$ref": "#/$defs/storyPiece" },
+        "outro": { "$ref": "#/$defs/storyPiece" },
+        "hq": {
+          "description": "Die „Zentrale“, die per Chat oder Funk spricht.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "$ref": "#/$defs/text" },
+            "avatar": { "$ref": "#/$defs/id" }
+          }
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "$ref": "#/$defs/text" },
+              "piece": { "$ref": "#/$defs/storyPiece" }
+            }
+          }
+        }
+      }
+    },
+    "storyPiece": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "$ref": "#/$defs/text" },
+        "media": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "description": "IDs aus media."
+        },
+        "speaker": { "enum": ["narrator", "hq", "npc"], "default": "narrator" }
+      }
+    },
+    "fragment": {
+      "type": "object",
+      "required": ["id", "position", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "position": { "type": "integer", "minimum": 1, "description": "Position im Finalcode, ab 1." },
+        "value": { "type": "string", "minLength": 1 },
+        "label": { "$ref": "#/$defs/text" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "icon": { "$ref": "#/$defs/id" },
+        "tradeable": { "type": "boolean", "default": false }
+      }
+    },
+    "station": {
+      "type": "object",
+      "required": ["id", "name", "triggers"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/text" },
+        "location": { "$ref": "#/$defs/point" },
+        "visibility": {
+          "description": "visible: von Anfang an auf der Karte. hidden: erscheint erst über eine Regel oder durch die Spielleitung.",
+          "enum": ["visible", "hidden"],
+          "default": "visible"
+        },
+        "revealRadius": {
+          "description": "Versteckte Station erscheint bei Annäherung auf diesen Abstand in Metern.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "final": {
+          "description": "Finale-Station: wird freigeschaltet, wenn alle Fragmente gesammelt sind.",
+          "type": "boolean",
+          "default": false
+        },
+        "offPath": {
+          "description": "Station abseits der Wege; braucht Knicklicht oder Reflektor als Marker.",
+          "type": "boolean",
+          "default": false
+        },
+        "triggers": {
+          "description": "Gleichwertige Auslöser. Jeder einzelne aktiviert die Station.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/trigger" }
+        },
+        "story": { "$ref": "#/$defs/storyPiece" },
+        "task": { "$ref": "#/$defs/task" },
+        "hints": {
+          "description": "Hinweise in Stufen, üblich sind drei: Schubs, deutlicher Tipp, fast Lösung.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/hint" }
+        },
+        "rewards": { "$ref": "#/$defs/rewards" },
+        "props": {
+          "description": "Physische Requisiten; landen automatisch in der Materialliste.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/prop" }
+        },
+        "notes": {
+          "description": "Notizen für Spielleitung und Aufbau; nie für Teams sichtbar.",
+          "type": "string"
+        }
+      }
+    },
+    "trigger": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "gps" },
+            "radius": { "type": "number", "exclusiveMinimum": 0, "default": 20, "description": "Radius in Metern; wächst bei schlechter GPS-Genauigkeit." },
+            "location": { "$ref": "#/$defs/point", "description": "Abweichender Ort; Standard ist der Ort der Station." }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "code"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "qr" },
+            "code": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "tag"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "nfc" },
+            "tag": { "type": "string", "minLength": 1, "description": "Inhalt oder UID des NFC-Tags." }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "uuid"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "ble" },
+            "uuid": { "type": "string", "pattern": "^[0-9a-fA-F-]{32,36}$" },
+            "major": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "minor": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "rssi": { "type": "integer", "maximum": 0, "default": -75, "description": "Mindest-Signalstärke in dBm." }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "code"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "manual" },
+            "code": { "type": "string", "minLength": 1, "description": "Notfall-Code, den Spielleitung oder Betreuer durchgeben." }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "box"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "box" },
+            "box": { "type": "string", "minLength": 1, "description": "Kennung der ESP32-Box." },
+            "event": { "type": "string", "default": "solved", "description": "Ereignis der Box, das die Station auslöst." }
+          }
+        }
+      ]
+    },
+    "task": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "question", "answers"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "text" },
+            "question": { "$ref": "#/$defs/text" },
+            "answers": {
+              "description": "Alle richtigen Antworten.",
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "match": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "ignoreCase": { "type": "boolean", "default": true },
+                "ignoreWhitespace": { "type": "boolean", "default": true },
+                "maxTypos": { "type": "integer", "minimum": 0, "default": 1 }
+              }
+            },
+            "manualReview": { "type": "boolean", "default": false },
+            "media": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "question", "answers"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "code" },
+            "question": { "$ref": "#/$defs/text" },
+            "answers": {
+              "description": "Zahlen- oder Zeichencodes, exakt geprüft.",
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "media": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "question", "options"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "choice" },
+            "question": { "$ref": "#/$defs/text" },
+            "options": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "required": ["text", "correct"],
+                "additionalProperties": false,
+                "properties": {
+                  "text": { "$ref": "#/$defs/text" },
+                  "correct": { "type": "boolean" }
+                }
+              }
+            },
+            "shuffle": { "type": "boolean", "default": true },
+            "media": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "prompt"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "photo" },
+            "prompt": { "$ref": "#/$defs/text" },
+            "video": { "type": "boolean", "default": false },
+            "review": { "enum": ["live", "auto_accept", "after_game", "vote"], "default": "live" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "prompt", "location"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "find_location" },
+            "prompt": { "$ref": "#/$defs/text" },
+            "location": { "$ref": "#/$defs/point" },
+            "radius": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
+          }
+        }
+      ]
+    },
+    "hint": {
+      "type": "object",
+      "required": ["text"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "$ref": "#/$defs/text" },
+        "cost": { "$ref": "#/$defs/penalty" }
+      }
+    },
+    "rewards": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "points": { "type": "integer", "minimum": 0 },
+        "fragments": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "reveal": {
+          "description": "Stationen, die nach dem Lösen erscheinen.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "chapter": { "$ref": "#/$defs/id" }
+      }
+    },
+    "prop": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "quantity": { "type": "integer", "minimum": 1, "default": 1 },
+        "kind": { "enum": ["lock", "uv_message", "puzzle", "hidden_object", "marker", "document", "box", "other"] },
+        "note": { "type": "string" }
+      }
+    },
+    "rule": {
+      "description": "Visueller Block: wenn alle Bedingungen erfüllt sind, dann Aktionen, sonst andere Aktionen.",
+      "type": "object",
+      "required": ["id", "when", "then"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "when": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } },
+        "then": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/action" } },
+        "else": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+        "once": { "type": "boolean", "default": true }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["station_solved"],
+          "additionalProperties": false,
+          "properties": { "station_solved": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object",
+          "required": ["has_item"],
+          "additionalProperties": false,
+          "properties": { "has_item": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object",
+          "required": ["fragments_collected"],
+          "additionalProperties": false,
+          "properties": { "fragments_collected": { "type": "integer", "minimum": 0 } }
+        },
+        {
+          "type": "object",
+          "required": ["elapsed"],
+          "additionalProperties": false,
+          "properties": { "elapsed": { "$ref": "#/$defs/duration" } }
+        },
+        {
+          "type": "object",
+          "required": ["near"],
+          "additionalProperties": false,
+          "properties": {
+            "near": {
+              "type": "object",
+              "required": ["location", "radius"],
+              "additionalProperties": false,
+              "properties": {
+                "location": { "$ref": "#/$defs/point" },
+                "radius": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["reveal_station"],
+          "additionalProperties": false,
+          "properties": { "reveal_station": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object",
+          "required": ["give_item"],
+          "additionalProperties": false,
+          "properties": { "give_item": { "$ref": "#/$defs/id" } }
+        },
+        {
+          "type": "object",
+          "required": ["add_points"],
+          "additionalProperties": false,
+          "properties": { "add_points": { "type": "integer" } }
+        },
+        {
+          "type": "object",
+          "required": ["message"],
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": "object",
+              "required": ["text"],
+              "additionalProperties": false,
+              "properties": {
+                "from": { "enum": ["hq", "narrator", "npc"], "default": "hq" },
+                "text": { "$ref": "#/$defs/text" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["start_chapter"],
+          "additionalProperties": false,
+          "properties": { "start_chapter": { "$ref": "#/$defs/id" } }
+        }
+      ]
+    },
+    "safety": {
+      "description": "Sicherheitsregeln. Notfallinfos funktionieren immer offline.",
+      "type": "object",
+      "required": ["emergency"],
+      "additionalProperties": false,
+      "properties": {
+        "emergency": {
+          "type": "object",
+          "required": ["gameMasterPhone"],
+          "additionalProperties": false,
+          "properties": {
+            "gameMasterPhone": { "type": "string", "pattern": "^\\+?[0-9 ()/-]{5,}$" },
+            "emergencyNumber": { "type": "string", "default": "112" },
+            "notes": { "$ref": "#/$defs/text" }
+          }
+        },
+        "heartbeat": {
+          "description": "Lebenszeichen: Team bestätigt alle interval Sekunden.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "interval": { "$ref": "#/$defs/duration", "default": 900 },
+            "grace": { "$ref": "#/$defs/duration", "default": 300 }
+          }
+        },
+        "sos": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "smsFallback": {
+              "description": "Nummer für den SMS-Rückfall ohne Datenverbindung.",
+              "type": "string",
+              "pattern": "^\\+?[0-9 ()/-]{5,}$"
+            },
+            "lora": { "type": "boolean", "default": false },
+            "loudSignal": { "type": "boolean", "default": true }
+          }
+        },
+        "requireSupervisor": {
+          "description": "Bei Minderjährigen startet das Spiel erst mit Betreuer.",
+          "type": "boolean",
+          "default": true
+        },
+        "requiredGear": {
+          "description": "Pflicht-Ausrüstung je Team, z. B. Lampe und Warnweste.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "required": ["id", "type", "src"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "type": { "enum": ["image", "audio", "video"] },
+        "src": { "type": "string", "minLength": 1, "description": "Relativer Pfad im Spielpaket oder URL." },
+        "alt": { "$ref": "#/$defs/text" },
+        "transcript": { "$ref": "#/$defs/text" }
+      }
+    }
+  }
+}

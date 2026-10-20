@@ -1,0 +1,17 @@
+{
+  "name": "lykora",
+  "private": true,
+  "description": "Open-Source-Plattform für Outdoor-Escape-Spiele und Rallyes",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "validate": "node spec/validate.mjs",
+    "test": "node --test spec/*.test.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0"
+  }
+}
