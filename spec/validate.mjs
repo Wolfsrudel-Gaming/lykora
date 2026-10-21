@@ -74,14 +74,26 @@ function checkReferences(game) {
     if (i.image) ref(`items[${i.id}].image`, media, i.image, "Medien-ID");
   }
   for (const c of game.characters ?? []) if (c.portrait) ref(`characters[${c.id}].portrait`, media, c.portrait, "Medien-ID");
+  const mediaType = new Map((game.media ?? []).map((m) => [m.id, m.type]));
+  // Klänge müssen auf Medien vom Typ audio zeigen.
+  const audioRef = (where, id) => {
+    if (id === undefined) return;
+    if (!media.has(id)) errors.push(`${where}: unbekannte Medien-ID „${id}“`);
+    else if (mediaType.get(id) !== "audio") errors.push(`${where}: „${id}“ ist kein Audio`);
+  };
   const beatRefs = (where, beats) => {
     for (const b of beats ?? []) {
       if (b.speaker) ref(where, characters, b.speaker, "Figur");
       if (b.item) ref(where, items, b.item, "Item-ID");
-      if (b.audio) ref(where, media, b.audio, "Medien-ID");
+      audioRef(where, b.audio);
+      audioRef(where, b.sfx);
       if (b.image) ref(where, media, b.image, "Medien-ID");
     }
   };
+
+  audioRef("sound.ambience", game.sound?.ambience?.audio);
+  for (const [k, id] of Object.entries(game.sound?.ui ?? {})) audioRef(`sound.ui.${k}`, id);
+  for (const c of game.story?.chapters ?? []) audioRef(`story.chapters[${c.id}].ambience`, c.ambience?.audio);
 
   for (const s of game.stations ?? []) {
     const where = `stations[${s.id}]`;
@@ -90,6 +102,9 @@ function checkReferences(game) {
     beatRefs(`${where}.scene.arrival`, s.scene?.arrival);
     beatRefs(`${where}.scene.beats`, s.scene?.beats);
     beatRefs(`${where}.scene.afterSolve`, s.scene?.afterSolve);
+    audioRef(`${where}.sound.ambience`, s.sound?.ambience?.audio);
+    for (const [k, id] of Object.entries(s.sound?.approach ?? {})) audioRef(`${where}.sound.approach.${k}`, id);
+    audioRef(`${where}.sound.solved`, s.sound?.solved);
     const r = s.rewards ?? {};
     (r.fragments ?? []).forEach((id) => ref(`${where}.rewards`, fragments, id, "Fragment-ID"));
     (r.items ?? []).forEach((id) => ref(`${where}.rewards`, items, id, "Item-ID"));

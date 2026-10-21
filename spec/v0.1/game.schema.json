@@ -50,6 +50,28 @@
       "items": { "$ref": "#/$defs/rule" }
     },
     "safety": { "$ref": "#/$defs/safety" },
+    "sound": {
+      "description": "Klang des ganzen Spiels: Grund-Atmosphäre und eigene Aufnahmen statt der eingebauten Geräusche. Alle Werte sind IDs aus media.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ambience": { "$ref": "#/$defs/ambience" },
+        "ui": {
+          "description": "Ersetzt eingebaute Geräusche der App.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "arrival": { "$ref": "#/$defs/id" },
+            "solved": { "$ref": "#/$defs/id" },
+            "wrong": { "$ref": "#/$defs/id" },
+            "chapter": { "$ref": "#/$defs/id" },
+            "radio": { "$ref": "#/$defs/id" },
+            "hint": { "$ref": "#/$defs/id" },
+            "key": { "$ref": "#/$defs/id" }
+          }
+        }
+      }
+    },
     "media": {
       "description": "Medien des Spiels. Werden vor dem Spiel aufs Gerät geladen.",
       "type": "array",
@@ -295,7 +317,8 @@
             "properties": {
               "id": { "$ref": "#/$defs/id" },
               "title": { "$ref": "#/$defs/text" },
-              "piece": { "$ref": "#/$defs/storyPiece" }
+              "piece": { "$ref": "#/$defs/storyPiece" },
+              "ambience": { "$ref": "#/$defs/ambience", "description": "Atmosphäre, solange dieses Kapitel läuft." }
             }
           }
         }
@@ -345,6 +368,7 @@
         "title": { "$ref": "#/$defs/text" },
         "text": { "$ref": "#/$defs/text" },
         "audio": { "$ref": "#/$defs/id" },
+        "sfx": { "$ref": "#/$defs/id", "description": "Geräusch, das mit dem Takt einsetzt, zusätzlich zur Stimme in audio." },
         "image": { "$ref": "#/$defs/id" },
         "item": { "$ref": "#/$defs/id", "description": "Bei document: das Dokument kommt als Item in die Akte." },
         "ack": { "$ref": "#/$defs/text", "description": "Beschriftung des Knopfs zum Weitergehen, z. B. „Wir sind bereit“." },
@@ -468,7 +492,8 @@
         "notes": {
           "description": "Notizen für Spielleitung und Aufbau; nie für Teams sichtbar.",
           "type": "string"
-        }
+        },
+        "sound": { "$ref": "#/$defs/stationSound" }
       }
     },
     "trigger": {
@@ -826,7 +851,46 @@
         "type": { "enum": ["image", "audio", "video"] },
         "src": { "type": "string", "minLength": 1, "description": "Relativer Pfad im Spielpaket oder URL." },
         "alt": { "$ref": "#/$defs/text" },
-        "transcript": { "$ref": "#/$defs/text" }
+        "transcript": { "$ref": "#/$defs/text" },
+        "credit": { "$ref": "#/$defs/text", "description": "Urheber und Lizenz, z. B. „Aufnahme: Anna B., CC BY 4.0“." }
+      }
+    },
+    "ambience": {
+      "description": "Atmosphäre: ein Geräusch in Schleife, z. B. Wald bei Nacht, Regen oder Funkrauschen. Wird weich ein- und ausgeblendet.",
+      "type": "object",
+      "required": ["audio"],
+      "additionalProperties": false,
+      "properties": {
+        "audio": { "$ref": "#/$defs/id", "description": "ID aus media, Typ audio." },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.6 }
+      }
+    },
+    "stationSound": {
+      "description": "Klang einer Station: Atmosphäre in der Nähe, Geräusche beim Annähern und beim Lösen. Alle Werte sind IDs aus media.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ambience": {
+          "type": "object",
+          "required": ["audio"],
+          "additionalProperties": false,
+          "properties": {
+            "audio": { "$ref": "#/$defs/id", "description": "ID aus media, Typ audio." },
+            "volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.6 },
+            "from": { "description": "Ab dieser Peilstufe läuft die Atmosphäre; während der Szene immer.", "enum": ["mid", "near", "here"], "default": "near" }
+          }
+        },
+        "approach": {
+          "description": "Einmaliges Geräusch beim Erreichen einer Peilstufe.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mid": { "$ref": "#/$defs/id" },
+            "near": { "$ref": "#/$defs/id" },
+            "here": { "$ref": "#/$defs/id" }
+          }
+        },
+        "solved": { "$ref": "#/$defs/id", "description": "Geräusch beim Lösen, z. B. eine Kiste, die aufspringt." }
       }
     }
   }

@@ -171,6 +171,10 @@
         "id": "kapitel-3",
         "title": {
           "de": "Das Signal"
+        },
+        "ambience": {
+          "audio": "sturm",
+          "volume": 0.5
         }
       }
     ]
@@ -277,7 +281,8 @@
             "speaker": "zentrale",
             "text": {
               "de": "Nachtfalke an Team. Bevor ihr loszieht: Im Wald gelten unsere Regeln. Bleibt zusammen, Lampen an, und bei Gefahr drückt ihr SOS."
-            }
+            },
+            "sfx": "funk-knacken"
           },
           {
             "kind": "group",
@@ -408,6 +413,17 @@
         "near": {
           "de": "Es knackt im Empfänger. Ihr seid ganz nah."
         }
+      },
+      "sound": {
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.7,
+          "from": "near"
+        },
+        "approach": {
+          "near": "eule"
+        },
+        "solved": "ast-knackt"
       }
     },
     {
@@ -509,6 +525,14 @@
         "near": {
           "de": "Ihr hört den Bach. Die Kiste steht am Ufer."
         }
+      },
+      "sound": {
+        "ambience": {
+          "audio": "bach",
+          "volume": 0.6,
+          "from": "mid"
+        },
+        "solved": "kiste-auf"
       }
     },
     {
@@ -618,6 +642,12 @@
             }
           }
         ]
+      },
+      "sound": {
+        "approach": {
+          "near": "donner",
+          "here": "funk-knacken"
+        }
       }
     }
   ],
@@ -704,6 +734,116 @@
       "kind": "narrator",
       "name": {
         "de": "Erzähler"
+      }
+    }
+  ],
+  "sound": {
+    "ambience": {
+      "audio": "wind",
+      "volume": 0.35
+    },
+    "ui": {
+      "radio": "funk-knacken"
+    }
+  },
+  "media": [
+    {
+      "id": "wind",
+      "type": "audio",
+      "src": "media/lib/wind.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Wind in den Bäumen"
+      }
+    },
+    {
+      "id": "sturm",
+      "type": "audio",
+      "src": "media/lib/sturm.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Sturm mit Regen und fernem Donner"
+      }
+    },
+    {
+      "id": "wald-nacht",
+      "type": "audio",
+      "src": "media/lib/wald-nacht.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Wald bei Nacht mit Grillen"
+      }
+    },
+    {
+      "id": "bach",
+      "type": "audio",
+      "src": "media/lib/bach.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Bach"
+      }
+    },
+    {
+      "id": "eule",
+      "type": "audio",
+      "src": "media/lib/eule.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Ruf einer Eule"
+      }
+    },
+    {
+      "id": "ast-knackt",
+      "type": "audio",
+      "src": "media/lib/ast-knackt.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Ein Ast knackt"
+      }
+    },
+    {
+      "id": "kiste-auf",
+      "type": "audio",
+      "src": "media/lib/kiste-auf.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Holzkiste springt auf"
+      }
+    },
+    {
+      "id": "funk-knacken",
+      "type": "audio",
+      "src": "media/lib/funk-knacken.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Funkgerät knackt und rauscht"
+      }
+    },
+    {
+      "id": "donner",
+      "type": "audio",
+      "src": "media/lib/donner.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Donnergrollen"
       }
     }
   ]

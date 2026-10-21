@@ -251,6 +251,24 @@ export interface LykoraSpielformatV01 {
   rules?: Rule[];
   safety: Safety;
   /**
+   * Klang des ganzen Spiels: Grund-Atmosphäre und eigene Aufnahmen statt der eingebauten Geräusche. Alle Werte sind IDs aus media.
+   */
+  sound?: {
+    ambience?: Ambience1;
+    /**
+     * Ersetzt eingebaute Geräusche der App.
+     */
+    ui?: {
+      arrival?: Id;
+      solved?: Id;
+      wrong?: Id;
+      chapter?: Id;
+      radio?: Id;
+      hint?: Id;
+      key?: Id;
+    };
+  };
+  /**
    * Medien des Spiels. Werden vor dem Spiel aufs Gerät geladen.
    */
   media?: Media[];
@@ -404,6 +422,7 @@ export interface Story {
     id: Id;
     title: Text;
     piece?: StoryPiece;
+    ambience?: Ambience;
   }[];
 }
 /**
@@ -417,6 +436,16 @@ export interface StoryPiece {
    */
   media?: Id[];
   speaker?: "narrator" | "hq" | "npc";
+}
+/**
+ * Atmosphäre, solange dieses Kapitel läuft.
+ */
+export interface Ambience {
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  audio: string;
+  volume?: number;
 }
 /**
  * Wie die App die Spielwelt nennt und zeigt. Ohne Angaben gelten Standards je Genre.
@@ -554,6 +583,7 @@ export interface Station {
    * Notizen für Spielleitung und Aufbau; nie für Teams sichtbar.
    */
   notes?: string;
+  sound?: StationSound;
 }
 /**
  * Eine Station als Szene: Ankunft, Takte vor dem Rätsel, Takte nach dem Lösen.
@@ -581,6 +611,10 @@ export interface Beat {
   title?: Text;
   text?: Text;
   audio?: Id;
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  sfx?: string;
   image?: Id;
   /**
    * Stabile ID, eindeutig innerhalb des Spiels.
@@ -640,6 +674,37 @@ export interface Prop {
   quantity?: number;
   kind?: "lock" | "uv_message" | "puzzle" | "hidden_object" | "marker" | "document" | "box" | "other";
   note?: string;
+}
+/**
+ * Klang einer Station: Atmosphäre in der Nähe, Geräusche beim Annähern und beim Lösen. Alle Werte sind IDs aus media.
+ *
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "stationSound".
+ */
+export interface StationSound {
+  ambience?: {
+    /**
+     * Stabile ID, eindeutig innerhalb des Spiels.
+     */
+    audio: string;
+    volume?: number;
+    /**
+     * Ab dieser Peilstufe läuft die Atmosphäre; während der Szene immer.
+     */
+    from?: "mid" | "near" | "here";
+  };
+  /**
+   * Einmaliges Geräusch beim Erreichen einer Peilstufe.
+   */
+  approach?: {
+    mid?: Id;
+    near?: Id;
+    here?: Id;
+  };
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  solved?: string;
 }
 /**
  * Visueller Block: Wenn alle Bedingungen erfüllt sind, laufen die Dann-Aktionen. Ist nur die erste Bedingung erfüllt, laufen die Sonst-Aktionen.
@@ -704,6 +769,19 @@ export interface Safety {
   requiredGear?: Text[];
 }
 /**
+ * Atmosphäre: ein Geräusch in Schleife, z. B. Wald bei Nacht, Regen oder Funkrauschen. Wird weich ein- und ausgeblendet.
+ *
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "ambience".
+ */
+export interface Ambience1 {
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  audio: string;
+  volume?: number;
+}
+/**
  * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -716,4 +794,12 @@ export interface Media {
   src: string;
   alt?: Text;
   transcript?: Text;
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  credit?:
+    | string
+    | {
+        [k: string]: string;
+      };
 }

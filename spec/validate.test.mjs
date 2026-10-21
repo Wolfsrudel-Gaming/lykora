@@ -65,3 +65,16 @@ test("Szene mit unbekannter Figur wird gemeldet", () => {
   game.stations[1].scene.arrival[0].speaker = "niemand";
   assert.ok(validateGame(game).errors.some((e) => e.includes("niemand")));
 });
+
+test("Klang mit unbekannter Medien-ID wird gemeldet", () => {
+  const game = example();
+  game.stations[1].sound = { ambience: { audio: "gibtsnicht" } };
+  assert.ok(validateGame(game).errors.some((e) => e.includes("gibtsnicht")));
+});
+
+test("Klang muss auf Audio zeigen", () => {
+  const game = example();
+  game.media.push({ id: "bild", type: "image", src: "media/bild.jpg" });
+  game.sound = { ui: { solved: "bild" } };
+  assert.ok(validateGame(game).errors.some((e) => e.includes("kein Audio")));
+});
