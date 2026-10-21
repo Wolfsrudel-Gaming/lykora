@@ -162,7 +162,7 @@ class _PrepScreenState extends State<PrepScreen> {
             _Check(
               ok: _nfc,
               title: 'NFC',
-              subtitle: _nfc ? 'Bereit für Armbänder und Tags.' : 'Aus oder nicht vorhanden. QR-Codes gehen trotzdem.',
+              subtitle: _nfc ? 'Bereit für NFC-Tags an Stationen.' : 'Aus oder nicht vorhanden. QR-Codes gehen trotzdem.',
               optional: true,
             ),
             _Check(
