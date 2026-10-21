@@ -50,8 +50,6 @@ void main() {
           endedAt: cx['endedAt'] == null ? null : at(cx['endedAt'] as num),
           pauses: [for (final p in (cx['pauses'] as List? ?? const [])) Pause(at(p[0] as num), p[1] == null ? null : at(p[1] as num))],
           blockReason: cx['blockReason'] as String?,
-          staffTags: (cx['staffTags'] as List? ?? const []).cast<String>(),
-          memberTags: (cx['memberTags'] as List? ?? const []).cast<String>(),
         );
         final raw = (c['actions'] as List).cast<List>();
         final actions = [

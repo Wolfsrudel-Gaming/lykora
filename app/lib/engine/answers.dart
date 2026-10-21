@@ -37,7 +37,7 @@ int _allowedTypos(String answer, int maxTypos) {
 }
 
 /// Prüft eine Antwort. [input] hat dieselben Felder wie die Payload einer answer-Aktion.
-Verdict checkAnswer(Task task, Json input, {List<String> memberTags = const []}) {
+Verdict checkAnswer(Task task, Json input) {
   switch (task.type) {
     case 'text':
       final text = input['text'];
@@ -61,7 +61,10 @@ Verdict checkAnswer(Task task, Json input, {List<String> memberTags = const []})
     case 'choice':
       final choice = input['choice'];
       if (choice is! List) return Verdict.wrong;
-      final want = [for (var i = 0; i < task.options.length; i++) if (task.options[i]['correct'] == true) i];
+      final want = [
+        for (var i = 0; i < task.options.length; i++)
+          if (task.options[i]['correct'] == true) i,
+      ];
       final given = choice.cast<num>().map((n) => n.toInt()).toSet().toList()..sort();
       if (given.length != want.length) return Verdict.wrong;
       for (var i = 0; i < want.length; i++) {
@@ -78,13 +81,6 @@ Verdict checkAnswer(Task task, Json input, {List<String> memberTags = const []})
       final tolerance = (task.json['radius'] as num?)?.toDouble() ?? 20;
       final slack = math.min((loc['accuracy'] as num?)?.toDouble() ?? 0, tolerance);
       return distance(GeoPoint.fromJson(loc.cast<String, dynamic>()), target) <= tolerance + slack ? Verdict.correct : Verdict.wrong;
-    case 'wristband':
-      final tags = input['tags'];
-      if (tags is! List) return Verdict.wrong;
-      final scanned = tags.whereType<String>().where(memberTags.contains).toSet();
-      final count = task.json['count'];
-      final needed = count == null || count == 'all' ? memberTags.length : (count as num).toInt();
-      return needed > 0 && scanned.length >= needed ? Verdict.correct : Verdict.wrong;
     default:
       // Unbekannter Aufgabentyp aus einer neueren Formatversion: der Server entscheidet.
       return Verdict.pending;

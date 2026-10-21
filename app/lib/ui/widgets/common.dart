@@ -63,13 +63,24 @@ class AlertStrip extends StatelessWidget {
       color: color,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-        child: Row(children: [
-          Icon(icon, color: Colors.white),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
-          if (action != null)
-            TextButton(onPressed: onAction, style: TextButton.styleFrom(foregroundColor: Colors.white), child: Text(action!)),
-        ]),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (action != null)
+              TextButton(
+                onPressed: onAction,
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: Text(action!),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -101,9 +112,10 @@ class _QrScanScreenState extends State<_QrScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: [
-        IconButton(icon: const Icon(Icons.flashlight_on_outlined), tooltip: 'Licht', onPressed: () => _controller.toggleTorch()),
-      ]),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [IconButton(icon: const Icon(Icons.flashlight_on_outlined), tooltip: 'Licht', onPressed: () => _controller.toggleTorch())],
+      ),
       body: MobileScanner(
         controller: _controller,
         onDetect: (capture) {
@@ -118,11 +130,12 @@ class _QrScanScreenState extends State<_QrScanScreen> {
 }
 
 /// Zeigt einen Dialog und wartet, bis ein NFC-Tag ans Handy gehalten wird. Liefert die UID.
-Future<String?> scanNfc(BuildContext context, {String message = 'Armband oder Tag an die Rückseite des Handys halten'}) async {
+Future<String?> scanNfc(BuildContext context, {String message = 'NFC-Tag an die Rückseite des Handys halten'}) async {
   final nfc = NfcService();
   if (!await nfc.available()) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('NFC ist aus oder wird nicht unterstützt. Bitte in den Einstellungen einschalten.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('NFC ist aus oder wird nicht unterstützt. Bitte in den Einstellungen einschalten.')));
     }
     return null;
   }
@@ -133,7 +146,13 @@ Future<String?> scanNfc(BuildContext context, {String message = 'Armband oder Ta
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('NFC'),
-      content: Row(children: [const Icon(Icons.nfc, size: 40), const SizedBox(width: 16), Expanded(child: Text(message))]),
+      content: Row(
+        children: [
+          const Icon(Icons.nfc, size: 40),
+          const SizedBox(width: 16),
+          Expanded(child: Text(message)),
+        ],
+      ),
       actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Abbrechen'))],
     ),
   ).then((_) => closed = true);
@@ -149,22 +168,21 @@ void showMessage(BuildContext context, String text, {bool error = false}) {
 
 /// Übersetzt Ablehnungsgründe der Engine in verständliche Sätze.
 String reasonText(String? reason) => switch (reason) {
-      'not_started' => 'Das Spiel hat noch nicht begonnen.',
-      'paused' => 'Das Spiel ist gerade pausiert.',
-      'ended' => 'Das Spiel ist vorbei.',
-      'time_up' => 'Die Zeit ist abgelaufen.',
-      'supervisor_required' => 'Ohne Betreuer geht es nicht los. Betreuer-Armband scannen oder PIN eingeben.',
-      'hidden' => 'Diese Station ist noch nicht freigeschaltet.',
-      'locked' => 'Diese Station ist gesperrt.',
-      'fragments_missing' => 'Erst alle Code-Fragmente sammeln.',
-      'not_triggered' => 'Erst die Station finden und auslösen.',
-      'locked_out' => 'Kurz gesperrt nach einer falschen Antwort.',
-      'already_solved' => 'Schon gelöst.',
-      'already_triggered' => 'Station ist schon offen.',
-      'review_pending' => 'Wartet auf Prüfung durch die Spielleitung.',
-      'unknown_tag' => 'Dieses Armband gehört keinem Betreuer.',
-      'finished' => 'Ihr seid schon im Ziel.',
-      'hints_disabled' => 'Hinweise sind in diesem Spiel aus.',
-      'invalid_level' => 'Keine weiteren Hinweise.',
-      _ => 'Das hat nicht geklappt.',
-    };
+  'not_started' => 'Das Spiel hat noch nicht begonnen.',
+  'paused' => 'Das Spiel ist gerade pausiert.',
+  'ended' => 'Das Spiel ist vorbei.',
+  'time_up' => 'Die Zeit ist abgelaufen.',
+  'supervisor_required' => 'Ohne Betreuer geht es nicht los. Betreuer-PIN eingeben.',
+  'hidden' => 'Diese Station ist noch nicht freigeschaltet.',
+  'locked' => 'Diese Station ist gesperrt.',
+  'fragments_missing' => 'Erst alle Code-Fragmente sammeln.',
+  'not_triggered' => 'Erst die Station finden und auslösen.',
+  'locked_out' => 'Kurz gesperrt nach einer falschen Antwort.',
+  'already_solved' => 'Schon gelöst.',
+  'already_triggered' => 'Station ist schon offen.',
+  'review_pending' => 'Wartet auf Prüfung durch die Spielleitung.',
+  'finished' => 'Ihr seid schon im Ziel.',
+  'hints_disabled' => 'Hinweise sind in diesem Spiel aus.',
+  'invalid_level' => 'Keine weiteren Hinweise.',
+  _ => 'Das hat nicht geklappt.',
+};

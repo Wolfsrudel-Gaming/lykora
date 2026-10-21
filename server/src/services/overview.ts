@@ -23,8 +23,7 @@ export interface Warning {
     | "outside_field"
     | "battery_low"
     | "review_pending"
-    | "crowded_station"
-    | "headcount_incomplete";
+    | "crowded_station";
   teamId?: string;
   stationId?: string;
   zoneId?: string;
@@ -83,10 +82,6 @@ export function teamWarnings(
     }
   }
 
-  const hc = team.last_headcount;
-  if (hc && !hc.complete && !state.finishedAt) {
-    w.push({ kind: "headcount_incomplete", teamId: team.id, message: `${name}: Vollzähligkeits-Check unvollständig (${hc.present} von ${hc.total})` });
-  }
   if (team.battery !== null && team.battery < THRESHOLDS.batteryLow) {
     w.push({ kind: "battery_low", teamId: team.id, message: `${name}: Akku bei ${Math.round(team.battery * 100)} %` });
   }

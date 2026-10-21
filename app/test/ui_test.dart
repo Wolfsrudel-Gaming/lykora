@@ -24,7 +24,10 @@ Future<(GameController, AppSettings)> _setup(WidgetTester tester, {bool join = t
   await tester.runAsync(() async {
     final dir = await Directory.systemTemp.createTemp('lykora-ui-');
     final store = SessionStore(dir);
-    c = GameController(store: store, apiFactory: (s, t) => Api(s, token: t, client: server.client()));
+    c = GameController(
+      store: store,
+      apiFactory: (s, t) => Api(s, token: t, client: server.client()),
+    );
     if (join) await c.join(server: 'https://example.org/lykora', code: 'K7M2QX', teamName: 'Füchse');
     settings = AppSettings(store);
   });
@@ -32,10 +35,10 @@ Future<(GameController, AppSettings)> _setup(WidgetTester tester, {bool join = t
 }
 
 Widget _wrap(GameController c, AppSettings s, Widget child) => Lykora(
-      controller: c,
-      settings: s,
-      child: MaterialApp(home: child),
-    );
+  controller: c,
+  settings: s,
+  child: MaterialApp(home: child),
+);
 
 void main() {
   setUp(() => MapTab.showTiles = false);

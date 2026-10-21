@@ -5,8 +5,6 @@ import { STAFF_ACTIONS } from "../engine/team.ts";
 import type { Permission } from "../lib/roles.ts";
 import { loadEvent, loadTeam, logEvent, publicTeam, refreshTeam, summarizeState } from "../services/events.ts";
 import { randomUUID } from "node:crypto";
-import { tagHash } from "../lib/crypto.ts";
-import { eventTags } from "../services/events.ts";
 
 const staff = [{ staff: [] }];
 const teamParams = {
@@ -166,76 +164,6 @@ export default async function staffRoutes(app: FastifyInstance) {
       await logEvent(db, live, req.params.eventId, "message_sent", { kind: msg.kind, body: msg.body }, { teamId, userId: user.id });
       live.publish(req.params.eventId, "message", msg);
       return reply.status(201).send(msg);
-    },
-  );
-
-  app.get<{ Params: { eventId: string } }>(
-    "/events/:eventId/tags",
-    {
-      schema: {
-        tags: ["staff"],
-        summary: "NFC-Armbänder von Spielleitung und Betreuern",
-        security: staff,
-        params: { type: "object", properties: { eventId: { type: "string", format: "uuid" } } },
-      },
-    },
-    async (req) => {
-      await authorizeEvent(db, req, req.params.eventId, "event.manage");
-      return eventTags(db, req.params.eventId);
-    },
-  );
-
-  app.post<{ Params: { eventId: string }; Body: { uid?: string; hash?: string; role: "staff" | "supervisor"; label?: string } }>(
-    "/events/:eventId/tags",
-    {
-      schema: {
-        tags: ["staff"],
-        summary: "Armband für Spielleitung oder Betreuer registrieren",
-        description: "Entweder die Armband-ID (uid, z. B. 04:A1:B2:C3:D4:E5:F6) oder den in der App berechneten hash angeben. Gespeichert wird nur der Hash.",
-        security: staff,
-        params: { type: "object", properties: { eventId: { type: "string", format: "uuid" } } },
-        body: {
-          type: "object",
-          required: ["role"],
-          properties: {
-            uid: { type: "string", pattern: "^[0-9a-fA-F:\\- ]{8,40}$" },
-            hash: { type: "string", pattern: "^[0-9a-f]{64}$" },
-            role: { type: "string", enum: ["staff", "supervisor"] },
-            label: { type: "string", maxLength: 60 },
-          },
-        },
-      },
-    },
-    async (req, reply) => {
-      const { user } = await authorizeEvent(db, req, req.params.eventId, "event.manage");
-      const hash = req.body.hash ?? (req.body.uid ? tagHash(req.params.eventId, req.body.uid) : undefined);
-      if (!hash) throw badRequest("tag_missing", "uid oder hash angeben");
-      const row = await db.one(
-        `insert into event_tags (event_id, tag_hash, role, label) values ($1, $2, $3, $4)
-         on conflict (event_id, tag_hash) do update set role = excluded.role, label = excluded.label
-         returning tag_hash, role, label`,
-        [req.params.eventId, hash, req.body.role, req.body.label ?? null],
-      );
-      await logEvent(db, live, req.params.eventId, "tag_registered", { role: req.body.role, label: req.body.label }, { userId: user.id });
-      return reply.status(201).send(row);
-    },
-  );
-
-  app.delete<{ Params: { eventId: string; hash: string } }>(
-    "/events/:eventId/tags/:hash",
-    {
-      schema: {
-        tags: ["staff"],
-        summary: "Armband entfernen",
-        security: staff,
-        params: { type: "object", properties: { eventId: { type: "string", format: "uuid" }, hash: { type: "string" } } },
-      },
-    },
-    async (req, reply) => {
-      await authorizeEvent(db, req, req.params.eventId, "event.manage");
-      const rows = await db.query("delete from event_tags where event_id = $1 and tag_hash = $2 returning tag_hash", [req.params.eventId, req.params.hash]);
-      if (!rows.length) throw notFound("Armband");
-      return reply.status(204).send();
     },
   );
 }

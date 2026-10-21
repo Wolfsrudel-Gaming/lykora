@@ -49,13 +49,6 @@ class _StationScreenState extends State<StationScreen> {
     }
   }
 
-  Future<void> _staffConfirm(Station s) async {
-    final c = Lykora.game(context);
-    final uid = await scanNfc(context, message: 'Betreuer hält sein Armband ans Handy');
-    if (uid == null) return;
-    await _run(() => c.tagSolve(s.id, c.hashTag(uid)), success: 'Vom Betreuer bestätigt.');
-  }
-
   Future<void> _hint(Station s) async {
     final c = Lykora.game(context);
     final next = (c.state.hints[s.id] ?? 0) + 1;
@@ -95,8 +88,7 @@ class _StationScreenState extends State<StationScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (pos != null && s.location != null && !solved)
-                  Text('Entfernung: ${distanceText(pos, s.location!)}', style: theme.textTheme.bodySmall),
+                if (pos != null && s.location != null && !solved) Text('Entfernung: ${distanceText(pos, s.location!)}', style: theme.textTheme.bodySmall),
                 if (s.isFinal) _FragmentBar(),
                 if (!triggered && !solved) ..._unlock(context, c, s),
                 if (triggered || solved) ...[
@@ -104,19 +96,30 @@ class _StationScreenState extends State<StationScreen> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [Text(c.game!.hqName.of(context), style: theme.textTheme.titleSmall), const Spacer(), ReadAloudButton(story)]),
-                          Text(story, style: theme.textTheme.bodyLarge),
-                          for (final id in ((s.json['story'] as Map?)?['media'] as List? ?? const []).cast<String>())
-                            if (c.mediaFile(id) != null) Padding(padding: const EdgeInsets.only(top: 8), child: Image.file(c.mediaFile(id)!)),
-                        ]),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(c.game!.hqName.of(context), style: theme.textTheme.titleSmall),
+                                const Spacer(),
+                                ReadAloudButton(story),
+                              ],
+                            ),
+                            Text(story, style: theme.textTheme.bodyLarge),
+                            for (final id in ((s.json['story'] as Map?)?['media'] as List? ?? const []).cast<String>())
+                              if (c.mediaFile(id) != null) Padding(padding: const EdgeInsets.only(top: 8), child: Image.file(c.mediaFile(id)!)),
+                          ],
+                        ),
                       ),
                     ),
                   const SizedBox(height: 8),
                   if (solved)
                     _Solved(station: s)
                   else if (st.pendingReviews.contains(s.id))
-                    const Card(child: ListTile(leading: Icon(Icons.hourglass_top), title: Text('Wartet auf Prüfung durch die Spielleitung'))),
+                    const Card(
+                      child: ListTile(leading: Icon(Icons.hourglass_top), title: Text('Wartet auf Prüfung durch die Spielleitung')),
+                    ),
                   if (!solved && !st.pendingReviews.contains(s.id) && s.task != null) _TaskView(station: s, run: _run),
                   if (!solved && s.hints.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -128,14 +131,6 @@ class _StationScreenState extends State<StationScreen> {
                     if ((st.hints[s.id] ?? 0) < s.hints.length && c.game!.settings.hintsEnabled)
                       OutlinedButton.icon(onPressed: () => _hint(s), icon: const Icon(Icons.lightbulb_outline), label: const Text('Hinweis')),
                   ],
-                ],
-                if (!solved) ...[
-                  const SizedBox(height: 24),
-                  TextButton.icon(
-                    onPressed: () => _staffConfirm(s),
-                    icon: const Icon(Icons.verified_user_outlined),
-                    label: const Text('Betreuer bestätigt die Station (Armband)'),
-                  ),
                 ],
               ],
             ),
@@ -152,58 +147,67 @@ class _StationScreenState extends State<StationScreen> {
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(available ? 'Station finden' : 'Noch gesperrt', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(!available
-                ? (s.isFinal ? 'Sammelt zuerst alle Code-Fragmente.' : 'Diese Station ist noch nicht freigeschaltet.')
-                : [
-                    if (types.contains('gps')) 'Geht hin – die Station öffnet sich automatisch, wenn ihr nah genug seid.',
-                    if (types.contains('qr')) 'Oder scannt den QR-Code an der Station.',
-                    if (types.contains('nfc')) 'Oder haltet das Handy an den NFC-Tag.',
-                    if (types.contains('box')) 'Oder löst die Box an der Station.',
-                  ].join(' ')),
-            if (available) ...[
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                if (types.contains('qr'))
-                  FilledButton.tonalIcon(
-                    onPressed: () async {
-                      final v = await scanQr(context);
-                      if (v != null) await _run(() => c.triggerByCode('qr', v));
-                    },
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text('QR'),
-                  ),
-                if (types.contains('nfc'))
-                  FilledButton.tonalIcon(
-                    onPressed: () async {
-                      final v = await scanNfc(context, message: 'Tag der Station ans Handy halten');
-                      if (v != null) await _run(() => c.triggerByCode('nfc', v));
-                    },
-                    icon: const Icon(Icons.nfc),
-                    label: const Text('NFC'),
-                  ),
-                if (types.contains('manual'))
-                  FilledButton.tonalIcon(
-                    onPressed: () async {
-                      final ctrl = TextEditingController();
-                      final code = await showDialog<String>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Notfall-Code'),
-                          content: TextField(controller: ctrl, autofocus: true),
-                          actions: [FilledButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('OK'))],
-                        ),
-                      );
-                      if (code != null) await _run(() => c.triggerByCode('manual', code));
-                    },
-                    icon: const Icon(Icons.pin_outlined),
-                    label: const Text('Code'),
-                  ),
-              ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(available ? 'Station finden' : 'Noch gesperrt', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(
+                !available
+                    ? (s.isFinal ? 'Sammelt zuerst alle Code-Fragmente.' : 'Diese Station ist noch nicht freigeschaltet.')
+                    : [
+                        if (types.contains('gps')) 'Geht hin – die Station öffnet sich automatisch, wenn ihr nah genug seid.',
+                        if (types.contains('qr')) 'Oder scannt den QR-Code an der Station.',
+                        if (types.contains('nfc')) 'Oder haltet das Handy an den NFC-Tag.',
+                        if (types.contains('box')) 'Oder löst die Box an der Station.',
+                      ].join(' '),
+              ),
+              if (available) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (types.contains('qr'))
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final v = await scanQr(context);
+                          if (v != null) await _run(() => c.triggerByCode('qr', v));
+                        },
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('QR'),
+                      ),
+                    if (types.contains('nfc'))
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final v = await scanNfc(context, message: 'Tag der Station ans Handy halten');
+                          if (v != null) await _run(() => c.triggerByCode('nfc', v));
+                        },
+                        icon: const Icon(Icons.nfc),
+                        label: const Text('NFC'),
+                      ),
+                    if (types.contains('manual'))
+                      FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final ctrl = TextEditingController();
+                          final code = await showDialog<String>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Notfall-Code'),
+                              content: TextField(controller: ctrl, autofocus: true),
+                              actions: [FilledButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('OK'))],
+                            ),
+                          );
+                          if (code != null) await _run(() => c.triggerByCode('manual', code));
+                        },
+                        icon: const Icon(Icons.pin_outlined),
+                        label: const Text('Code'),
+                      ),
+                  ],
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
       ),
     ];
@@ -227,21 +231,29 @@ class _FragmentBar extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(children: [
-          const Text('Code-Fragmente'),
-          const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            for (final f in c.game!.fragments)
-              Container(
-                margin: const EdgeInsets.all(4),
-                width: 44,
-                height: 52,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(border: Border.all(color: lantern, width: 2), borderRadius: BorderRadius.circular(8)),
-                child: Text(c.state.fragments.contains(f.id) ? f.value : '?', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              ),
-          ]),
-        ]),
+        child: Column(
+          children: [
+            const Text('Code-Fragmente'),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final f in c.game!.fragments)
+                  Container(
+                    margin: const EdgeInsets.all(4),
+                    width: 44,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: lantern, width: 2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(c.state.fragments.contains(f.id) ? f.value : '?', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -283,7 +295,6 @@ class _TaskView extends StatefulWidget {
 class _TaskViewState extends State<_TaskView> {
   final _text = TextEditingController();
   final _choice = <int>{};
-  final _tags = <String>{};
 
   @override
   void dispose() {
@@ -305,9 +316,16 @@ class _TaskViewState extends State<_TaskView> {
     final question = task.question.of(context);
     final locked = c.state.lockedUntil != null && c.now() < c.state.lockedUntil!;
 
-    final header = Row(children: [Expanded(child: Text(question, style: theme.textTheme.titleMedium)), ReadAloudButton(question)]);
+    final header = Row(
+      children: [
+        Expanded(child: Text(question, style: theme.textTheme.titleMedium)),
+        ReadAloudButton(question),
+      ],
+    );
     final Widget input = switch (task.type) {
-      'text' || 'code' => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      'text' || 'code' => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           TextField(
             controller: _text,
             keyboardType: task.type == 'code' && task.answers.every((a) => RegExp(r'^\d+$').hasMatch(a)) ? TextInputType.number : TextInputType.text,
@@ -316,26 +334,33 @@ class _TaskViewState extends State<_TaskView> {
             onSubmitted: (v) => v.trim().isEmpty ? null : _submit({'text': v}),
           ),
           const SizedBox(height: 8),
-          FilledButton(onPressed: locked ? null : () => _text.text.trim().isEmpty ? null : _submit({'text': _text.text}), child: Text(locked ? 'Kurz gesperrt …' : 'Prüfen')),
-        ]),
+          FilledButton(
+            onPressed: locked ? null : () => _text.text.trim().isEmpty ? null : _submit({'text': _text.text}),
+            child: Text(locked ? 'Kurz gesperrt …' : 'Prüfen'),
+          ),
+        ],
+      ),
       'choice' => _choiceInput(task, locked),
       'photo' => FilledButton.icon(
-          onPressed: () async {
-            final img = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
-            if (img == null) return;
-            final id = await c.addUpload(await img.readAsBytes(), 'image/jpeg');
-            await _submit({'upload': id});
-          },
-          icon: const Icon(Icons.photo_camera_outlined),
-          label: const Text('Foto machen'),
-        ),
+        onPressed: () async {
+          final img = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+          if (img == null) return;
+          final id = await c.addUpload(await img.readAsBytes(), 'image/jpeg');
+          await _submit({'upload': id});
+        },
+        icon: const Icon(Icons.photo_camera_outlined),
+        label: const Text('Foto machen'),
+      ),
       'find_location' => FilledButton.icon(
-          onPressed: c.position == null ? null : () => _submit({'location': {...c.position!.toJson(), 'accuracy': c.accuracy}}),
-          icon: const Icon(Icons.where_to_vote_outlined),
-          label: Text(c.position == null ? 'Warte auf GPS …' : 'Wir sind da'),
-        ),
-      'wristband' => _wristbandInput(task),
-      _ => const Text('Diese Aufgabe kann diese App-Version noch nicht. Ein Betreuer kann sie bestätigen.'),
+        onPressed: c.position == null
+            ? null
+            : () => _submit({
+                'location': {...c.position!.toJson(), 'accuracy': c.accuracy},
+              }),
+        icon: const Icon(Icons.where_to_vote_outlined),
+        label: Text(c.position == null ? 'Warte auf GPS …' : 'Wir sind da'),
+      ),
+      _ => const Text('Diese Aufgabe kann diese App-Version noch nicht. Die Spielleitung kann sie freigeben.'),
     };
     return Card(
       child: Padding(
@@ -361,51 +386,26 @@ class _TaskViewState extends State<_TaskView> {
               )
             : RadioListTile<int>(value: i, title: Text(LText(options[i]['text']).of(context))),
     ];
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (multi) const Text('Mehrere Antworten sind richtig.'),
-      if (multi)
-        ...tiles
-      else
-        RadioGroup<int>(
-          groupValue: _choice.isEmpty ? null : _choice.first,
-          onChanged: (v) => setState(() => _choice
-            ..clear()
-            ..add(v!)),
-          child: Column(children: tiles),
-        ),
-      const SizedBox(height: 8),
-      FilledButton(onPressed: _choice.isEmpty || locked ? null : () => _submit({'choice': _choice.toList()}), child: const Text('Prüfen')),
-    ]);
-  }
-
-  Widget _wristbandInput(Task task) {
-    final c = Lykora.game(context);
-    final members = c.session!.members.where((m) => m.tag != null).toList();
-    final count = task.json['count'];
-    final needed = count == null || count == 'all' ? members.length : (count as num).toInt();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('${_tags.length} von $needed Armbändern gescannt'),
-      for (final m in members)
-        ListTile(dense: true, leading: Icon(_tags.contains(m.tag) ? Icons.check_circle : Icons.person_outline), title: Text(m.name)),
-      if (members.isEmpty) const Text('Euer Team hat keine Armbänder registriert. Ein Betreuer kann die Station bestätigen.'),
-      FilledButton.icon(
-        onPressed: members.isEmpty
-            ? null
-            : () async {
-                final uid = await scanNfc(context, message: 'Armband ans Handy halten');
-                if (uid == null || !mounted) return;
-                final hash = c.hashTag(uid);
-                if (c.memberByTag(hash) == null) {
-                  showMessage(context, 'Dieses Armband gehört nicht zu eurem Team.', error: true);
-                  return;
-                }
-                setState(() => _tags.add(hash));
-                if (_tags.length >= needed) await _submit({'tags': _tags.toList()});
-              },
-        icon: const Icon(Icons.nfc),
-        label: const Text('Armband scannen'),
-      ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (multi) const Text('Mehrere Antworten sind richtig.'),
+        if (multi)
+          ...tiles
+        else
+          RadioGroup<int>(
+            groupValue: _choice.isEmpty ? null : _choice.first,
+            onChanged: (v) => setState(
+              () => _choice
+                ..clear()
+                ..add(v!),
+            ),
+            child: Column(children: tiles),
+          ),
+        const SizedBox(height: 8),
+        FilledButton(onPressed: _choice.isEmpty || locked ? null : () => _submit({'choice': _choice.toList()}), child: const Text('Prüfen')),
+      ],
+    );
   }
 }
 

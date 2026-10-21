@@ -9,40 +9,22 @@ Spieler-App für Android, gebaut mit Flutter. Ein Handy pro Team reicht; weitere
 | Einstieg | Event-QR mit der App oder der Kamera scannen (`lykora://join?…`), Code eintippen oder Link einfügen; Team anlegen mit Vornamen, Farbe, Notfallnummer; weitere Handys per Gerätecode |
 | Vorbereitung | Checkliste für GPS, Akku-Optimierung, NFC und Verbindung; Einsatzbefehl zum Vorlesen; Ausrüstung abhaken; Notfallinfos |
 | Spielen | Offene Welt mit Karte und Stationsliste; Stationen öffnen sich per GPS (Radius wächst bei schlechtem GPS), QR, NFC-Tag oder Notfall-Code; versteckte Stationen erscheinen per Regel oder bei Annäherung |
-| Aufgaben | Freitext mit Tippfehler-Toleranz, Code, Multiple Choice, Foto, Ort finden, Armband-Aufgabe („alle scannen ihr Armband“) |
+| Aufgaben | Freitext mit Tippfehler-Toleranz, Code, Multiple Choice, Foto, Ort finden |
 | Fortschritt | Code-Fragmente mit Finale, Inventar, Story-Tagebuch, Hinweise in Stufen mit Kosten, Restzeit, Punkte, Rangliste |
 | Offline | Alles läuft ohne Netz: Die App prüft Antworten selbst und gleicht später ab. Fotos, Nachrichten und SOS werden nachgereicht. Mehrere Handys eines Teams sehen denselben Stand. |
 | Zentrale | Chat mit der Spielleitung, Schnellmeldungen per Knopfdruck, Hinweise und Funksprüche der Zentrale, Vorlesen |
 | Sicherheit | SOS (2 s halten) mit Nachholen ohne Netz, SMS-Rückfall, Anruf 112 und Spielleitung, „Finde mich“-Blinken; Lebenszeichen-Abfrage; „Alle zurück“ mit Vibration, Ansage und Sammelpunkt auf der Karte; Warnung bei Sperrzonen und Spielfeldgrenze; Standort zum Vorlesen beim Notruf |
 | Nacht | Dunkles Design als Standard, Rotlicht-Modus, große Schrift, Vorlesen |
-| NFC-Armbänder | siehe unten |
 
 ### Gegenüber Actionbound und Loquiz
 
 Lykora deckt die üblichen Grundfunktionen solcher Apps ab: Stationen auf der Karte, QR-Codes, Quizfragen, Fotoaufgaben, Teams, Rangliste und Live-Ansicht für die Spielleitung. Zusätzlich bringt Lykora mit:
 
 - **Selbst gehostet und offen** (AGPL-3.0): Daten bleiben auf dem eigenen Server, keine Lizenzkosten.
-- **Sicherheit fest eingebaut**: SOS mit Rückfallwegen, Lebenszeichen, Rückruf, Sperrzonen, Betreuerpflicht, Vollzähligkeits-Check.
+- **Sicherheit fest eingebaut**: SOS mit Rückfallwegen, Lebenszeichen, Rückruf, Sperrzonen, Betreuerpflicht.
 - **Konsequent offline**: Auch bei lückenhaftem Netz geht nichts verloren; der Server entscheidet beim Abgleich.
 - **Escape-Mechaniken**: Code-Fragmente, Finale, versteckte Stationen, Regeln mit Wenn–Dann–Sonst, Inventar.
-- **NFC-Armbänder** für Teilnehmende und Betreuer.
 - **Für Nachtspiele gemacht**: Rotlicht-Modus, Vorlesen, „Finde mich“.
-
-## NFC-Armbänder
-
-Jedes NFC-Armband hat eine feste Kennung (UID). Die App liest sie, rechnet daraus einen Hash, der an das Event gebunden ist, und speichert und sendet nur diesen. Die rohe Kennung verlässt das Handy nicht.
-
-| Wofür | Wie |
-| --- | --- |
-| **Teammitglieder registrieren** | Beim Team-Setup oder unter Einstellungen → Armbänder: jedes Mitglied hält sein Armband ans Handy. |
-| **Vollzähligkeits-Check** | Ist `safety.headcount` im Spiel an, scannen alle vor dem Start, im Ziel und beim Rückruf ihr Armband. Fehlt jemand, sieht die Spielleitung sofort eine Warnung im Dashboard. |
-| **Armband-Aufgabe** | Aufgabentyp `wristband`: Alle (oder eine Anzahl) müssen ihr Armband scannen, z. B. wenn alle zusammen an einem Ort sein sollen. |
-| **Betreuer-Armband** | Bestätigt, dass ein Betreuer dabei ist, bestätigt Stationen vor Ort (z. B. Sanitäts-Szenario) und gibt ohne Netz den Start frei. |
-| **Notfallinfo auf dem Armband** | Einstellungen → „Notfallinfo auf Armband schreiben“: Name des Spiels, 112 und Nummer der Spielleitung. Jedes Handy kann das auslesen. Keine persönlichen Daten. |
-
-**Welche Armbänder gehen?** Lesen klappt praktisch mit allen gängigen Armbändern (NTAG213/215/216, MIFARE Ultralight, MIFARE Classic). Für die Notfallinfo muss das Armband beschreibbar sein (NTAG). Den Typ zeigt zum Beispiel die kostenlose App „NFC Tools“.
-
-**Betreuer-Armbänder registrieren:** Die Kennung mit „NFC Tools“ ablesen (Seriennummer) und in der API-Doku unter `POST /api/events/{id}/tags` mit Rolle `supervisor` oder `staff` eintragen. Im kommenden Dashboard geht das per Klick.
 
 ## Bauen und testen
 

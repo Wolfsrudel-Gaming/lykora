@@ -34,10 +34,7 @@ class Api {
     return Uri.parse('$base/api$path').replace(queryParameters: query);
   }
 
-  Map<String, String> get _headers => {
-        'content-type': 'application/json',
-        if (token != null) 'authorization': 'Bearer $token',
-      };
+  Map<String, String> get _headers => {'content-type': 'application/json', if (token != null) 'authorization': 'Bearer $token'};
 
   Future<Json> _send(Future<http.Response> Function() request) async {
     http.Response res;
@@ -65,15 +62,15 @@ class Api {
   Future<Json> sync(Json body) => post('/play/sync', body);
   Future<Json> sos(Json body) => post('/play/sos', body);
   Future<Json> message(Json body) => post('/play/messages', body);
-  Future<Json> updateTeam(Json body) => put('/play/team', body);
+  Future<Json> confirmSupervisor(String pin) => post('/play/supervisor', {'pin': pin});
 
   Future<Json> upload(String id, String contentType, Uint8List bytes) => _send(
-        () => _client.post(
-          _uri('/play/uploads', {'id': id}),
-          headers: {'content-type': contentType, if (token != null) 'authorization': 'Bearer $token'},
-          body: bytes,
-        ),
-      );
+    () => _client.post(
+      _uri('/play/uploads', {'id': id}),
+      headers: {'content-type': contentType, if (token != null) 'authorization': 'Bearer $token'},
+      body: bytes,
+    ),
+  );
 }
 
 /// Liest den Inhalt eines Einstiegs-QR: lykora://join?server=…&code=… oder ein reiner Event-Code.

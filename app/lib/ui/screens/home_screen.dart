@@ -12,7 +12,6 @@ import '../widgets/common.dart';
 import 'backpack_tab.dart';
 import 'chat_tab.dart';
 import 'emergency_screen.dart';
-import 'headcount_screen.dart';
 import 'leaderboard_screen.dart';
 import 'map_tab.dart';
 import 'settings_screen.dart';
@@ -66,10 +65,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_tab != 3) setState(() => _unread++);
     final prefs = Lykora.prefs(context);
     if (prefs.readAloud) prefs.speak(m.body);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('${m.kind == 'hint' ? 'Hinweis' : (m.sender == 'hq' || m.sender == null ? 'Zentrale' : m.sender)}: ${m.body}'),
-      action: SnackBarAction(label: 'Öffnen', onPressed: () => setState(() => _tab = 3)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${m.kind == 'hint' ? 'Hinweis' : (m.sender == 'hq' || m.sender == null ? 'Zentrale' : m.sender)}: ${m.body}'),
+        action: SnackBarAction(label: 'Öffnen', onPressed: () => setState(() => _tab = 3)),
+      ),
+    );
   }
 
   Future<void> _onAlert(String kind) async {
@@ -96,21 +97,25 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: c,
       builder: (context, _) {
         final remaining = c.remaining;
-        final headcount = c.headcountDue;
         return Scaffold(
           appBar: AppBar(
             titleSpacing: 12,
-            title: Row(children: [
-              if (remaining != null) ...[
-                Icon(Icons.timer_outlined, size: 20, color: remaining < 600 ? sosRed : null),
+            title: Row(
+              children: [
+                if (remaining != null) ...[
+                  Icon(Icons.timer_outlined, size: 20, color: remaining < 600 ? sosRed : null),
+                  const SizedBox(width: 4),
+                  Text(
+                    formatDuration(remaining),
+                    style: TextStyle(fontFeatures: const [FontFeature.tabularFigures()], color: remaining < 600 ? sosRed : null),
+                  ),
+                  const SizedBox(width: 14),
+                ],
+                const Icon(Icons.star_outline, size: 20),
                 const SizedBox(width: 4),
-                Text(formatDuration(remaining), style: TextStyle(fontFeatures: const [FontFeature.tabularFigures()], color: remaining < 600 ? sosRed : null)),
-                const SizedBox(width: 14),
+                Text('${c.state.points}'),
               ],
-              const Icon(Icons.star_outline, size: 20),
-              const SizedBox(width: 4),
-              Text('${c.state.points}'),
-            ]),
+            ),
             actions: [
               _SyncIcon(online: c.online, syncing: c.syncing, pending: c.unsyncedCount),
               PopupMenuButton<String>(
@@ -131,48 +136,48 @@ class _HomeScreenState extends State<HomeScreen> {
               const SosButton(),
             ],
           ),
-          body: Column(children: [
-            if (c.recalled)
-              AlertStrip(
-                icon: Icons.campaign,
-                color: sosRed,
-                text: 'ALLE ZURÜCK zum Sammelpunkt: ${c.game!.field.assemblyPoint.name.of(context)}',
-                action: 'Karte',
-                onAction: () => setState(() => _tab = 0),
+          body: Column(
+            children: [
+              if (c.recalled)
+                AlertStrip(
+                  icon: Icons.campaign,
+                  color: sosRed,
+                  text: 'ALLE ZURÜCK zum Sammelpunkt: ${c.game!.field.assemblyPoint.name.of(context)}',
+                  action: 'Karte',
+                  onAction: () => setState(() => _tab = 0),
+                ),
+              if (c.zoneAlert != null)
+                AlertStrip(icon: Icons.do_not_step, color: c.zoneAlert!.inside ? sosRed : Colors.orange.shade800, text: c.zoneAlert!.message),
+              if (c.paused) const AlertStrip(icon: Icons.pause_circle_outline, color: Colors.blueGrey, text: 'Das Spiel ist pausiert.'),
+              if (c.sosPending)
+                AlertStrip(
+                  icon: Icons.sms_failed_outlined,
+                  color: sosRed,
+                  text: 'SOS wird gesendet, sobald Netz da ist.',
+                  action: 'Details',
+                  onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmergencyScreen())),
+                ),
+              if (c.heartbeatDue)
+                AlertStrip(
+                  icon: Icons.favorite_outline,
+                  color: Colors.teal.shade700,
+                  text: 'Alles in Ordnung bei euch?',
+                  action: 'Ja, alles ok',
+                  onAction: _confirmHeartbeat,
+                ),
+              if (c.finished)
+                AlertStrip(
+                  icon: Icons.emoji_events_outlined,
+                  color: okGreen,
+                  text: 'Geschafft! Kommt zum Treffpunkt.',
+                  action: 'Rangliste',
+                  onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
+                ),
+              Expanded(
+                child: IndexedStack(index: _tab, children: const [MapTab(), StationsTab(), BackpackTab(), ChatTab()]),
               ),
-            if (c.zoneAlert != null)
-              AlertStrip(icon: Icons.do_not_step, color: c.zoneAlert!.inside ? sosRed : Colors.orange.shade800, text: c.zoneAlert!.message),
-            if (c.paused) const AlertStrip(icon: Icons.pause_circle_outline, color: Colors.blueGrey, text: 'Das Spiel ist pausiert.'),
-            if (c.sosPending)
-              AlertStrip(
-                icon: Icons.sms_failed_outlined,
-                color: sosRed,
-                text: 'SOS wird gesendet, sobald Netz da ist.',
-                action: 'Details',
-                onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmergencyScreen())),
-              ),
-            if (c.heartbeatDue)
-              AlertStrip(icon: Icons.favorite_outline, color: Colors.teal.shade700, text: 'Alles in Ordnung bei euch?', action: 'Ja, alles ok', onAction: _confirmHeartbeat),
-            if (headcount != null)
-              AlertStrip(
-                icon: Icons.groups_outlined,
-                color: Colors.indigo,
-                text: 'Vollzähligkeits-Check fällig',
-                action: 'Jetzt',
-                onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => HeadcountScreen(reason: headcount))),
-              ),
-            if (c.finished)
-              AlertStrip(
-                icon: Icons.emoji_events_outlined,
-                color: okGreen,
-                text: 'Geschafft! Kommt zum Treffpunkt.',
-                action: 'Rangliste',
-                onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
-              ),
-            Expanded(
-              child: IndexedStack(index: _tab, children: const [MapTab(), StationsTab(), BackpackTab(), ChatTab()]),
-            ),
-          ]),
+            ],
+          ),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _tab,
             onDestinationSelected: (i) => setState(() {

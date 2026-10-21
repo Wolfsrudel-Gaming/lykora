@@ -37,7 +37,11 @@ class StationsTab extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Code eingeben'),
-        content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(hintText: 'Code von der Station oder vom Betreuer')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Code von der Station oder vom Betreuer'),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Abbrechen')),
           FilledButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('Öffnen')),
@@ -82,39 +86,51 @@ class StationsTab extends StatelessWidget {
                     title: Text(s.name.of(context)),
                     subtitle: Text(_status(c, s)),
                     trailing: pos != null && s.location != null && !c.state.solved.containsKey(s.id)
-                        ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Text(compassText(bearing(pos, s.location!)), style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text(_meters(dist(s))),
-                          ])
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(compassText(bearing(pos, s.location!)), style: const TextStyle(fontWeight: FontWeight.w700)),
+                              Text(_meters(dist(s))),
+                            ],
+                          )
                         : null,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StationScreen(stationId: s.id))),
                   ),
                 ),
             ],
           ),
-          floatingActionButton: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-            FloatingActionButton.small(heroTag: 'code', tooltip: 'Code eingeben', onPressed: () => _enterCode(context), child: const Icon(Icons.pin_outlined)),
-            const SizedBox(height: 8),
-            FloatingActionButton.small(
-              heroTag: 'nfc',
-              tooltip: 'NFC-Tag scannen',
-              onPressed: () async {
-                final v = await scanNfc(context, message: 'Tag der Station ans Handy halten');
-                if (context.mounted) await _open(context, 'nfc', v);
-              },
-              child: const Icon(Icons.nfc),
-            ),
-            const SizedBox(height: 8),
-            FloatingActionButton.extended(
-              heroTag: 'qr',
-              onPressed: () async {
-                final v = await scanQr(context);
-                if (context.mounted) await _open(context, 'qr', v);
-              },
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scannen'),
-            ),
-          ]),
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FloatingActionButton.small(
+                heroTag: 'code',
+                tooltip: 'Code eingeben',
+                onPressed: () => _enterCode(context),
+                child: const Icon(Icons.pin_outlined),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.small(
+                heroTag: 'nfc',
+                tooltip: 'NFC-Tag scannen',
+                onPressed: () async {
+                  final v = await scanNfc(context, message: 'Tag der Station ans Handy halten');
+                  if (context.mounted) await _open(context, 'nfc', v);
+                },
+                child: const Icon(Icons.nfc),
+              ),
+              const SizedBox(height: 8),
+              FloatingActionButton.extended(
+                heroTag: 'qr',
+                onPressed: () async {
+                  final v = await scanQr(context);
+                  if (context.mounted) await _open(context, 'qr', v);
+                },
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scannen'),
+              ),
+            ],
+          ),
         );
       },
     );

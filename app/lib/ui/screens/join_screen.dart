@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/api.dart';
-import '../../data/session.dart';
 import '../widgets/common.dart';
 
 const defaultServer = 'https://riegel-troisdorf.de/lykora';
@@ -64,7 +63,11 @@ class _JoinScreenState extends State<JoinScreen> {
       showMessage(context, 'Bitte einen gültigen Event-Code eingeben.', error: true);
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => TeamSetupScreen(server: parsed.server ?? _server.text.trim(), code: parsed.code)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TeamSetupScreen(server: parsed.server ?? _server.text.trim(), code: parsed.code),
+      ),
+    );
   }
 
   @override
@@ -78,7 +81,11 @@ class _JoinScreenState extends State<JoinScreen> {
             const SizedBox(height: 32),
             Icon(Icons.light_outlined, size: 72, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
-            Text('Lykora', textAlign: TextAlign.center, style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              'Lykora',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             Text('Outdoor-Abenteuer für Teams', textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
             const SizedBox(height: 40),
@@ -99,7 +106,11 @@ class _JoinScreenState extends State<JoinScreen> {
             const SizedBox(height: 24),
             TextButton(onPressed: () => setState(() => _showServer = !_showServer), child: const Text('Anderer Server')),
             if (_showServer)
-              TextField(controller: _server, keyboardType: TextInputType.url, decoration: const InputDecoration(labelText: 'Server-Adresse')),
+              TextField(
+                controller: _server,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'Server-Adresse'),
+              ),
           ],
         ),
       ),
@@ -107,7 +118,7 @@ class _JoinScreenState extends State<JoinScreen> {
   }
 }
 
-/// Team anlegen (Name, Mitglieder mit Armband, Notfallnummer, Betreuer) oder weiteres Handy koppeln.
+/// Team anlegen (Name, Mitglieder, Notfallnummer, Betreuer-PIN) oder weiteres Handy koppeln.
 class TeamSetupScreen extends StatefulWidget {
   const TeamSetupScreen({super.key, required this.server, required this.code});
   final String server;
@@ -126,7 +137,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
   final _deviceCode = TextEditingController();
   final _members = <_MemberRow>[_MemberRow()];
   String? _color;
-  String? _supervisorUid;
   bool _consent = false;
   bool _existingTeam = false;
   bool _busy = false;
@@ -142,21 +152,6 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
     super.dispose();
   }
 
-  Future<void> _scanMemberTag(_MemberRow row) async {
-    final uid = await scanNfc(context, message: 'Armband von ${row.name.text.isEmpty ? 'diesem Mitglied' : row.name.text} ans Handy halten');
-    if (uid == null) return;
-    if (_members.any((m) => m != row && m.uid == uid)) {
-      if (mounted) showMessage(context, 'Dieses Armband ist schon vergeben.', error: true);
-      return;
-    }
-    setState(() => row.uid = uid);
-  }
-
-  Future<void> _scanSupervisor() async {
-    final uid = await scanNfc(context, message: 'Betreuer-Armband ans Handy halten');
-    if (uid != null) setState(() => _supervisorUid = uid);
-  }
-
   Future<void> _submit() async {
     if (!_existingTeam && !_form.currentState!.validate()) return;
     if (!_existingTeam && !_consent) {
@@ -169,20 +164,16 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
       if (_existingTeam) {
         await c.join(server: widget.server, code: widget.code, deviceCode: _deviceCode.text.trim().toUpperCase());
       } else {
-        // Armbänder werden erst nach dem Beitritt gehasht, weil der Hash an das Event gebunden ist.
         final rows = _members.where((m) => m.name.text.trim().isNotEmpty).toList();
         await c.join(
           server: widget.server,
           code: widget.code,
           teamName: _name.text.trim(),
           color: _color,
-          members: rows.map((m) => Member(m.name.text.trim())).toList(),
+          members: rows.map((m) => m.name.text.trim()).toList(),
           emergencyPhone: _phone.text.trim(),
           supervisorPin: _pin.text.trim(),
         );
-        final withTags = [for (final m in rows) Member(m.name.text.trim(), m.uid == null ? null : c.hashTag(m.uid!))];
-        if (withTags.any((m) => m.tag != null)) await c.updateMembers(withTags);
-        if (_supervisorUid != null) await c.confirmSupervisor(c.hashTag(_supervisorUid!));
       }
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } on ApiException catch (e) {
@@ -213,7 +204,11 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
             if (_existingTeam) ...[
               const Text('Weiteres Handy für ein bestehendes Team. Den Gerätecode zeigt das erste Handy unter Einstellungen.'),
               const SizedBox(height: 12),
-              TextField(controller: _deviceCode, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Gerätecode des Teams')),
+              TextField(
+                controller: _deviceCode,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Gerätecode des Teams'),
+              ),
             ] else ...[
               TextFormField(
                 controller: _name,
@@ -221,25 +216,29 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
                 validator: (v) => (v ?? '').trim().isEmpty ? 'Bitte einen Namen eingeben' : null,
               ),
               const SizedBox(height: 12),
-              Wrap(spacing: 8, children: [
-                for (final e in colors.entries)
-                  ChoiceChip(label: Text(e.key), selected: _color == e.value, onSelected: (_) => setState(() => _color = e.value)),
-              ]),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final e in colors.entries)
+                    ChoiceChip(label: Text(e.key), selected: _color == e.value, onSelected: (_) => setState(() => _color = e.value)),
+                ],
+              ),
               const SizedBox(height: 20),
               Text('Mitglieder (nur Vornamen)', style: Theme.of(context).textTheme.titleMedium),
-              const Text('Wer ein NFC-Armband hat, scannt es hier. Damit klappen Vollzähligkeits-Check und Team-Aufgaben.'),
               for (final row in _members)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Row(children: [
-                    Expanded(child: TextField(controller: row.name, decoration: const InputDecoration(labelText: 'Vorname'))),
-                    IconButton(
-                      tooltip: 'Armband scannen',
-                      icon: Icon(row.uid == null ? Icons.nfc : Icons.check_circle, color: row.uid == null ? null : Colors.green),
-                      onPressed: () => _scanMemberTag(row),
-                    ),
-                    if (_members.length > 1) IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() => _members.remove(row))),
-                  ]),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: row.name,
+                          decoration: const InputDecoration(labelText: 'Vorname'),
+                        ),
+                      ),
+                      if (_members.length > 1) IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() => _members.remove(row))),
+                    ],
+                  ),
                 ),
               Align(
                 alignment: Alignment.centerLeft,
@@ -254,17 +253,13 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
               ),
               const SizedBox(height: 20),
               Text('Betreuer', style: Theme.of(context).textTheme.titleMedium),
-              const Text('Bei Kindern und Jugendlichen startet das Spiel erst mit Betreuer: Betreuer-Armband scannen oder PIN eingeben.'),
+              const Text('Bei Kindern und Jugendlichen startet das Spiel erst mit Betreuer. Die PIN bekommt der Betreuer von der Spielleitung.'),
               const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: TextField(controller: _pin, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Betreuer-PIN'))),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _scanSupervisor,
-                  icon: Icon(_supervisorUid == null ? Icons.nfc : Icons.check_circle),
-                  label: Text(_supervisorUid == null ? 'Armband' : 'Erkannt'),
-                ),
-              ]),
+              TextField(
+                controller: _pin,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Betreuer-PIN'),
+              ),
               const SizedBox(height: 16),
               CheckboxListTile(
                 value: _consent,
@@ -287,5 +282,4 @@ class _TeamSetupScreenState extends State<TeamSetupScreen> {
 
 class _MemberRow {
   final name = TextEditingController();
-  String? uid;
 }

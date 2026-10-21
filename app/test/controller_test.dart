@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lykora/data/api.dart';
 import 'package:lykora/data/controller.dart';
 import 'package:lykora/data/session.dart';
-import 'package:lykora/data/tags.dart';
 
 import 'support.dart';
 
@@ -19,11 +18,6 @@ void main() {
     expect(parseJoinCode('kein code!'), isNull);
   });
 
-  test('rechnet Armband-Hashes wie der Server', () {
-    // Gleicher Wert wie tagHash("…0001", "04:a1:b2:c3:d4:e5:f6") in server/src/lib/crypto.ts
-    expect(tagHash('00000000-0000-0000-0000-000000000001', '04:a1:b2:c3:d4:e5:f6'), 'b306d7d0101a329c0dbab32393b3f82b00bf73ef156b4a8c6dd9b5cb4a5eccb0');
-  });
-
   test('spielt offline weiter und holt Aktionen und SOS nach', () async {
     final server = FakeServer();
     final c = await newController(server);
@@ -32,7 +26,9 @@ void main() {
 
     await c.start();
     expect((await c.triggerByCode('qr', 'LYK-BRIEFING'))!.ok, isTrue);
-    final r = await c.answer('briefing', {'choice': [0]});
+    final r = await c.answer('briefing', {
+      'choice': [0],
+    });
     expect(r.ok, isTrue);
     expect(c.state.solved.keys, ['briefing']);
     expect(c.state.items, ['uv-lampe']);
@@ -97,7 +93,10 @@ void main() {
     await c.start();
     await c.triggerByCode('qr', 'LYK-BRIEFING');
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    final again = GameController(store: c.store, apiFactory: (s, t) => Api(s, token: t, client: server.client()));
+    final again = GameController(
+      store: c.store,
+      apiFactory: (s, t) => Api(s, token: t, client: server.client()),
+    );
     await again.load();
     expect(again.state.triggered, ['briefing']);
     expect(again.session!.teamName, 'Füchse');
@@ -121,7 +120,9 @@ void main() {
     await c.join(server: live, code: (ev['join'] as Map)['code'] as String, teamName: 'Live-${DateTime.now().millisecondsSinceEpoch}', supervisorPin: pin);
     await c.start();
     await c.triggerByCode('qr', 'LYK-BRIEFING');
-    await c.answer('briefing', {'choice': [0]});
+    await c.answer('briefing', {
+      'choice': [0],
+    });
     await c.sync();
     expect(c.online, isTrue, reason: c.lastError);
     expect(c.unsyncedCount, 0);
@@ -129,7 +130,10 @@ void main() {
     expect(c.session!.serverState!['points'], c.state.points);
 
     // Eingriff der Spielleitung kommt in der App an
-    await orga.post('/events/${ev['id']}/teams/${c.session!.teamId}/actions', {'type': 'staff_points', 'payload': {'amount': 7}});
+    await orga.post('/events/${ev['id']}/teams/${c.session!.teamId}/actions', {
+      'type': 'staff_points',
+      'payload': {'amount': 7},
+    });
     await orga.post('/events/${ev['id']}/messages', {'teamId': c.session!.teamId, 'body': 'Weiter so!'});
     await c.sync();
     expect(c.state.points, 57);
@@ -137,4 +141,3 @@ void main() {
     expect(await c.sos(message: 'Test'), isTrue);
   }, skip: live == null ? 'LYKORA_TEST_SERVER nicht gesetzt' : false);
 }
-

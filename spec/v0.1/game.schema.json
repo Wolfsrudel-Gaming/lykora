@@ -536,20 +536,6 @@
             "location": { "$ref": "#/$defs/point" },
             "radius": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
           }
-        },
-        {
-          "type": "object",
-          "required": ["type", "prompt"],
-          "additionalProperties": false,
-          "properties": {
-            "type": { "const": "wristband" },
-            "prompt": { "$ref": "#/$defs/text" },
-            "count": {
-              "description": "Wie viele verschiedene Armbänder des Teams gescannt werden müssen; \"all\" für alle registrierten.",
-              "oneOf": [{ "const": "all" }, { "type": "integer", "minimum": 1 }],
-              "default": "all"
-            }
-          }
         }
       ]
     },
@@ -737,25 +723,6 @@
           "description": "Pflicht-Ausrüstung je Team, z. B. Lampe und Warnweste.",
           "type": "array",
           "items": { "$ref": "#/$defs/text" }
-        },
-        "headcount": {
-          "description": "Vollzähligkeits-Check: Alle Teammitglieder scannen ihr NFC-Armband am Team-Handy.",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": { "type": "boolean", "default": false },
-            "at": {
-              "description": "Wann der Check verlangt wird.",
-              "type": "array",
-              "uniqueItems": true,
-              "items": { "enum": ["start", "finish", "recall"] },
-              "default": ["start", "finish", "recall"]
-            },
-            "interval": {
-              "description": "Zusätzlich alle interval Sekunden; leer für nie.",
-              "$ref": "#/$defs/duration"
-            }
-          }
         }
       }
     },

@@ -58,7 +58,10 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
         padding: const EdgeInsets.all(20),
         children: [
           if (_phase == _Phase.idle) ...[
-            TextField(controller: _message, decoration: const InputDecoration(labelText: 'Was ist passiert? (optional)')),
+            TextField(
+              controller: _message,
+              decoration: const InputDecoration(labelText: 'Was ist passiert? (optional)'),
+            ),
             const SizedBox(height: 24),
             Center(
               child: GestureDetector(
@@ -67,30 +70,54 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
                 onTapCancel: () => _hold.isCompleted ? null : _hold.reset(),
                 child: AnimatedBuilder(
                   animation: _hold,
-                  builder: (_, _) => Stack(alignment: Alignment.center, children: [
-                    SizedBox(width: 220, height: 220, child: CircularProgressIndicator(value: _hold.value, strokeWidth: 12, color: Colors.white, backgroundColor: sosRed.withValues(alpha: 0.3))),
-                    Container(
-                      width: 190,
-                      height: 190,
-                      decoration: const BoxDecoration(color: sosRed, shape: BoxShape.circle),
-                      alignment: Alignment.center,
-                      child: const Text('SOS', style: TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900)),
-                    ),
-                  ]),
+                  builder: (_, _) => Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: CircularProgressIndicator(
+                          value: _hold.value,
+                          strokeWidth: 12,
+                          color: Colors.white,
+                          backgroundColor: sosRed.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      Container(
+                        width: 190,
+                        height: 190,
+                        decoration: const BoxDecoration(color: sosRed, shape: BoxShape.circle),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'SOS',
+                          style: TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w900),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
             const Text('2 Sekunden gedrückt halten', textAlign: TextAlign.center),
           ],
-          if (_phase == _Phase.sending) const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator())),
+          if (_phase == _Phase.sending)
+            const Center(
+              child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
+            ),
           if (_phase == _Phase.sent)
             const Card(
               color: okGreen,
               child: ListTile(
                 leading: Icon(Icons.check_circle, color: Colors.white, size: 36),
-                title: Text('Alarm ist bei der Spielleitung angekommen.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text('Bleibt, wo ihr seid. Hilfe kommt. Mit „Finde mich“ seid ihr im Dunkeln leichter zu sehen.', style: TextStyle(color: Colors.white)),
+                title: Text(
+                  'Alarm ist bei der Spielleitung angekommen.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  'Bleibt, wo ihr seid. Hilfe kommt. Mit „Finde mich“ seid ihr im Dunkeln leichter zu sehen.',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
           if (_phase == _Phase.queued)
@@ -98,8 +125,14 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
               color: sosRed,
               child: ListTile(
                 leading: Icon(Icons.signal_cellular_connected_no_internet_0_bar, color: Colors.white, size: 36),
-                title: Text('Kein Internet. Der Alarm wird automatisch gesendet, sobald Netz da ist.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text('Schickt jetzt zusätzlich eine SMS oder ruft an – SMS und Anrufe gehen oft noch, wenn Internet nicht geht.', style: TextStyle(color: Colors.white)),
+                title: Text(
+                  'Kein Internet. Der Alarm wird automatisch gesendet, sobald Netz da ist.',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  'Schickt jetzt zusätzlich eine SMS oder ruft an – SMS und Anrufe gehen oft noch, wenn Internet nicht geht.',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
           const SizedBox(height: 16),
@@ -169,7 +202,10 @@ class _FindMeScreenState extends State<FindMeScreen> {
       child: Container(
         color: _on ? Colors.white : sosRed,
         alignment: Alignment.center,
-        child: const Text('Tippen zum Beenden', style: TextStyle(color: Colors.black54, fontSize: 18, decoration: TextDecoration.none)),
+        child: const Text(
+          'Tippen zum Beenden',
+          style: TextStyle(color: Colors.black54, fontSize: 18, decoration: TextDecoration.none),
+        ),
       ),
     );
   }

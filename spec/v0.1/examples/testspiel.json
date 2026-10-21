@@ -184,7 +184,6 @@
     "heartbeat": { "enabled": true, "interval": 900, "grace": 300 },
     "sos": { "smsFallback": "+49 170 0000000", "lora": false },
     "requireSupervisor": true,
-    "requiredGear": [{ "de": "Lampe" }, { "de": "Warnweste" }],
-    "headcount": { "enabled": true, "at": ["start", "finish", "recall"] }
+    "requiredGear": [{ "de": "Lampe" }, { "de": "Warnweste" }]
   }
 }

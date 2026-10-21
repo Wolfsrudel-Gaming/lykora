@@ -49,23 +49,13 @@ class Pause {
 }
 
 class TeamContext {
-  TeamContext({
-    required this.game,
-    required this.eventStartedAt,
-    this.pauses = const [],
-    this.endedAt,
-    this.blockReason,
-    this.staffTags = const [],
-    this.memberTags = const [],
-  });
+  TeamContext({required this.game, required this.eventStartedAt, this.pauses = const [], this.endedAt, this.blockReason});
 
   final Game game;
   final int? eventStartedAt;
   final List<Pause> pauses;
   final int? endedAt;
   final String? blockReason;
-  final List<String> staffTags;
-  final List<String> memberTags;
 }
 
 class TeamState {
@@ -151,7 +141,7 @@ void _add(List<String> list, String value) {
 }
 
 const _noStation = {'staff_points', 'staff_time', 'staff_item'};
-const _passive = {'heartbeat', 'arrived', 'headcount', 'supervisor_tag'};
+const _passive = {'heartbeat', 'arrived'};
 
 TeamState reduceTeam(TeamContext ctx, List<EngineAction> actions) {
   final game = ctx.game;
@@ -162,8 +152,7 @@ TeamState reduceTeam(TeamContext ctx, List<EngineAction> actions) {
 
   bool allFragments() => game.fragments.every((f) => state.fragments.contains(f.id));
 
-  bool isAvailable(Station s) =>
-      !state.locked.contains(s.id) && (!s.hidden || state.revealed.contains(s.id)) && (!s.isFinal || allFragments());
+  bool isAvailable(Station s) => !state.locked.contains(s.id) && (!s.hidden || state.revealed.contains(s.id)) && (!s.isFinal || allFragments());
 
   void applyPenalty(Penalty? penalty, int t) {
     if (penalty == null) return;
@@ -323,7 +312,7 @@ TeamState reduceTeam(TeamContext ctx, List<EngineAction> actions) {
         } else if (state.lockedUntil != null && t < state.lockedUntil!) {
           reject('locked_out');
         } else {
-          final verdict = checkAnswer(task, p, memberTags: ctx.memberTags);
+          final verdict = checkAnswer(task, p);
           out.verdict = verdict;
           switch (verdict) {
             case Verdict.correct:
@@ -353,13 +342,6 @@ TeamState reduceTeam(TeamContext ctx, List<EngineAction> actions) {
           cleanSinceLastSolve = false;
           final defaults = game.settings.defaultHintCost;
           applyPenalty(s.hints[level - 1].cost ?? (level - 1 < defaults.length ? defaults[level - 1] : null), t);
-        }
-      case 'tag_solve':
-        if (p['tag'] is! String || !ctx.staffTags.contains(p['tag'])) {
-          reject('unknown_tag');
-        } else {
-          _add(state.triggered, station!.id);
-          solve(station, t, false);
         }
       case 'staff_reveal':
         _add(state.revealed, station!.id);

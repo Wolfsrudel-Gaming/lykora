@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../app.dart';
+import '../../data/api.dart';
 import '../../services/location.dart';
 import '../../services/nfc.dart';
 import '../widgets/common.dart';
 import 'emergency_screen.dart';
-import 'headcount_screen.dart';
 import 'settings_screen.dart';
 
 /// Vorbereitung vor dem Start: Berechtigungen, GPS, Ausrüstung, Notfallinfos, Intro.
@@ -57,28 +57,44 @@ class _PrepScreenState extends State<PrepScreen> {
     setState(() => _starting = true);
     try {
       if (c.supervisorMissing) {
-        final uid = await scanNfc(context, message: 'Ohne Betreuer geht es nicht los. Betreuer-Armband ans Handy halten.');
-        if (uid == null) return;
-        if (!await c.confirmSupervisor(c.hashTag(uid))) {
-          if (mounted) showMessage(context, 'Das ist kein Betreuer-Armband.', error: true);
+        final pin = await _askPin();
+        if (pin == null || !mounted) return;
+        try {
+          await c.confirmSupervisor(pin);
+        } on ApiException catch (e) {
+          if (mounted) showMessage(context, e.offline ? 'Für die Betreuer-PIN braucht ihr kurz Netz.' : e.message, error: true);
           return;
         }
       }
-      if (!c.eventRunning && mounted) {
-        // Kein Netz und der Server hat den Start noch nicht gemeldet: Betreuer gibt frei.
-        final uid = await scanNfc(context, message: 'Der Start ist noch nicht freigegeben. Ein Betreuer kann ihn mit seinem Armband freigeben.');
-        if (uid == null || !await c.localStart(c.hashTag(uid))) return;
-      }
-      if (!mounted) return;
-      if (c.headcountBeforeStart && !c.session!.headcounts.containsKey('start')) {
-        final done = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const HeadcountScreen(reason: 'start')));
-        if (done != true) return;
+      if (!c.eventRunning) {
+        if (mounted) showMessage(context, 'Die Spielleitung hat das Spiel noch nicht gestartet.');
+        return;
       }
       final result = await c.start();
       if (!result.ok && mounted) showMessage(context, reasonText(result.outcome?.reason), error: true);
     } finally {
       if (mounted) setState(() => _starting = false);
     }
+  }
+
+  Future<String?> _askPin() {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Betreuer-PIN'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(helperText: 'Ohne Betreuer geht es nicht los.'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('Bestätigen')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -96,7 +112,10 @@ class _PrepScreenState extends State<PrepScreen> {
         appBar: AppBar(
           title: Text(game.title.of(context)),
           actions: [
-            IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            ),
             const SosButton(),
           ],
         ),
@@ -109,14 +128,19 @@ class _PrepScreenState extends State<PrepScreen> {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Text('Einsatzbefehl', style: theme.textTheme.titleMedium),
-                      const Spacer(),
-                      ReadAloudButton(game.intro.of(context)),
-                    ]),
-                    Text(game.intro.of(context), style: theme.textTheme.bodyLarge),
-                  ]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Einsatzbefehl', style: theme.textTheme.titleMedium),
+                          const Spacer(),
+                          ReadAloudButton(game.intro.of(context)),
+                        ],
+                      ),
+                      Text(game.intro.of(context), style: theme.textTheme.bodyLarge),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -135,8 +159,18 @@ class _PrepScreenState extends State<PrepScreen> {
               subtitle: 'Sonst beendet Android die Ortung, wenn der Bildschirm aus ist.',
               action: _batteryOk ? null : TextButton(onPressed: _requestBattery, child: const Text('Erlauben')),
             ),
-            _Check(ok: _nfc, title: 'NFC', subtitle: _nfc ? 'Bereit für Armbänder und Tags.' : 'Aus oder nicht vorhanden. QR-Codes gehen trotzdem.', optional: true),
-            _Check(ok: c.online, title: 'Verbindung zum Server', subtitle: c.online ? 'Verbunden' : 'Gerade kein Netz – kein Problem, das Spiel läuft offline.', optional: true),
+            _Check(
+              ok: _nfc,
+              title: 'NFC',
+              subtitle: _nfc ? 'Bereit für Armbänder und Tags.' : 'Aus oder nicht vorhanden. QR-Codes gehen trotzdem.',
+              optional: true,
+            ),
+            _Check(
+              ok: c.online,
+              title: 'Verbindung zum Server',
+              subtitle: c.online ? 'Verbunden' : 'Gerade kein Netz – kein Problem, das Spiel läuft offline.',
+              optional: true,
+            ),
             if (gear.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text('Ausrüstung', style: theme.textTheme.titleMedium),

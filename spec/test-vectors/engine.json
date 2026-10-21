@@ -199,27 +199,6 @@
       }
     },
     {
-      "name": "Betreuer bestätigt Station mit Armband",
-      "ctx": { "staffTags": ["aa11"] },
-      "actions": [
-        [1, "tag_solve", { "station": "baum", "tag": "ffff" }],
-        [2, "tag_solve", { "station": "baum", "tag": "aa11" }]
-      ],
-      "expect": { "outcomes": ["rejected:unknown_tag", "ok"], "solved": ["baum"], "fragments": ["f1"] }
-    },
-    {
-      "name": "Armband-Aufgabe: alle Teammitglieder scannen",
-      "ctx": { "memberTags": ["m1", "m2", "m3"] },
-      "patch": [{ "path": "stations[baum].task", "value": { "type": "wristband", "prompt": "Alle scannen ihr Armband" } }],
-      "actions": [
-        [0, "trigger", { "station": "baum", "method": "gps" }],
-        [1, "answer", { "station": "baum", "tags": ["m1", "m2", "fremd"] }],
-        [2, "answer", { "station": "baum", "tags": ["m3", "m1", "m2"] }],
-        [3, "headcount", { "tags": ["m1"] }]
-      ],
-      "expect": { "outcomes": ["ok", "ok", "ok", "ok"], "verdicts": [null, "wrong", "correct", null], "solved": ["baum"] }
-    },
-    {
       "name": "Reihenfolge nach Zeit, nicht nach Eingang",
       "actions": [
         [6, "answer", { "station": "baum", "text": "Eule" }],

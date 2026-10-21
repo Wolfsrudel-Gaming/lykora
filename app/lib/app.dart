@@ -81,7 +81,10 @@ class LykoraApp extends StatelessWidget {
           themeMode: ThemeMode.dark,
           builder: (context, child) {
             final media = MediaQuery.of(context);
-            Widget result = MediaQuery(data: media.copyWith(textScaler: TextScaler.linear(settings.textScale)), child: child!);
+            Widget result = MediaQuery(
+              data: media.copyWith(textScaler: TextScaler.linear(settings.textScale)),
+              child: child!,
+            );
             // Rotlicht: alles nur in Rot, damit die Augen an die Dunkelheit gewöhnt bleiben.
             if (settings.redLight) result = ColorFiltered(colorFilter: redLightFilter, child: result);
             return result;

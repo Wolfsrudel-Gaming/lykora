@@ -22,7 +22,7 @@ class EmergencyScreen extends StatelessWidget {
         final positionText = pos == null
             ? 'Noch keine Position.'
             : 'Breite ${pos.lat.toStringAsFixed(5)}, Länge ${pos.lon.toStringAsFixed(5)}'
-                '${c.accuracy == null ? '' : ', Genauigkeit etwa ${c.accuracy!.round()} Meter'}';
+                  '${c.accuracy == null ? '' : ', Genauigkeit etwa ${c.accuracy!.round()} Meter'}';
         final nearestRescue = pos == null || game.field.rescuePoints.isEmpty
             ? null
             : (game.field.rescuePoints.toList()..sort((a, b) => distance(pos, a.location).compareTo(distance(pos, b.location)))).first;
@@ -67,7 +67,10 @@ class EmergencyScreen extends StatelessWidget {
                   subtitle: Text(game.field.assemblyPoint.location.toString()),
                 ),
               ),
-              if (!safety.emergencyNotes.isEmpty) Card(child: ListTile(leading: const Icon(Icons.info_outline), title: Text(safety.emergencyNotes.of(context)))),
+              if (!safety.emergencyNotes.isEmpty)
+                Card(
+                  child: ListTile(leading: const Icon(Icons.info_outline), title: Text(safety.emergencyNotes.of(context))),
+                ),
               const SizedBox(height: 12),
               const Text('Im Notfall: Ruhe bewahren, bei der verletzten Person bleiben, Notruf wählen, Standort durchgeben.'),
             ],

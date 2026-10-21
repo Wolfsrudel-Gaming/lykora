@@ -150,8 +150,9 @@ describe("Ein Event von Anfang bis Ende", () => {
     expect(blocked.body.outcomes[0]).toMatchObject({ status: "rejected", reason: "supervisor_required" });
     const blocked2 = await teamB.post("/play/sync", { actions: [action("trigger", { station: "briefing", method: "qr" })] });
     expect(blocked2.body.outcomes[0]).toMatchObject({ status: "rejected", reason: "supervisor_required" });
-    // Betreuer kommt dazu: die gespeicherte Aktion zählt jetzt.
-    await orga.patch(`/events/${event.id}/teams/${b.team.id}`, { supervisorPresent: true });
+    // Betreuer kommt dazu und gibt seine PIN ein: die gespeicherte Aktion zählt jetzt.
+    expect((await teamB.post("/play/supervisor", { pin: "FALSCH" })).status).toBe(400);
+    expect((await teamB.post("/play/supervisor", { pin: event.supervisorPin })).body.supervisorPresent).toBe(true);
     const unblocked = await teamB.post("/play/sync", {});
     expect(unblocked.body.state.triggered).toEqual(["briefing"]);
 
@@ -284,54 +285,6 @@ describe("Live-Verbindung", () => {
     await hello;
     ws.terminate();
     expect(received.map((m) => m.type)).toEqual(expect.arrayContaining(["hello", "team_joined", "log"]));
-  });
-});
-
-describe("NFC-Armbänder", () => {
-  it("registriert Betreuer-Armbänder, bestätigt damit Stationen und prüft Vollzähligkeit", async () => {
-    const { tagHash } = await import("../src/lib/crypto.ts");
-    const orga = client(ctx);
-    const game = exampleGame();
-    game.safety.headcount = { enabled: true };
-    const { event } = await createEvent(game);
-
-    const reg = await orga.post(`/events/${event.id}/tags`, { uid: "04:A1:B2:C3:D4:E5:F6", role: "supervisor", label: "Jens" });
-    expect(reg.status).toBe(201);
-    const supervisorHash = tagHash(event.id, "04a1b2c3d4e5f6");
-    expect(reg.body.tag_hash).toBe(supervisorHash);
-
-    // Beitritt mit Betreuer-Armband statt PIN
-    const join = await client(ctx, "").post("/join", { code: event.join.code, team: { name: "Igel", supervisorTag: supervisorHash } });
-    expect(join.body.team.supervisorPresent).toBe(true);
-    const team = client(ctx, join.body.token);
-
-    const pkg = await team.get("/play/game");
-    expect(pkg.body.staffTags).toEqual([{ hash: supervisorHash, role: "supervisor" }]);
-
-    const m1 = tagHash(event.id, "01"), m2 = tagHash(event.id, "02");
-    const put = await team.put("/play/team", { members: [{ name: "Anna", tag: m1 }, { name: "Ben", tag: m2 }, "Cem"] });
-    expect(put.body.wristbands).toBe(2);
-    expect((await team.put("/play/team", { members: [{ name: "A", tag: m1 }, { name: "B", tag: m1 }] })).status).toBe(400);
-
-    await orga.post(`/events/${event.id}/start`);
-    const sync = await team.post("/play/sync", {
-      actions: [
-        action("tag_solve", { station: "baum", tag: supervisorHash }, 1),
-        action("headcount", { tags: [m1], reason: "start" }, 2),
-      ],
-    });
-    expect(sync.body.outcomes.map((o: any) => o.status)).toEqual(["ok", "ok"]);
-    expect(sync.body.state.solved).toEqual(["baum"]);
-
-    const overview = await orga.get(`/events/${event.id}/overview`);
-    const igel = overview.body.teams[0];
-    expect(igel.lastHeadcount).toMatchObject({ present: 1, total: 2, complete: false });
-    expect(igel.warnings.map((w: any) => w.kind)).toContain("headcount_incomplete");
-    expect(igel.members).toEqual(["Anna", "Ben", "Cem"]);
-
-    await team.post("/play/sync", { actions: [action("headcount", { tags: [m1, m2] }, 3)] });
-    const after = await orga.get(`/events/${event.id}/overview`);
-    expect(after.body.teams[0].lastHeadcount.complete).toBe(true);
   });
 });
 

@@ -27,18 +27,12 @@ export interface EventRow {
   game: Game;
 }
 
-export interface Member {
-  name: string;
-  /** Hash des NFC-Armbands, falls registriert */
-  tag?: string;
-}
-
 export interface TeamRow {
   id: string;
   event_id: string;
   name: string;
   color: string | null;
-  members: Member[];
+  members: string[];
   emergency_phone: string | null;
   device_code: string;
   supervisor_present: boolean;
@@ -52,7 +46,6 @@ export interface TeamRow {
   last_accuracy: number | null;
   last_position_at: Date | null;
   battery: number | null;
-  last_headcount: { at: string; present: number; total: number; complete: boolean } | null;
   created_at: Date;
 }
 
@@ -94,27 +87,12 @@ export function eventContext(event: EventRow): Omit<TeamContext, "game" | "block
   };
 }
 
-export function teamContext(event: EventRow, team: TeamRow, staffTags: string[] = []): TeamContext {
+export function teamContext(event: EventRow, team: TeamRow): TeamContext {
   return {
     ...eventContext(event),
     game: event.game,
     blockReason: supervisorRequired(event.game) && !team.supervisor_present ? "supervisor_required" : null,
-    staffTags,
-    memberTags: memberTags(team),
   };
-}
-
-export function memberTags(team: TeamRow): string[] {
-  return team.members.flatMap((m) => (m.tag ? [m.tag] : []));
-}
-
-/** Alte Einträge waren reine Namen; heute Objekte mit optionalem Armband. */
-export function normalizeMembers(members: unknown[] | undefined): Member[] {
-  return (members ?? []).map((m) => (typeof m === "string" ? { name: m } : (m as Member)));
-}
-
-export async function eventTags(db: Q, eventId: string): Promise<{ tag_hash: string; role: "staff" | "supervisor"; label: string | null }[]> {
-  return db.query("select tag_hash, role, label from event_tags where event_id = $1 order by created_at", [eventId]);
 }
 
 export async function loadActions(db: Q, teamIds: string[]): Promise<Map<string, EngineAction[]>> {
@@ -143,15 +121,13 @@ export async function loadActions(db: Q, teamIds: string[]): Promise<Map<string,
 
 export async function teamState(db: Q, event: EventRow, team: TeamRow): Promise<TeamState> {
   const actions = (await loadActions(db, [team.id])).get(team.id)!;
-  const staff = (await eventTags(db, event.id)).map((t) => t.tag_hash);
-  return reduceTeam(teamContext(event, team, staff), actions);
+  return reduceTeam(teamContext(event, team), actions);
 }
 
 export async function allTeamStates(db: Q, event: EventRow, teams?: TeamRow[]) {
   const list = teams ?? (await loadTeams(db, event.id));
   const actions = await loadActions(db, list.map((t) => t.id));
-  const staff = (await eventTags(db, event.id)).map((t) => t.tag_hash);
-  return list.map((team) => ({ team, state: reduceTeam(teamContext(event, team, staff), actions.get(team.id)!) }));
+  return list.map((team) => ({ team, state: reduceTeam(teamContext(event, team), actions.get(team.id)!) }));
 }
 
 export function computeStandings(event: EventRow, states: { team: TeamRow; state: TeamState }[]): TeamResult[] {
@@ -212,9 +188,7 @@ export function publicTeam(team: TeamRow) {
     id: team.id,
     name: team.name,
     color: team.color,
-    members: normalizeMembers(team.members).map((m) => m.name),
-    wristbands: memberTags(team).length,
-    lastHeadcount: team.last_headcount,
+    members: team.members,
     supervisorPresent: team.supervisor_present,
     startedAt: team.started_at,
     finishedAt: team.finished_at,

@@ -37,38 +37,52 @@ class _ChatTabState extends State<ChatTab> {
       listenable: c,
       builder: (context, _) {
         final messages = c.session!.messages.reversed.toList();
-        return Column(children: [
-          Expanded(
-            child: messages.isEmpty
-                ? const Center(child: Text('Noch keine Nachrichten.\nDie Zentrale meldet sich hier.', textAlign: TextAlign.center))
-                : ListView.builder(reverse: true, padding: const EdgeInsets.all(12), itemCount: messages.length, itemBuilder: (_, i) => _Bubble(messages[i])),
-          ),
-          SizedBox(
-            height: 48,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 8), children: [
-              for (final q in quickMessages)
-                Padding(padding: const EdgeInsets.all(4), child: ActionChip(label: Text(q), onPressed: () => _send(q, kind: 'predefined'))),
-            ]),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-              child: Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _text,
-                    minLines: 1,
-                    maxLines: 4,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(hintText: 'Nachricht an die Zentrale', isDense: true),
-                  ),
-                ),
-                IconButton(icon: const Icon(Icons.send), onPressed: () => _send(_text.text)),
-              ]),
+        return Column(
+          children: [
+            Expanded(
+              child: messages.isEmpty
+                  ? const Center(child: Text('Noch keine Nachrichten.\nDie Zentrale meldet sich hier.', textAlign: TextAlign.center))
+                  : ListView.builder(reverse: true, padding: const EdgeInsets.all(12), itemCount: messages.length, itemBuilder: (_, i) => _Bubble(messages[i])),
             ),
-          ),
-        ]);
+            SizedBox(
+              height: 48,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  for (final q in quickMessages)
+                    Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: ActionChip(
+                        label: Text(q),
+                        onPressed: () => _send(q, kind: 'predefined'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _text,
+                        minLines: 1,
+                        maxLines: 4,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(hintText: 'Nachricht an die Zentrale', isDense: true),
+                      ),
+                    ),
+                    IconButton(icon: const Icon(Icons.send), onPressed: () => _send(_text.text)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -97,11 +111,14 @@ class _Bubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('$label · $time${m.pending ? ' · wartet auf Netz' : ''}', style: theme.textTheme.labelSmall),
-          const SizedBox(height: 2),
-          Text(m.body),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$label · $time${m.pending ? ' · wartet auf Netz' : ''}', style: theme.textTheme.labelSmall),
+            const SizedBox(height: 2),
+            Text(m.body),
+          ],
+        ),
       ),
     );
   }

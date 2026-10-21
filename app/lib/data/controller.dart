@@ -10,7 +10,7 @@ import '../engine/team_state.dart';
 import '../model/game.dart';
 import 'api.dart';
 import 'session.dart';
-import 'tags.dart';
+import '../services/nfc.dart' show normalizeTagId;
 
 const _uuid = Uuid();
 
@@ -35,8 +35,8 @@ class ActionResult {
 /// läuft im Hintergrund, sobald Netz da ist; der Server entscheidet am Ende.
 class GameController extends ChangeNotifier {
   GameController({required this.store, Api Function(String server, String? token)? apiFactory, int Function()? clock, this.backgroundLoops = true})
-      : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
-        _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
+    : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
+      _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
 
   /// Abgleich und Sekundentakt im Hintergrund; in Widget-Tests aus, weil dort die Zeit simuliert ist.
   final bool backgroundLoops;
@@ -122,10 +122,9 @@ class GameController extends ChangeNotifier {
     String? deviceCode,
     String? teamName,
     String? color,
-    List<Member> members = const [],
+    List<String> members = const [],
     String? emergencyPhone,
     String? supervisorPin,
-    String? supervisorTag,
   }) async {
     final api = _apiFactory(server, null);
     final res = await api.join({
@@ -136,10 +135,9 @@ class GameController extends ChangeNotifier {
         'team': {
           'name': teamName,
           'color': ?color,
-          'members': members.map((m) => m.toJson()).toList(),
+          'members': members,
           if (emergencyPhone != null && emergencyPhone.isNotEmpty) 'emergencyPhone': emergencyPhone,
           if (supervisorPin != null && supervisorPin.isNotEmpty) 'supervisorPin': supervisorPin,
-          'supervisorTag': ?supervisorTag,
         },
     });
     final s = Session(
@@ -160,7 +158,6 @@ class GameController extends ChangeNotifier {
     s.gameJson = (pkg['game'] as Map).cast<String, dynamic>();
     s.event = (pkg['event'] as Map).cast<String, dynamic>();
     s.team = (pkg['team'] as Map).cast<String, dynamic>();
-    s.staffTags = (pkg['staffTags'] as List? ?? const []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
     s.supervisorRequired = pkg['supervisorRequired'] as bool? ?? false;
     _updateClock(pkg['serverTime'] as String?);
     game = Game(s.gameJson!);
@@ -215,20 +212,15 @@ class GameController extends ChangeNotifier {
 
   int? get eventStartedAt {
     final started = session?.event['startedAt'] as String?;
-    if (started != null) return DateTime.parse(started).millisecondsSinceEpoch;
-    return session?.localStartAt;
+    return started == null ? null : DateTime.parse(started).millisecondsSinceEpoch;
   }
 
-  bool get eventRunning {
-    final status = session?.eventStatus;
-    return status == 'running' || (status == 'draft' && session?.localStartAt != null);
-  }
+  bool get eventRunning => session?.eventStatus == 'running';
 
   bool get eventEnded => session?.eventStatus == 'ended';
   bool get recalled => session?.eventStatus == 'recalled';
   bool get paused => session?.eventStatus == 'paused';
   bool get supervisorMissing => (session?.supervisorRequired ?? false) && !(session?.supervisorPresent ?? false);
-  List<String> get memberTags => session?.members.map((m) => m.tag).whereType<String>().toList() ?? const [];
 
   TeamContext _context() {
     final s = session!;
@@ -241,8 +233,6 @@ class GameController extends ChangeNotifier {
           Pause(DateTime.parse(p['from'] as String).millisecondsSinceEpoch, p['to'] == null ? null : DateTime.parse(p['to'] as String).millisecondsSinceEpoch),
       ],
       blockReason: supervisorMissing ? 'supervisor_required' : null,
-      staffTags: s.staffTags.map((t) => t['hash'] as String).toList(),
-      memberTags: memberTags,
     );
   }
 
@@ -313,7 +303,8 @@ class GameController extends ChangeNotifier {
   Future<ActionResult?> triggerByCode(String type, String value) async {
     for (final s in game!.stations) {
       for (final t in s.triggers) {
-        final match = (type == 'qr' && t.type == 'qr' && t.code == value) ||
+        final match =
+            (type == 'qr' && t.type == 'qr' && t.code == value) ||
             (type == 'nfc' && t.type == 'nfc' && normalizeTagId(t.tag ?? '') == normalizeTagId(value) && value.isNotEmpty) ||
             (type == 'manual' && t.type == 'manual' && t.code == value);
         if (match) return trigger(s.id, type);
@@ -322,88 +313,13 @@ class GameController extends ChangeNotifier {
     return null;
   }
 
-  // ---------------------------------------------------------------------------
-  // NFC-Armbänder
-
-  String hashTag(String uid) => tagHash(session!.eventId, uid);
-
-  /// Rolle eines gescannten Armbands: staff, supervisor, member oder null.
-  String? tagRole(String hash) {
-    for (final t in session!.staffTags) {
-      if (t['hash'] == hash) return t['role'] as String;
-    }
-    if (memberTags.contains(hash)) return 'member';
-    return null;
-  }
-
-  Member? memberByTag(String hash) {
-    for (final m in session!.members) {
-      if (m.tag == hash) return m;
-    }
-    return null;
-  }
-
-  /// Betreuer bestätigt eine Station mit seinem Armband.
-  Future<ActionResult> tagSolve(String stationId, String hash) => record('tag_solve', {'station': stationId, 'tag': hash});
-
-  /// Betreuer ist dabei: zählt sofort lokal, der Server bestätigt beim Abgleich.
-  Future<bool> confirmSupervisor(String hash) async {
-    final role = tagRole(hash);
-    if (role != 'staff' && role != 'supervisor') return false;
-    session!.team['supervisorPresent'] = true;
-    await record('supervisor_tag', {'tag': hash});
-    return true;
-  }
-
-  /// Ohne Netz kann ein Betreuer den Start per Armband freigeben.
-  Future<bool> localStart(String hash) async {
-    final role = tagRole(hash);
-    if (role != 'staff' && role != 'supervisor') return false;
-    session!.localStartAt ??= now() - 1000;
-    if (supervisorMissing) session!.team['supervisorPresent'] = true;
+  /// Betreuer mit der Betreuer-PIN bestätigen. Braucht Netz, weil nur der Server die PIN kennt.
+  Future<void> confirmSupervisor(String pin) async {
+    final res = await _api!.confirmSupervisor(pin);
+    session!.team = res;
     _recompute();
     await _save();
     notifyListeners();
-    return true;
-  }
-
-  /// Vollzähligkeits-Check: [tags] sind die gescannten Armbänder.
-  Future<void> headcount(List<String> tags, String reason) async {
-    session!.headcounts[reason] = now();
-    await record('headcount', {'tags': tags, 'reason': reason});
-  }
-
-  /// Ob gerade ein Vollzähligkeits-Check fällig ist.
-  String? get headcountDue {
-    final g = game;
-    final s = session;
-    if (g == null || s == null || !g.safety.headcountEnabled || memberTags.isEmpty) return null;
-    final at = g.safety.headcountAt;
-    if (recalled && at.contains('recall') && !s.headcounts.containsKey('recall')) return 'recall';
-    if (finished && at.contains('finish') && !s.headcounts.containsKey('finish')) return 'finish';
-    final interval = g.safety.headcountInterval;
-    if (interval != null && started && !finished) {
-      final last = s.headcounts.values.fold<int>(_state.startedAt ?? 0, math.max);
-      if (now() - last > interval * 1000) return 'interval';
-    }
-    return null;
-  }
-
-  bool get headcountBeforeStart => (game?.safety.headcountEnabled ?? false) && game!.safety.headcountAt.contains('start') && memberTags.isNotEmpty;
-
-  Future<void> updateMembers(List<Member> members) async {
-    final s = session!;
-    s.team['members'] = members.map((m) => m.toJson()).toList();
-    _recompute();
-    await _save();
-    notifyListeners();
-    try {
-      final res = await _api!.updateTeam({'members': members.map((m) => m.toJson()).toList()});
-      s.team = res;
-      await _save();
-    } on ApiException catch (e) {
-      if (!e.offline) rethrow;
-    }
   }
 
   // ---------------------------------------------------------------------------

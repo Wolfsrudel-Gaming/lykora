@@ -23,14 +23,17 @@ class BackpackTab extends StatelessWidget {
             if (game.fragments.isNotEmpty) ...[
               Text('Code-Fragmente', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
-              Wrap(spacing: 8, children: [
-                for (final f in game.fragments)
-                  Chip(
-                    avatar: Text('${f.position}'),
-                    label: Text(c.state.fragments.contains(f.id) ? f.value : '?', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    side: BorderSide(color: c.state.fragments.contains(f.id) ? lantern : Colors.grey),
-                  ),
-              ]),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final f in game.fragments)
+                    Chip(
+                      avatar: Text('${f.position}'),
+                      label: Text(c.state.fragments.contains(f.id) ? f.value : '?', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      side: BorderSide(color: c.state.fragments.contains(f.id) ? lantern : Colors.grey),
+                    ),
+                ],
+              ),
               const SizedBox(height: 20),
             ],
             Text('Inventar', style: theme.textTheme.titleMedium),
@@ -47,8 +50,7 @@ class BackpackTab extends StatelessWidget {
             for (final e in solved)
               if (!(game.station(e.key)?.story.isEmpty ?? true))
                 _Entry(title: game.station(e.key)!.name.of(context), text: game.station(e.key)!.story.of(context)),
-            for (final m in c.session!.messages.where((m) => m.kind == 'story'))
-              _Entry(title: 'Funkspruch', text: m.body),
+            for (final m in c.session!.messages.where((m) => m.kind == 'story')) _Entry(title: 'Funkspruch', text: m.body),
             if (c.finished && !game.outro.isEmpty) _Entry(title: 'Auflösung', text: game.outro.of(context)),
           ],
         );
@@ -67,10 +69,18 @@ class _Entry extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)), ReadAloudButton(text)]),
-          Text(text),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
+                ReadAloudButton(text),
+              ],
+            ),
+            Text(text),
+          ],
+        ),
       ),
     );
   }

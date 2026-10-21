@@ -75,8 +75,7 @@ class Game {
   LText get hqName => LText((story['hq'] as Json?)?['name'] ?? 'Zentrale');
 
   late final List<Station> stations = _list(json['stations']).map(Station.new).toList();
-  late final List<Fragment> fragments = _list(json['fragments']).map(Fragment.new).toList()
-    ..sort((a, b) => a.position.compareTo(b.position));
+  late final List<Fragment> fragments = _list(json['fragments']).map(Fragment.new).toList()..sort((a, b) => a.position.compareTo(b.position));
   late final List<Item> items = _list(json['items']).map(Item.new).toList();
   List<Json> get rules => _list(json['rules']);
 
@@ -160,10 +159,6 @@ class Safety {
   bool get loudSignal => sos['loudSignal'] as bool? ?? true;
   bool get requireSupervisor => json['requireSupervisor'] as bool? ?? true;
   List<LText> get requiredGear => (json['requiredGear'] as List? ?? const []).map(LText.new).toList();
-  Json get headcount => json['headcount'] as Json? ?? {};
-  bool get headcountEnabled => headcount['enabled'] as bool? ?? false;
-  List<String> get headcountAt => headcount['at'] == null ? const ['start', 'finish', 'recall'] : _strings(headcount['at']);
-  int? get headcountInterval => (headcount['interval'] as num?)?.toInt();
 }
 
 class Station {

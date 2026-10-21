@@ -16,7 +16,6 @@ import 'package:lykora/data/api.dart';
 import 'package:lykora/data/controller.dart';
 import 'package:lykora/data/session.dart';
 import 'package:lykora/ui/screens/emergency_screen.dart';
-import 'package:lykora/ui/screens/headcount_screen.dart';
 import 'package:lykora/ui/screens/map_tab.dart';
 import 'package:lykora/ui/screens/sos_screen.dart';
 import 'package:lykora/ui/screens/station_screen.dart';
@@ -69,13 +68,20 @@ void main() {
     late AppSettings settings;
     await tester.runAsync(() async {
       final store = SessionStore(await Directory.systemTemp.createTemp('lykora-shots-'));
-      c = GameController(store: store, apiFactory: (s, t) => Api(s, token: t, client: server.client()), backgroundLoops: false);
+      c = GameController(
+        store: store,
+        apiFactory: (s, t) => Api(s, token: t, client: server.client()),
+        backgroundLoops: false,
+      );
       settings = AppSettings(store);
     });
     Future<T> run<T>(Future<T> Function() f) async => (await tester.runAsync(f)) as T;
 
     final key = GlobalKey();
-    final app = RepaintBoundary(key: key, child: LykoraApp(controller: c, settings: settings));
+    final app = RepaintBoundary(
+      key: key,
+      child: LykoraApp(controller: c, settings: settings),
+    );
 
     // Feste Zahl von Frames statt pumpAndSettle: Cursor und Sekundentakt hören nie auf.
     Future<void> settle() async {
@@ -126,27 +132,22 @@ void main() {
     await shot('02-team');
     await pop();
 
-    // Beitreten wie nach „Los“, mit Armbändern für Anna und Ben
+    // Beitreten wie nach „Los“
     await run(() async {
-      await c.join(server: 'https://riegel-troisdorf.de/lykora', code: 'K7M2QX', teamName: 'Füchse', color: 'red');
-      await c.updateMembers([Member('Anna', c.hashTag('04A1')), Member('Ben', c.hashTag('04B2')), Member('Cem')]);
+      await c.join(server: 'https://riegel-troisdorf.de/lykora', code: 'K7M2QX', teamName: 'Füchse', color: 'red', members: ['Anna', 'Ben', 'Cem']);
       await c.onPosition(50.81552, 7.15505, 6);
     });
 
     // 3. Vorbereitung
     await shot('03-vorbereitung');
 
-    // 4. Vollzähligkeit vor dem Start
-    await push(const HeadcountScreen(reason: 'start'));
-    await shot('04-vollzaehligkeit');
-    await pop();
-
     // Start und erste Station
     await run(() async {
-      await c.headcount([c.hashTag('04A1'), c.hashTag('04B2')], 'start');
       await c.start();
       await c.trigger('briefing', 'qr');
-      await c.answer('briefing', {'choice': [0]});
+      await c.answer('briefing', {
+        'choice': [0],
+      });
       await c.onPosition(50.81575, 7.15585, 7);
     });
     await tester.pump(const Duration(milliseconds: 500));

@@ -31,55 +31,67 @@ class FakeServer {
   Map<String, dynamic> team = {'id': 't1', 'name': 'Füchse', 'deviceCode': 'AB3D', 'supervisorPresent': true, 'members': []};
 
   http.Client client() => MockClient((req) async {
-        if (!online) throw const SocketException('offline');
-        final body = req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
-        final path = req.url.path.replaceFirst('/lykora/api', '');
-        Map<String, dynamic> res;
-        switch (path) {
-          case '/join':
-            res = {'token': 'tok', 'eventId': '00000000-0000-0000-0000-000000000001', 'team': team};
-          case '/play/game':
-            res = {'serverTime': DateTime.now().toUtc().toIso8601String(), 'event': event, 'team': team, 'supervisorRequired': true, 'staffTags': [], 'game': gameJson};
-          case '/play/team':
-            team = {...team, 'members': body['members']};
-            res = team;
-          case '/play/sync':
-            syncs.add(body);
-            final delivered = [
-              for (final m in pendingMessages) {'id': ++_messageId, 'created_at': DateTime.now().toUtc().toIso8601String(), 'sender': 'hq', ...m},
-            ];
-            pendingMessages.clear();
-            final actions = [
-              for (final a in (body['actions'] as List).cast<Map>()) {'seq': ++seq, 'id': a['id'], 'source': 'team', 'type': a['type'], 'payload': a['payload'], 'time': a['time']},
-            ];
-            res = {
-              'serverTime': DateTime.now().toUtc().toIso8601String(),
-              'event': event,
-              'team': team,
-              'actions': actions,
-              'outcomes': [for (final a in actions) {'clientId': a['id'], 'status': 'ok'}],
-              'messages': delivered,
-              'leaderboard': leaderboard,
-              'recall': status == 'recalled' ? {'assemblyPoint': gameJson['field']['assemblyPoint']} : null,
-            };
-          case '/play/sos':
-            if (rejectSos) return http.Response('{"error":"invalid_request","message":"kaputt"}', 400);
-            sos.add(body);
-            res = {'received': true};
-          case '/play/messages':
-            messages.add(body);
-            res = {'received': true};
-          default:
-            return http.Response('{"error":"not_found"}', 404);
-        }
-        return http.Response(jsonEncode(res), 200, headers: {'content-type': 'application/json'});
-      });
+    if (!online) throw const SocketException('offline');
+    final body = req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
+    final path = req.url.path.replaceFirst('/lykora/api', '');
+    Map<String, dynamic> res;
+    switch (path) {
+      case '/join':
+        res = {'token': 'tok', 'eventId': '00000000-0000-0000-0000-000000000001', 'team': team};
+      case '/play/game':
+        res = {
+          'serverTime': DateTime.now().toUtc().toIso8601String(),
+          'event': event,
+          'team': team,
+          'supervisorRequired': true,
+          'staffTags': [],
+          'game': gameJson,
+        };
+      case '/play/supervisor':
+        team = {...team, 'supervisorPresent': true};
+        res = team;
+      case '/play/sync':
+        syncs.add(body);
+        final delivered = [
+          for (final m in pendingMessages) {'id': ++_messageId, 'created_at': DateTime.now().toUtc().toIso8601String(), 'sender': 'hq', ...m},
+        ];
+        pendingMessages.clear();
+        final actions = [
+          for (final a in (body['actions'] as List).cast<Map>())
+            {'seq': ++seq, 'id': a['id'], 'source': 'team', 'type': a['type'], 'payload': a['payload'], 'time': a['time']},
+        ];
+        res = {
+          'serverTime': DateTime.now().toUtc().toIso8601String(),
+          'event': event,
+          'team': team,
+          'actions': actions,
+          'outcomes': [
+            for (final a in actions) {'clientId': a['id'], 'status': 'ok'},
+          ],
+          'messages': delivered,
+          'leaderboard': leaderboard,
+          'recall': status == 'recalled' ? {'assemblyPoint': gameJson['field']['assemblyPoint']} : null,
+        };
+      case '/play/sos':
+        if (rejectSos) return http.Response('{"error":"invalid_request","message":"kaputt"}', 400);
+        sos.add(body);
+        res = {'received': true};
+      case '/play/messages':
+        messages.add(body);
+        res = {'received': true};
+      default:
+        return http.Response('{"error":"not_found"}', 404);
+    }
+    return http.Response(jsonEncode(res), 200, headers: {'content-type': 'application/json'});
+  });
 }
 
 Future<GameController> newController(FakeServer server) async {
   final dir = await Directory.systemTemp.createTemp('lykora-test-');
-  final c = GameController(store: SessionStore(dir), apiFactory: (s, t) => Api(s, token: t, client: server.client()));
+  final c = GameController(
+    store: SessionStore(dir),
+    apiFactory: (s, t) => Api(s, token: t, client: server.client()),
+  );
   await c.join(server: 'https://example.org/lykora', code: 'K7M2QX', teamName: 'Füchse');
   return c;
 }
-

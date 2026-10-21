@@ -41,8 +41,6 @@ describe("gemeinsame Engine-Testfälle", () => {
         endedAt: c.ctx?.endedAt != null ? at(c.ctx.endedAt) : null,
         pauses: (c.ctx?.pauses ?? []).map(([a, b]: [number, number | null]) => ({ from: at(a), to: b === null ? null : at(b) })),
         blockReason: c.ctx?.blockReason ?? null,
-        staffTags: c.ctx?.staffTags ?? [],
-        memberTags: c.ctx?.memberTags ?? [],
       };
       const actions: EngineAction[] = c.actions.map(([min, type, payload, source]: any[], i: number) => ({
         clientId: `a${i}`,

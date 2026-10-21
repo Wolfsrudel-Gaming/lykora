@@ -13,7 +13,10 @@ ThemeData lykoraTheme(Brightness brightness) {
     visualDensity: VisualDensity.comfortable,
     filledButtonTheme: FilledButtonThemeData(
       // Von labelLarge ableiten, damit Schriftart und Zeichenabstand des Themes erhalten bleiben.
-      style: FilledButton.styleFrom(minimumSize: const Size(64, 52), textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 17, fontWeight: FontWeight.w600)),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(64, 52),
+        textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 17, fontWeight: FontWeight.w600),
+      ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48))),
     inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
