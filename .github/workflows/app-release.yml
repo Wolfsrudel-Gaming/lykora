@@ -26,12 +26,17 @@ jobs:
           flutter-version: 3.47.7
           cache: true
       - run: flutter pub get
-      - run: flutter build apk --release --build-name "${GITHUB_REF_NAME#app-v}" --build-number "${GITHUB_RUN_NUMBER}"
-      - run: mv build/app/outputs/flutter-apk/app-release.apk "build/lykora-${GITHUB_REF_NAME#app-v}.apk"
+      - run: flutter build apk --release --split-per-abi --build-name "${GITHUB_REF_NAME#app-v}" --build-number "${GITHUB_RUN_NUMBER}"
+      - name: APKs benennen
+        run: |
+          v="${GITHUB_REF_NAME#app-v}"
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "build/lykora-$v-arm64.apk"
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "build/lykora-$v-arm32.apk"
       - uses: softprops/action-gh-release@v2
         with:
           files: app/build/lykora-*.apk
           prerelease: true
           body: |
-            Test-APK für Android. Installation: Datei auf dem Handy öffnen und „Unbekannte Apps installieren“ für den Browser oder Dateimanager erlauben.
+            Test-APK für Android. Für fast alle Handys ab etwa 2017 passt die Datei mit „arm64“; „arm32“ ist für sehr alte Geräte.
+            Installation: Datei auf dem Handy öffnen und „Unbekannte Apps installieren“ für den Browser oder Dateimanager erlauben.
             Noch mit Debug-Schlüssel signiert – nur für Tests.
