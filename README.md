@@ -14,14 +14,15 @@
 
 ## Stand
 
-Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, der **Server** läuft mit Docker, die **Android-App** ist spielbar.
+Das Projekt steht am Anfang. Das **Spielformat** ist die gemeinsame Grundlage, der **Server** läuft mit Docker und liefert das **Web-Dashboard** mit aus, die **Android-App** ist spielbar.
 
 | Teil | Ort | Stand |
 | --- | --- | --- |
 | Konzept | [`docs/de/konzept.md`](docs/de/konzept.md) | Version vom 20.10.2026 |
 | Spielformat v0.1 | [`spec/`](spec/) | Entwurf |
 | Server (TypeScript, PostgreSQL, Docker) | [`server/`](server/) | erste Fassung |
-| Web: Editor und Dashboard | – | geplant |
+| Web: Dashboard (Leitstand, Betreuer-Ansicht, Spiele, Medien und Klänge) | [`web/`](web/) | umgesetzt |
+| Web: Spiel-Editor | – | geplant |
 | App (Flutter, Android) | [`app/`](app/) | erste Fassung, Test-APK über die CI |
 | ESP32-Boxen (PlatformIO) | – | geplant |
 
@@ -34,7 +35,7 @@ cp .env.example .env      # Passwörter und Adresse eintragen
 docker compose up -d --build
 ```
 
-Danach ist die API-Doku unter `http://localhost:3000/lykora/api/docs` erreichbar. Details in [`server/README.md`](server/README.md).
+Danach ist das Dashboard unter `http://localhost:3000/lykora/` und die API-Doku unter `http://localhost:3000/lykora/api/docs` erreichbar. Details in [`server/README.md`](server/README.md) und [`web/README.md`](web/README.md).
 
 Zum Entwickeln: Node.js 22 und PostgreSQL 16.
 
@@ -42,7 +43,10 @@ Zum Entwickeln: Node.js 22 und PostgreSQL 16.
 npm install
 npm run validate          # Beispielspiele gegen das Schema prüfen
 npm run validate -- spiel.json
-npm test                  # braucht eine Testdatenbank, siehe server/README.md
+npm test                  # alle Teile; der Server braucht eine Testdatenbank, siehe server/README.md
+npm run build             # Server und Web-Dashboard bauen
+npm run dev -w @lykora/web            # Dashboard mit Neuladen unter http://localhost:5173/lykora/
+node web/e2e/run.mjs                  # Ende-zu-Ende-Lauf mit Browser, siehe web/README.md
 ```
 
 Beiträge sind willkommen, siehe [CONTRIBUTING.md](CONTRIBUTING.md).

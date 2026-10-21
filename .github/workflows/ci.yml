@@ -36,7 +36,20 @@ jobs:
         run: npm run generate -w @lykora/spec && git diff --exit-code spec/
       - run: npm run validate
       - run: npm run typecheck -w @lykora/server
-      - run: npm test
+      - run: npm test -w @lykora/spec -w @lykora/server
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -w @lykora/web
+      # Prüft TypeScript streng und baut web/dist.
+      - run: npm run build -w @lykora/web
 
   docker:
     runs-on: ubuntu-latest

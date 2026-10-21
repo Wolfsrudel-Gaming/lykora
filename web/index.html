@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de" data-theme="night">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Der Server ersetzt den Platzhalter durch seinen Basispfad, z. B. /lykora/. -->
+    <base href="/__LYKORA_BASE__/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0B0C0E" />
+    <title>Lykora</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <script>
+      // Thema vor dem ersten Zeichnen setzen, damit nichts aufblitzt.
+      try {
+        var t = localStorage.getItem("lykora.theme");
+        if (t === "day" || t === "night") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>Das Lykora-Dashboard braucht JavaScript.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

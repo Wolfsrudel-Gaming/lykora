@@ -1,0 +1,126 @@
+/*
+ * Design-Tokens des Dashboards nach dem „Laternenprinzip“ der App:
+ * Nacht ist Standard, nur was zählt leuchtet. Sicherheitsrot gehört allein SOS,
+ * Rückruf und Sperrzonen; das Absperrband markiert Sicherheitsflächen.
+ */
+
+@font-face {
+  font-family: "Atkinson Next";
+  src: url("/fonts/AtkinsonNext-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Next";
+  src: url("/fonts/AtkinsonNext-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Next";
+  src: url("/fonts/AtkinsonNext-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Mono";
+  src: url("/fonts/AtkinsonMono-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Mono";
+  src: url("/fonts/AtkinsonMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("/fonts/Fraunces-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("/fonts/BarlowCondensed-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("/fonts/BarlowCondensed-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --font-ui: "Atkinson Next", system-ui, sans-serif;
+  --font-mono: "Atkinson Mono", ui-monospace, monospace;
+  --font-brand: "Fraunces", Georgia, serif;
+  --font-head: "Barlow Condensed", "Atkinson Next", sans-serif;
+
+  /* Nacht */
+  --ground: #0b0c0e;
+  --surface: #16181c;
+  --raised: #20232a;
+  --line: #2e323a;
+  --text: #ede6d8;
+  --muted: #bdb5a6;
+  --edge: #8a8f99;
+  --accent: #f2a33a;
+  --accent-bright: #f7c37f;
+  --on-accent: #1a1104;
+  --accent-soft: rgba(242, 163, 58, 0.14);
+  --safety: #c8201a;
+  --on-safety: #ffffff;
+  --safety-soft: rgba(200, 32, 26, 0.16);
+  --tape-a: #c8201a;
+  --tape-b: #ffffff;
+  /* Grün der Rettungszeichen, nur für Sammel- und Rettungspunkte */
+  --rescue: #00843d;
+  --shade: rgba(0, 0, 0, 0.6);
+  --map-filter: brightness(0.62) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.25) brightness(0.72);
+
+  --radius: 8px;
+  --radius-small: 5px;
+  --gap: 12px;
+  --gutter: 16px;
+  --tap: 40px;
+  --tick: 120ms;
+  --enter: 240ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: dark;
+}
+
+:root[data-theme="day"] {
+  --ground: #f3eee4;
+  --surface: #ffffff;
+  --raised: #ece5d8;
+  --line: #d9d0c0;
+  --text: #1c1a16;
+  --muted: #5c564c;
+  --edge: #5c564c;
+  --accent: #8f4e00;
+  --accent-bright: #8f4e00;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(143, 78, 0, 0.1);
+  --safety-soft: rgba(200, 32, 26, 0.1);
+  --shade: rgba(28, 26, 22, 0.45);
+  --map-filter: none;
+  color-scheme: light;
+}
+
+/* Finger statt Maus: größere Flächen */
+@media (pointer: coarse) {
+  :root {
+    --tap: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tick: 0ms;
+    --enter: 0ms;
+  }
+}

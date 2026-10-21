@@ -5,10 +5,10 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "engines": { "node": ">=22" },
-  "workspaces": ["spec", "server"],
+  "workspaces": ["spec", "server", "web"],
   "scripts": {
     "validate": "node spec/validate.mjs",
     "test": "npm test --workspaces",
-    "build": "npm run build -w @lykora/server"
+    "build": "npm run build -w @lykora/server && npm run build -w @lykora/web"
   }
 }
