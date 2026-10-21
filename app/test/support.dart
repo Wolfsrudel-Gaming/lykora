@@ -15,6 +15,11 @@ final gameJson = jsonDecode(File('../spec/v0.1/examples/testspiel.json').readAsS
 class FakeServer {
   bool online = true;
   bool rejectSos = false;
+
+  /// Nachrichten der Zentrale, die beim nächsten Abgleich ankommen.
+  final pendingMessages = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>>? leaderboard;
+  int _messageId = 0;
   final syncs = <Map<String, dynamic>>[];
   final sos = <Map<String, dynamic>>[];
   final messages = <Map<String, dynamic>>[];
@@ -35,8 +40,15 @@ class FakeServer {
             res = {'token': 'tok', 'eventId': '00000000-0000-0000-0000-000000000001', 'team': team};
           case '/play/game':
             res = {'serverTime': DateTime.now().toUtc().toIso8601String(), 'event': event, 'team': team, 'supervisorRequired': true, 'staffTags': [], 'game': gameJson};
+          case '/play/team':
+            team = {...team, 'members': body['members']};
+            res = team;
           case '/play/sync':
             syncs.add(body);
+            final delivered = [
+              for (final m in pendingMessages) {'id': ++_messageId, 'created_at': DateTime.now().toUtc().toIso8601String(), 'sender': 'hq', ...m},
+            ];
+            pendingMessages.clear();
             final actions = [
               for (final a in (body['actions'] as List).cast<Map>()) {'seq': ++seq, 'id': a['id'], 'source': 'team', 'type': a['type'], 'payload': a['payload'], 'time': a['time']},
             ];
@@ -46,8 +58,8 @@ class FakeServer {
               'team': team,
               'actions': actions,
               'outcomes': [for (final a in actions) {'clientId': a['id'], 'status': 'ok'}],
-              'messages': [],
-              'leaderboard': null,
+              'messages': delivered,
+              'leaderboard': leaderboard,
               'recall': status == 'recalled' ? {'assemblyPoint': gameJson['field']['assemblyPoint']} : null,
             };
           case '/play/sos':

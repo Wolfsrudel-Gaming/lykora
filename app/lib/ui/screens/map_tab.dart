@@ -58,6 +58,12 @@ class _MapTabState extends State<MapTab> {
         final center = pos ?? field.start ?? (field.boundary.isCircle ? field.boundary.center : field.boundary.polygon.first);
         final tiles = game.settings.tiles ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
         final assembly = field.assemblyPoint.location;
+        final assemblyMarker = Marker(
+          point: _ll(assembly),
+          width: c.recalled ? 56 : 44,
+          height: c.recalled ? 56 : 44,
+          child: const _Pin(icon: Icons.flag, color: Colors.white, background: Colors.indigo),
+        );
 
         return Stack(children: [
           FlutterMap(
@@ -83,7 +89,7 @@ class _MapTabState extends State<MapTab> {
                   CircleMarker(point: _ll(pos), radius: c.accuracy!, useRadiusInMeter: true, color: Colors.lightBlueAccent.withValues(alpha: 0.18), borderColor: Colors.lightBlueAccent, borderStrokeWidth: 1),
                 ]),
               MarkerLayer(markers: [
-                Marker(point: _ll(assembly), width: 44, height: 44, child: const _Pin(icon: Icons.flag, color: Colors.white, background: Colors.indigo)),
+                if (!c.recalled) assemblyMarker,
                 for (final r in field.rescuePoints)
                   Marker(point: _ll(r.location), width: 36, height: 36, child: const _Pin(icon: Icons.local_hospital, color: Colors.white, background: sosRed)),
                 for (final s in c.visibleStations)
@@ -101,6 +107,8 @@ class _MapTabState extends State<MapTab> {
                         ),
                       ),
                     ),
+                // Beim Rückruf liegt der Sammelpunkt obenauf, damit ihn keine Station verdeckt.
+                if (c.recalled) assemblyMarker,
                 if (pos != null && game.settings.showOwnPosition)
                   Marker(
                     point: _ll(pos),

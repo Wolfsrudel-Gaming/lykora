@@ -34,9 +34,12 @@ class ActionResult {
 /// Jede Handlung des Teams wird sofort lokal ausgewertet und gespeichert. Der Abgleich
 /// läuft im Hintergrund, sobald Netz da ist; der Server entscheidet am Ende.
 class GameController extends ChangeNotifier {
-  GameController({required this.store, Api Function(String server, String? token)? apiFactory, int Function()? clock})
+  GameController({required this.store, Api Function(String server, String? token)? apiFactory, int Function()? clock, this.backgroundLoops = true})
       : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
         _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
+
+  /// Abgleich und Sekundentakt im Hintergrund; in Widget-Tests aus, weil dort die Zeit simuliert ist.
+  final bool backgroundLoops;
 
   final SessionStore store;
   final Api Function(String server, String? token) _apiFactory;
@@ -95,6 +98,7 @@ class GameController extends ChangeNotifier {
 
   /// Startet den regelmäßigen Abgleich und die Zeitprüfung.
   void startLoops() {
+    if (!backgroundLoops) return;
     _tick?.cancel();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) => notifyListeners());
     _scheduleSync(const Duration(seconds: 1));
@@ -574,6 +578,7 @@ class GameController extends ChangeNotifier {
   // Abgleich
 
   void _scheduleSync(Duration delay) {
+    if (!backgroundLoops) return;
     _syncTimer?.cancel();
     _syncTimer = Timer(delay, () => sync());
   }

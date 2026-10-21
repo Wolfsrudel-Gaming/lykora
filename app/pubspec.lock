@@ -313,7 +313,7 @@ packages:
     source: hosted
     version: "0.2.6"
   geolocator_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: geolocator_platform_interface
       sha256: e012af6b7e2674e7500237ab11e44ac9119e87fd0105e7bb55cde1750e8e5d80
@@ -729,7 +729,7 @@ packages:
     source: hosted
     version: "3.2.0"
   plugin_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: plugin_platform_interface
       sha256: "4820fbfdb9478b1ebae27888254d445073732dae3d6ea81f0b7e06d5dedc3f02"

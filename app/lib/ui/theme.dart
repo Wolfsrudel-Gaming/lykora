@@ -7,13 +7,13 @@ const okGreen = Color(0xFF43A047);
 
 ThemeData lykoraTheme(Brightness brightness) {
   final scheme = ColorScheme.fromSeed(seedColor: lantern, brightness: brightness, primary: lantern);
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
+  final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+  return base.copyWith(
     scaffoldBackgroundColor: brightness == Brightness.dark ? const Color(0xFF0E0F12) : null,
     visualDensity: VisualDensity.comfortable,
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(minimumSize: const Size(64, 52), textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      // Von labelLarge ableiten, damit Schriftart und Zeichenabstand des Themes erhalten bleiben.
+      style: FilledButton.styleFrom(minimumSize: const Size(64, 52), textStyle: base.textTheme.labelLarge?.copyWith(fontSize: 17, fontWeight: FontWeight.w600)),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48))),
     inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
