@@ -46,6 +46,8 @@ jobs:
 
   app:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     services:
       postgres:
         image: postgres:16-alpine
@@ -103,3 +105,15 @@ jobs:
           name: lykora-apk-arm64
           path: app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           retention-days: 7
+      - name: Neueste Test-APK als Vorabversion „Testbuild“ ablegen
+        # Release-Dateien zählen nicht zum Artefakt-Kontingent und lassen sich direkt aufs Handy laden.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/lykora-testbuild-arm64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/lykora-testbuild-arm32.apk
+          gh release delete app-testbuild --cleanup-tag --yes || true
+          gh release create app-testbuild build/lykora-testbuild-arm64.apk build/lykora-testbuild-arm32.apk \
+            --prerelease --target "$GITHUB_SHA" --title "Testbuild (neuester Stand)" \
+            --notes "Automatisch gebaut aus ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Für fast alle Handys passt arm64, für sehr alte arm32. Nur zum Testen, mit Debug-Schlüssel signiert."
