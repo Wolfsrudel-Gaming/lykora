@@ -101,7 +101,10 @@ class Session {
         ..clockOffsetMs = j['clockOffsetMs'] as int? ?? 0
         ..lastSyncAt = j['lastSyncAt'] == null ? null : DateTime.parse(j['lastSyncAt'] as String)
         ..lastHeartbeatAt = j['lastHeartbeatAt'] as int?
-        ..introSeen = j['introSeen'] as bool? ?? false;
+        ..introSeen = j['introSeen'] as bool? ?? false
+        ..seenScenes = (j['seenScenes'] as List? ?? const []).cast<String>().toSet()
+        ..recallAcknowledged = j['recallAcknowledged'] as bool? ?? false
+        ..systemAck = j['systemAck'] as int? ?? 0;
 
   final String server;
   final String token;
@@ -131,6 +134,15 @@ class Session {
   int? lastHeartbeatAt;
 
   bool introSeen = false;
+
+  /// Stationen, deren Szene das Team schon erlebt hat
+  Set<String> seenScenes = {};
+
+  /// „Wir sind unterwegs“ zum laufenden Rückruf gesendet
+  bool recallAcknowledged = false;
+
+  /// Höchste Nummer einer gelesenen Nachricht der Spielleitung (Art system)
+  int systemAck = 0;
 
   String get teamId => team['id'] as String;
   String get teamName => team['name'] as String? ?? '';
@@ -162,6 +174,9 @@ class Session {
     'lastSyncAt': lastSyncAt?.toIso8601String(),
     'lastHeartbeatAt': lastHeartbeatAt,
     'introSeen': introSeen,
+    'seenScenes': seenScenes.toList(),
+    'recallAcknowledged': recallAcknowledged,
+    'systemAck': systemAck,
   };
 }
 

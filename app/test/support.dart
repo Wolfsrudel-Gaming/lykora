@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lykora/data/api.dart';
@@ -13,6 +14,10 @@ final gameJson = jsonDecode(File('../spec/v0.1/examples/testspiel.json').readAsS
 
 /// Nachgebauter Server mit umschaltbarem Netz.
 class FakeServer {
+  FakeServer({Map<String, dynamic>? game}) : game = game ?? gameJson;
+
+  /// Spielpaket, das der Server ausliefert
+  final Map<String, dynamic> game;
   bool online = true;
   bool rejectSos = false;
 
@@ -39,14 +44,7 @@ class FakeServer {
       case '/join':
         res = {'token': 'tok', 'eventId': '00000000-0000-0000-0000-000000000001', 'team': team};
       case '/play/game':
-        res = {
-          'serverTime': DateTime.now().toUtc().toIso8601String(),
-          'event': event,
-          'team': team,
-          'supervisorRequired': true,
-          'staffTags': [],
-          'game': gameJson,
-        };
+        res = {'serverTime': DateTime.now().toUtc().toIso8601String(), 'event': event, 'team': team, 'supervisorRequired': true, 'staffTags': [], 'game': game};
       case '/play/supervisor':
         team = {...team, 'supervisorPresent': true};
         res = team;
@@ -70,7 +68,7 @@ class FakeServer {
           ],
           'messages': delivered,
           'leaderboard': leaderboard,
-          'recall': status == 'recalled' ? {'assemblyPoint': gameJson['field']['assemblyPoint']} : null,
+          'recall': status == 'recalled' ? {'assemblyPoint': game['field']['assemblyPoint']} : null,
         };
       case '/play/sos':
         if (rejectSos) return http.Response('{"error":"invalid_request","message":"kaputt"}', 400);
@@ -94,4 +92,28 @@ Future<GameController> newController(FakeServer server) async {
   );
   await c.join(server: 'https://example.org/lykora', code: 'K7M2QX', teamName: 'Füchse');
   return c;
+}
+
+/// Lädt die Schriften der App aus pubspec.yaml und die Material-Symbole, damit Tests echte Glyphen messen.
+Future<void> loadAppFonts() async {
+  final pubspec = File('pubspec.yaml').readAsLinesSync();
+  String? family;
+  final assets = <String, List<String>>{};
+  for (final line in pubspec) {
+    final f = RegExp(r'^\s*- family:\s*(.+)$').firstMatch(line);
+    if (f != null) family = f.group(1)!.trim();
+    final a = RegExp(r'^\s*- asset:\s*(assets/fonts/.+)$').firstMatch(line);
+    if (a != null && family != null) assets.putIfAbsent(family, () => []).add(a.group(1)!.trim());
+  }
+  for (final e in assets.entries) {
+    final loader = FontLoader(e.key);
+    for (final path in e.value) {
+      loader.addFont(Future.value(ByteData.sublistView(File(path).readAsBytesSync())));
+    }
+    await loader.load();
+  }
+  final root = Platform.environment['FLUTTER_ROOT'] ?? '/var/tmp/flutter';
+  final icons = FontLoader('MaterialIcons')
+    ..addFont(Future.value(ByteData.sublistView(File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync())));
+  await icons.load();
 }

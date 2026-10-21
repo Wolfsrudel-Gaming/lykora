@@ -1,17 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../app.dart';
 import '../../data/api.dart';
+import '../../services/fx.dart';
 import '../../services/location.dart';
 import '../../services/nfc.dart';
+import '../design/components.dart';
+import '../design/pictograms.dart';
+import '../design/tokens.dart';
 import '../widgets/common.dart';
-import 'emergency_screen.dart';
+import 'join_screen.dart';
 import 'settings_screen.dart';
 
-/// Vorbereitung vor dem Start: Berechtigungen, GPS, Ausrüstung, Notfallinfos, Intro.
+/// Vorbereitung: erst „Packen“ als sichtbares Offline-Versprechen, dann „Startklar“ als Ritual.
 class PrepScreen extends StatefulWidget {
   const PrepScreen({super.key});
+
+  /// In Widget-Tests ohne Packen-Animation.
+  static bool skipPacking = false;
 
   @override
   State<PrepScreen> createState() => _PrepScreenState();
@@ -22,33 +31,57 @@ class _PrepScreenState extends State<PrepScreen> {
   String? _locationProblem;
   bool _batteryOk = false;
   bool _nfc = false;
+  bool _soundHeard = false;
   final _gear = <int>{};
   bool _starting = false;
+  int _packed = 0;
+  Timer? _packTimer;
 
   @override
   void initState() {
     super.initState();
+    if (PrepScreen.skipPacking) {
+      _packed = 99;
+    } else {
+      _packTimer = Timer.periodic(const Duration(milliseconds: 650), (t) {
+        if (!mounted) return;
+        setState(() => _packed++);
+        Fx.instance.play(Sound.tick, volume: 0.5);
+        if (_packed > 4) t.cancel();
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _prepare());
   }
 
+  @override
+  void dispose() {
+    _packTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _prepare() async {
+    if (!mounted) return;
     final c = Lykora.game(context);
     c.startLoops();
     _locationProblem = await _location.ensurePermission();
     if (_locationProblem == null) {
       await _location.start((p) => c.onPosition(p.latitude, p.longitude, p.accuracy, at: p.timestamp));
     }
-    try {
-      await Permission.notification.request();
-      _batteryOk = await Permission.ignoreBatteryOptimizations.isGranted;
-    } catch (_) {}
-    _nfc = await NfcService().available();
+    if (Fx.enabled) {
+      try {
+        await Permission.notification.request();
+        _batteryOk = await Permission.ignoreBatteryOptimizations.isGranted;
+      } catch (_) {}
+      _nfc = await NfcService().available();
+    }
     if (mounted) setState(() {});
   }
 
   Future<void> _requestBattery() async {
-    await Permission.ignoreBatteryOptimizations.request();
-    _batteryOk = await Permission.ignoreBatteryOptimizations.isGranted;
+    try {
+      await Permission.ignoreBatteryOptimizations.request();
+      _batteryOk = await Permission.ignoreBatteryOptimizations.isGranted;
+    } catch (_) {}
     if (mounted) setState(() {});
   }
 
@@ -58,7 +91,7 @@ class _PrepScreenState extends State<PrepScreen> {
     try {
       if (c.supervisorMissing) {
         final pin = await _askPin();
-        if (pin == null || !mounted) return;
+        if (pin == null || pin.isEmpty || !mounted) return;
         try {
           await c.confirmSupervisor(pin);
         } on ApiException catch (e) {
@@ -79,20 +112,28 @@ class _PrepScreenState extends State<PrepScreen> {
 
   Future<String?> _askPin() {
     final ctrl = TextEditingController();
-    return showDialog<String>(
+    final t = context.tok;
+    return showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Betreuer-PIN'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(helperText: 'Ohne Betreuer geht es nicht los.'),
+      isScrollControlled: true,
+      backgroundColor: t.p.surface,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(Space.gutter, Space.gutter, Space.gutter, MediaQuery.of(ctx).viewInsets.bottom + Space.gutter),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(Icons.front_hand_rounded, size: 56, color: t.p.accent),
+            const SizedBox(height: 8),
+            Text('Betreuer-PIN', style: t.heading, textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text('Ohne Betreuer geht es nicht los.', style: t.muted, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            CodeBoxes(controller: ctrl, autofocus: true, onSubmitted: (v) => Navigator.of(ctx).pop(v.trim())),
+            const SizedBox(height: 18),
+            LKey(label: 'Bestätigen', icon: Icons.check_rounded, onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim())),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('Bestätigen')),
-        ],
       ),
     );
   }
@@ -100,127 +141,328 @@ class _PrepScreenState extends State<PrepScreen> {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    final game = c.game!;
-    final s = c.session!;
-    final theme = Theme.of(context);
-    final gpsOk = c.accuracy != null && c.accuracy! <= 30;
-    final gear = game.safety.requiredGear;
-
     return ListenableBuilder(
       listenable: c,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: Text(game.title.of(context)),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-            ),
-            const SosButton(),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text('Team ${s.teamName}', style: theme.textTheme.headlineSmall),
-            if (!game.intro.isEmpty) ...[
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+      builder: (context, _) {
+        if (_packed < 5) return _Packing(step: _packed);
+        final t = context.tok;
+        final game = c.game!;
+        final s = c.session!;
+        final gpsOk = c.accuracy != null && c.accuracy! <= 30;
+        final gear = game.safety.requiredGear;
+        final battery = c.battery;
+        final gearMissing = gear.isNotEmpty && _gear.length < gear.length;
+        final needPin = c.supervisorMissing && !gearMissing;
+        final reason = c.eventEnded
+            ? 'Das Spiel ist vorbei.'
+            : gearMissing
+            ? 'Erst Ausrüstung abhaken'
+            : (!c.eventRunning && !needPin ? 'Warte auf den Start durch die Spielleitung' : null);
+
+        return StageScaffold(
+          title: t.displayText(game.title.of(context)),
+          trailing: IconButton(
+            tooltip: 'Einstellungen',
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+            icon: Icon(Icons.tune_rounded, color: t.p.textMuted),
+            onPressed: () => Navigator.of(context).push(FadeRoute<void>(builder: (_) => const SettingsScreen())),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 24),
+            children: [
+              Text(t.displayText('Team ${s.teamName}'), style: t.display(30)),
+              if (!game.summary.isEmpty) ...[const SizedBox(height: 8), Text(game.summary.of(context), style: t.muted)],
+              const SizedBox(height: 24),
+              const Caps('Startklar?'),
+              const SizedBox(height: 8),
+              const _Check(ok: true, icon: Icons.backpack_rounded, title: 'Spiel eingepackt', subtitle: 'Läuft jetzt auch ohne Netz.'),
+              _Check(
+                ok: _locationProblem == null && gpsOk,
+                icon: Icons.satellite_alt_rounded,
+                title: 'Ortung an',
+                subtitle: _locationProblem ?? (c.accuracy == null ? 'Suche Satelliten …' : 'Genauigkeit etwa ${c.accuracy!.round()} m'),
+                action: _locationProblem == null ? null : ('Einstellungen', _location.openSettings),
+              ),
+              _Check(
+                ok: battery == null || battery >= 0.8,
+                icon: Icons.battery_charging_full_rounded,
+                title: battery == null ? 'Akku' : 'Akku ${(battery * 100).round()} %',
+                subtitle: battery == null || battery >= 0.8 ? 'Reicht für die Nacht.' : 'Ladet noch kurz oder nehmt eine Powerbank mit.',
+                optional: true,
+              ),
+              _Check(
+                ok: _batteryOk,
+                icon: Icons.phonelink_lock_rounded,
+                title: 'Im Hintergrund laufen lassen',
+                subtitle: 'Sonst beendet Android die Ortung, wenn der Bildschirm aus ist.',
+                action: _batteryOk ? null : ('Erlauben', _requestBattery),
+              ),
+              _Check(
+                ok: _soundHeard,
+                icon: Icons.volume_up_rounded,
+                title: 'Tontest',
+                subtitle: 'Hört ihr das Rauschen?',
+                action: _soundHeard
+                    ? null
+                    : (
+                        'Abspielen',
+                        () async {
+                          await Fx.instance.play(Sound.squelchOn, volume: 1);
+                          Fx.instance.buzz(Buzz.pulse);
+                          if (mounted) setState(() => _soundHeard = true);
+                        },
+                      ),
+                optional: true,
+              ),
+              _Check(
+                ok: _nfc,
+                icon: Icons.nfc_rounded,
+                title: 'NFC',
+                subtitle: _nfc ? 'Bereit für Plaketten an Stationen.' : 'Aus oder nicht da. QR-Codes gehen trotzdem.',
+                optional: true,
+              ),
+              _Check(
+                ok: c.online,
+                icon: Icons.cell_tower_rounded,
+                title: 'Verbindung',
+                subtitle: c.online ? 'Verbunden.' : 'Gerade kein Netz – kein Problem, das Spiel läuft offline.',
+                optional: true,
+              ),
+              if (gear.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Caps('Ausrüstung'),
+                const SizedBox(height: 8),
+                for (var i = 0; i < gear.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Panel(
+                      lit: !_gear.contains(i),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      onTap: () => setState(() => _gear.contains(i) ? _gear.remove(i) : _gear.add(i)),
+                      child: Row(
                         children: [
-                          Text('Einsatzbefehl', style: theme.textTheme.titleMedium),
-                          const Spacer(),
-                          ReadAloudButton(game.intro.of(context)),
+                          _Tick(ok: _gear.contains(i)),
+                          const SizedBox(width: 14),
+                          Expanded(child: Text(gear[i].of(context), style: t.body)),
                         ],
                       ),
-                      Text(game.intro.of(context), style: theme.textTheme.bodyLarge),
-                    ],
+                    ),
                   ),
+              ],
+              const SizedBox(height: 20),
+              const Caps('Wie dunkel ist es?'),
+              const SizedBox(height: 10),
+              const LightChooser(),
+              const SizedBox(height: 8),
+              Text('Tipp: Androids „Extra dunkel“ dimmt zusätzlich.', style: t.small),
+              const SizedBox(height: 20),
+              Panel(
+                onTap: () => Navigator.of(context).push(FadeRoute<void>(builder: (_) => const _SafetyIntro())),
+                child: Row(
+                  children: [
+                    const Pictogram(Picto.assembly, size: 44),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('So sieht „echt“ aus', style: t.body.copyWith(fontWeight: FontWeight.w700)),
+                          Text('Absperrband heißt: kein Spiel. Sammelpunkt: ${game.field.assemblyPoint.name.of(context)}', style: t.small),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: t.p.textMuted),
+                  ],
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            Text('Startklar?', style: theme.textTheme.titleLarge),
-            _Check(ok: true, title: 'Spiel geladen', subtitle: 'Läuft jetzt auch ohne Netz.'),
-            _Check(
-              ok: _locationProblem == null && gpsOk,
-              title: 'GPS',
-              subtitle: _locationProblem ?? (c.accuracy == null ? 'Suche Satelliten …' : 'Genauigkeit ${c.accuracy!.round()} m'),
-              action: _locationProblem == null ? null : TextButton(onPressed: _location.openSettings, child: const Text('Einstellungen')),
-            ),
-            _Check(
-              ok: _batteryOk,
-              title: 'Akku-Optimierung aus',
-              subtitle: 'Sonst beendet Android die Ortung, wenn der Bildschirm aus ist.',
-              action: _batteryOk ? null : TextButton(onPressed: _requestBattery, child: const Text('Erlauben')),
-            ),
-            _Check(
-              ok: _nfc,
-              title: 'NFC',
-              subtitle: _nfc ? 'Bereit für NFC-Tags an Stationen.' : 'Aus oder nicht vorhanden. QR-Codes gehen trotzdem.',
-              optional: true,
-            ),
-            _Check(
-              ok: c.online,
-              title: 'Verbindung zum Server',
-              subtitle: c.online ? 'Verbunden' : 'Gerade kein Netz – kein Problem, das Spiel läuft offline.',
-              optional: true,
-            ),
-            if (gear.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text('Ausrüstung', style: theme.textTheme.titleMedium),
-              for (var i = 0; i < gear.length; i++)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _gear.contains(i),
-                  onChanged: (v) => setState(() => v == true ? _gear.add(i) : _gear.remove(i)),
-                  title: Text(gear[i].of(context)),
-                ),
-            ],
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EmergencyScreen())),
-              icon: const Icon(Icons.health_and_safety_outlined),
-              label: const Text('Notfallinfos ansehen'),
-            ),
-            const SizedBox(height: 20),
-            if (c.paused || c.recalled) const Text('Das Spiel ist pausiert.', textAlign: TextAlign.center),
-            if (!c.eventRunning && !c.eventEnded) const Text('Warte auf den Start durch die Spielleitung …', textAlign: TextAlign.center),
-            if (c.supervisorMissing) const Text('Betreuer noch nicht bestätigt.', textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _starting || c.eventEnded || (gear.isNotEmpty && _gear.length < gear.length) ? null : _start,
-              icon: const Icon(Icons.flag_outlined),
-              label: Text(gear.isNotEmpty && _gear.length < gear.length ? 'Erst Ausrüstung abhaken' : 'Abenteuer starten'),
+          ),
+          actions: [
+            LKey(
+              label: needPin ? 'Betreuer-PIN eingeben' : 'Abenteuer starten',
+              icon: needPin ? Icons.front_hand_rounded : Icons.flag_rounded,
+              busy: _starting,
+              onPressed: reason != null ? null : _start,
+              reason: reason,
             ),
           ],
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _Tick extends StatelessWidget {
+  const _Tick({required this.ok, this.optional = false});
+  final bool ok;
+  final bool optional;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    if (ok) {
+      return SizedBox.square(dimension: 32, child: CustomPaint(painter: _SealTickPainter(t.p.accent, t.p.onAccent)));
+    }
+    return Icon(optional ? Icons.info_outline_rounded : Icons.radio_button_unchecked_rounded, size: 32, color: t.p.edge);
+  }
+}
+
+class _SealTickPainter extends CustomPainter {
+  _SealTickPainter(this.fill, this.ink);
+  final Color fill;
+  final Color ink;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    canvas.drawPath(sealPath(c, size.width / 2, 8, 0.84), Paint()..color = fill);
+    canvas.drawPath(
+      Path()
+        ..moveTo(c.dx - 7, c.dy)
+        ..lineTo(c.dx - 2, c.dy + 5)
+        ..lineTo(c.dx + 8, c.dy - 6),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..color = ink,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SealTickPainter old) => old.fill != fill || old.ink != ink;
+}
+
+class _Check extends StatelessWidget {
+  const _Check({required this.ok, required this.icon, required this.title, required this.subtitle, this.action, this.optional = false});
+  final bool ok;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final (String, VoidCallback)? action;
+  final bool optional;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 30, color: ok ? t.p.text : t.p.textMuted),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: t.body.copyWith(fontWeight: FontWeight.w700)),
+                Text(subtitle, style: t.small),
+              ],
+            ),
+          ),
+          if (action != null) TextButton(onPressed: action!.$2, child: Text(action!.$1)) else _Tick(ok: ok, optional: optional),
+        ],
       ),
     );
   }
 }
 
-class _Check extends StatelessWidget {
-  const _Check({required this.ok, required this.title, required this.subtitle, this.action, this.optional = false});
-  final bool ok;
-  final String title;
-  final String subtitle;
-  final Widget? action;
-  final bool optional;
+/// Packen: Was im Rucksack ist, geht auch ohne Netz.
+class _Packing extends StatelessWidget {
+  const _Packing({required this.step});
+  final int step;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(ok ? Icons.check_circle : (optional ? Icons.info_outline : Icons.radio_button_unchecked), color: ok ? Colors.green : null),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: action,
+    final c = Lykora.game(context);
+    final t = context.tok;
+    final game = c.game!;
+    final media = (game.json['media'] as List? ?? const []).length;
+    final items = [
+      ('Geschichte', '${game.stations.length} Stationen, ${game.chapters.length} Kapitel'),
+      ('Hörstücke und Bilder', media == 0 ? 'Vorlesestimme an Bord' : '$media Dateien'),
+      ('Karte', 'Spielfeld, Sammelpunkt, Sperrzonen'),
+      ('Notfallinfos', 'Funktionieren immer offline'),
+    ];
+    return StageScaffold(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 24, Space.gutter, 24),
+        children: [
+          Center(child: LanternMark(size: 120, fill: (step / 4).clamp(0.15, 1))),
+          const SizedBox(height: 12),
+          Text('Packen', textAlign: TextAlign.center, style: t.display(36)),
+          const SizedBox(height: 24),
+          for (final (i, (title, sub)) in items.indexed)
+            AnimatedOpacity(
+              opacity: i < step ? 1 : 0.35,
+              duration: Motion.enter,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    _Tick(ok: i < step),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: t.body.copyWith(fontWeight: FontWeight.w700)),
+                          Text(sub, style: t.small),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
+          AnimatedOpacity(
+            opacity: step >= 4 ? 1 : 0,
+            duration: Motion.enter,
+            child: Text('Alles im Rucksack.\nAb jetzt geht es ohne Netz.', textAlign: TextAlign.center, style: t.heading),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kurz erklärt: So unterscheidet die App Spiel und Ernst.
+class _SafetyIntro extends StatelessWidget {
+  const _SafetyIntro();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final c = Lykora.game(context);
+    return StageScaffold(
+      title: 'Spiel und Ernst',
+      body: ListView(
+        padding: const EdgeInsets.all(Space.gutter),
+        children: [
+          const CautionTape(height: 24),
+          const SizedBox(height: 16),
+          Text('Absperrband und das Wort ECHT benutzt die Geschichte nie. Seht ihr das, ist es kein Spiel: dann gilt, was dort steht.', style: t.body),
+          const SizedBox(height: 20),
+          for (final (p, text) in [
+            (Picto.assembly, 'Sammelpunkt: ${c.game!.field.assemblyPoint.name.of(context)}. Hier treffen sich alle bei einem Rückruf.'),
+            (Picto.prohibited, 'Sperrzone: nicht betreten. Die App warnt rechtzeitig.'),
+            (Picto.firstAid, 'Rettungszufahrt: Hier kommt im Notfall Hilfe an.'),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  Pictogram(p, size: 52),
+                  const SizedBox(width: 14),
+                  Expanded(child: Text(text, style: t.body)),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          Text('SOS oben rechts ist immer da. Drei Sekunden halten alarmiert die Spielleitung. Öffnen allein löst nichts aus.', style: t.body),
+        ],
+      ),
     );
   }
 }

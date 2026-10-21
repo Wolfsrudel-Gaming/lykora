@@ -65,6 +65,22 @@ class Game {
   String get language => languages.isEmpty ? 'de' : languages.first;
   bool get night => meta['night'] as bool? ?? false;
   List<String> get ageGroups => _strings(meta['ageGroups']);
+  String get genre => meta['genre'] as String? ?? 'other';
+  int get scareLevel => (meta['scareLevel'] as num?)?.toInt() ?? 1;
+
+  /// Nur für 6–9: Lesefassung mit Fibelschrift, Bildkarten und Hilfe von selbst
+  bool get youngOnly => ageGroups.isNotEmpty && ageGroups.every((a) => a == '6-9');
+
+  Json get presentation => json['presentation'] as Json? ?? {};
+
+  /// Eigene Namen des Spiels für Peilgerät, Akte und Stempel; leer heißt Standard des Genres.
+  LText get deviceName => LText(presentation['device']);
+  LText get caseFileName => LText(presentation['caseFile']);
+  LText get stampText => LText(presentation['stamp']);
+
+  late final List<Character> characters = _list(json['characters']).map(Character.new).toList();
+  late final List<Chapter> chapters = _list(story['chapters']).map(Chapter.new).toList();
+  late final Map<String, Json> _media = {for (final m in _list(json['media'])) m['id'] as String: m};
 
   Settings get settings => Settings(json['settings'] as Json? ?? {});
   Field get field => Field(json['field'] as Json);
@@ -92,6 +108,91 @@ class Game {
     }
     return null;
   }
+
+  Character? character(String? id) {
+    if (id == null) return null;
+    for (final c in characters) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  /// Die Zentrale: erste Figur mit kind hq.
+  Character? get hq {
+    for (final c in characters) {
+      if (c.kind == 'hq') return c;
+    }
+    return null;
+  }
+
+  Chapter? chapter(String id) {
+    for (final c in chapters) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  Json? media(String? id) => id == null ? null : _media[id];
+
+  /// Alle Takte, in denen ein Dokument steckt, damit die Akte zeigen kann, woher es stammt.
+  Iterable<(Station, Beat)> get allBeats sync* {
+    for (final s in stations) {
+      for (final b in s.scene.all) {
+        yield (s, b);
+      }
+    }
+  }
+}
+
+class Character {
+  Character(this.json);
+  final Json json;
+  String get id => json['id'] as String;
+  String get kind => json['kind'] as String? ?? 'npc';
+  LText get name => LText(json['name']);
+  LText get callSign => LText(json['callSign']);
+  LText get description => LText(json['description']);
+  String? get portrait => json['portrait'] as String?;
+}
+
+class Chapter {
+  Chapter(this.json);
+  final Json json;
+  String get id => json['id'] as String;
+  LText get title => LText(json['title']);
+  LText get text => LText((json['piece'] as Json?)?['text']);
+}
+
+/// Ein Takt einer Szene, siehe beat im Schema.
+class Beat {
+  Beat(this.json);
+  final Json json;
+  String get kind => json['kind'] as String;
+  String? get speaker => json['speaker'] as String?;
+  LText get title => LText(json['title']);
+  LText get text => LText(json['text']);
+  String? get audio => json['audio'] as String?;
+  String? get image => json['image'] as String?;
+  String? get item => json['item'] as String?;
+  LText get ack => LText(json['ack']);
+  List<BeatResponse> get responses => _list(json['responses']).map(BeatResponse.new).toList();
+}
+
+class BeatResponse {
+  BeatResponse(this.json);
+  final Json json;
+  LText get label => LText(json['label']);
+  LText get reply => LText(json['reply']);
+}
+
+class Scene {
+  Scene(this.json);
+  final Json json;
+  List<Beat> get arrival => _list(json['arrival']).map(Beat.new).toList();
+  List<Beat> get beats => _list(json['beats']).map(Beat.new).toList();
+  List<Beat> get afterSolve => _list(json['afterSolve']).map(Beat.new).toList();
+  List<Beat> get all => [...arrival, ...beats, ...afterSolve];
+  bool get isEmpty => arrival.isEmpty && beats.isEmpty && afterSolve.isEmpty;
 }
 
 class Settings {
@@ -173,6 +274,25 @@ class Station {
   bool get offPath => json['offPath'] as bool? ?? false;
   List<Trigger> get triggers => _list(json['triggers']).map(Trigger.new).toList();
   LText get story => LText((json['story'] as Json?)?['text']);
+  List<String> get storyMedia => _strings((json['story'] as Json?)?['media']);
+
+  /// Szene der Station; ältere Spiele ohne scene bekommen ihre story als Erzähltakt.
+  Scene get scene {
+    final raw = json['scene'] as Json?;
+    if (raw != null) return Scene(raw);
+    final st = json['story'] as Json?;
+    if (st == null || st['text'] == null) return Scene(const {});
+    final speaker = st['speaker'] == 'hq' ? 'radio' : 'narration';
+    return Scene({
+      'beats': [
+        {'kind': speaker, 'text': st['text'], if ((st['media'] as List?)?.isNotEmpty ?? false) 'image': (st['media'] as List).first},
+      ],
+    });
+  }
+
+  /// Sprechzeile des Peilgeräts je Stufe: far, mid, near, here
+  LText approach(String stage) => LText((json['approach'] as Json?)?[stage]);
+
   Task? get task => json['task'] == null ? null : Task(json['task'] as Json);
   List<Hint> get hints => _list(json['hints']).map(Hint.new).toList();
   Json get rewards => json['rewards'] as Json? ?? {};
@@ -206,6 +326,16 @@ class Task {
   bool get video => json['video'] as bool? ?? false;
   String get review => json['review'] as String? ?? 'live';
   bool get manualReview => json['manualReview'] as bool? ?? false;
+
+  /// Zahlenschloss oder Tastatur; ohne Angabe Schloss bei reinen Ziffern bis 6 Stellen.
+  bool get useLock {
+    final input = json['input'] as String?;
+    if (input != null) return input == 'lock';
+    return type == 'code' && answers.isNotEmpty && answers.every((a) => RegExp(r'^\d{1,6}$').hasMatch(a)) && answers.map((a) => a.length).toSet().length == 1;
+  }
+
+  List<String> get media => _strings(json['media']);
+  GeoPoint? get location => json['location'] == null ? null : GeoPoint.fromJson(json['location'] as Json);
 }
 
 class Hint {
@@ -230,4 +360,10 @@ class Item {
   String get id => json['id'] as String;
   LText get name => LText(json['name']);
   LText get description => LText(json['description']);
+
+  /// object, document oder evidence
+  String get kind => json['kind'] as String? ?? 'object';
+  LText get body => LText(json['body']);
+  String? get image => json['image'] as String?;
+  String? get icon => json['icon'] as String?;
 }

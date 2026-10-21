@@ -16,9 +16,17 @@ const _uuid = Uuid();
 
 /// Warnung zu einer Sperrzone oder zur Spielfeldgrenze.
 class ZoneAlert {
-  ZoneAlert(this.message, {required this.inside});
+  ZoneAlert(this.message, {required this.inside, this.zone, this.distance = 0});
   final String message;
   final bool inside;
+
+  /// Die Sperrzone; null heißt Spielfeldgrenze
+  final RestrictedZone? zone;
+
+  /// Abstand zur Zone in Metern, 0 wenn drin
+  final double distance;
+
+  bool get boundary => zone == null;
 }
 
 /// Ergebnis einer Aktion für die Oberfläche.
@@ -47,6 +55,9 @@ class GameController extends ChangeNotifier {
 
   Session? session;
   Game? game;
+
+  /// Kennung des geladenen Spiels; ändert sich nur bei einem anderen Spiel, nicht bei jedem Takt.
+  final gameId = ValueNotifier<String?>(null);
   Api? _api;
   TeamState _state = TeamState();
   Timer? _syncTimer;
@@ -65,6 +76,12 @@ class GameController extends ChangeNotifier {
   double? battery;
   ZoneAlert? zoneAlert;
   final Map<String, int> _triggerAttempts = {};
+
+  /// Gelaufener Weg der letzten 30 Minuten für die Fußspur auf der Karte
+  final List<(GeoPoint, int)> trail = [];
+
+  /// Ziel des Peilers; null heißt automatisch das nächste offene Ziel
+  String? peilTarget;
 
   /// Wird bei neuen Nachrichten aufgerufen, damit die Oberfläche vibrieren oder vorlesen kann.
   void Function(ChatMessage message)? onIncomingMessage;
@@ -93,6 +110,7 @@ class GameController extends ChangeNotifier {
   void _attach(Session s) {
     session = s;
     game = s.gameJson == null ? null : Game(s.gameJson!);
+    gameId.value = game?.id;
     _api = _apiFactory(s.server, s.token);
   }
 
@@ -112,6 +130,7 @@ class GameController extends ChangeNotifier {
   @override
   void dispose() {
     stopLoops();
+    gameId.dispose();
     super.dispose();
   }
 
@@ -161,6 +180,7 @@ class GameController extends ChangeNotifier {
     s.supervisorRequired = pkg['supervisorRequired'] as bool? ?? false;
     _updateClock(pkg['serverTime'] as String?);
     game = Game(s.gameJson!);
+    gameId.value = game!.id;
     await _downloadMedia();
     _recompute();
     await _save();
@@ -203,7 +223,10 @@ class GameController extends ChangeNotifier {
     await store.clear();
     session = null;
     game = null;
+    gameId.value = null;
     _state = TeamState();
+    trail.clear();
+    peilTarget = null;
     notifyListeners();
   }
 
@@ -323,6 +346,104 @@ class GameController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Erzählung
+
+  /// Szene einer Station als erlebt merken, damit sie beim nächsten Öffnen nicht von vorn beginnt.
+  Future<void> markSceneSeen(String stationId) async {
+    if (session!.seenScenes.add(stationId)) await _save();
+  }
+
+  Future<void> markIntroSeen() async {
+    session!.introSeen = true;
+    await _save();
+    notifyListeners();
+  }
+
+  /// Aktuelles Kapitel: zuletzt freigeschaltet, sonst das erste.
+  Chapter? get currentChapter {
+    final g = game;
+    if (g == null || g.chapters.isEmpty) return null;
+    for (final id in _state.chapters.reversed) {
+      final c = g.chapter(id);
+      if (c != null) return c;
+    }
+    return g.chapters.first;
+  }
+
+  int get chapterNumber {
+    final c = currentChapter;
+    return c == null ? 0 : game!.chapters.indexOf(c) + 1;
+  }
+
+  /// Fragment-Werte nach Position, null für noch fehlend.
+  List<String?> get keyRing => [for (final f in game?.fragments ?? const <Fragment>[]) _state.fragments.contains(f.id) ? f.value : null];
+
+  /// Station, von der ein Fragment kommt.
+  Station? fragmentSource(String fragmentId) {
+    for (final s in game!.stations) {
+      if ((s.rewards['fragments'] as List? ?? const []).contains(fragmentId)) return s;
+    }
+    return null;
+  }
+
+  /// Station, die das Team als Nächstes ansteuern sollte.
+  Station? get nextTarget {
+    final g = game;
+    if (g == null) return null;
+    final chosen = peilTarget == null ? null : g.station(peilTarget!);
+    if (chosen != null && visibleStations.contains(chosen) && !_state.solved.containsKey(chosen.id)) return chosen;
+    final open = visibleStations.where((s) => !_state.solved.containsKey(s.id) && (!s.isFinal || fragmentsComplete())).toList();
+    if (open.isEmpty) return null;
+    // Schon ausgelöst und ungelöst geht vor: dort wartet das Rätsel.
+    final waiting = open.where((s) => _state.triggered.contains(s.id)).toList();
+    if (waiting.isNotEmpty) return waiting.first;
+    final pos = position;
+    if (pos == null) return open.first;
+    open.sort(
+      (a, b) =>
+          (a.location == null ? double.infinity : distance(pos, a.location!)).compareTo(b.location == null ? double.infinity : distance(pos, b.location!)),
+    );
+    return open.first;
+  }
+
+  void choosePeilTarget(String? id) {
+    peilTarget = id;
+    notifyListeners();
+  }
+
+  /// Funkspruch der Zentrale nur auf diesem Handy, z. B. die Beruhigung bei „Uns ist mulmig“.
+  Future<void> addLocalRadio(String text, {String kind = 'story'}) async {
+    session!.messages.add(ChatMessage(direction: 'to_team', kind: kind, sender: 'hq', body: text, at: DateTime.now()));
+    await _save();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sicherheit
+
+  /// Rückruf quittieren: Die Spielleitung erfährt, dass das Team unterwegs ist.
+  Future<void> acknowledgeRecall() async {
+    session!.recallAcknowledged = true;
+    await _save();
+    notifyListeners();
+    await sendMessage('Wir sind unterwegs zum Sammelpunkt.', kind: 'predefined');
+  }
+
+  /// Nachrichten der Spielleitung außerhalb der Geschichte, die noch niemand gelesen hat.
+  List<ChatMessage> get unreadSystem => [
+    for (final m in session?.messages ?? const <ChatMessage>[])
+      if (m.incoming && m.kind == 'system' && (m.id ?? 0) > (session!.systemAck)) m,
+  ];
+
+  Future<void> acknowledgeSystem() async {
+    final ids = unreadSystem.map((m) => m.id ?? 0);
+    if (ids.isEmpty) return;
+    session!.systemAck = ids.reduce(math.max);
+    await _save();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
   // Lebenszeichen
 
   bool get heartbeatDue {
@@ -353,6 +474,11 @@ class GameController extends ChangeNotifier {
       _lastRecordedAt = t;
     }
 
+    if (trail.isEmpty || distance(trail.last.$1, position!) >= 5) trail.add((position!, t));
+    while (trail.isNotEmpty && t - trail.first.$2 > 30 * 60000) {
+      trail.removeAt(0);
+    }
+
     _checkZones();
     if (eventRunning && started && !finished) await _autoTrigger(t);
     notifyListeners();
@@ -379,15 +505,18 @@ class GameController extends ChangeNotifier {
       final d = distanceToArea(position!, z.area);
       final name = z.name.resolve(g.language);
       if (d == 0) {
-        alert = ZoneAlert('Sperrzone „$name“! Sofort zurück.', inside: true);
+        alert = ZoneAlert('Ihr seid in der Sperrzone „$name“. Geht sofort zurück.', inside: true, zone: z);
         break;
       }
-      if (d <= z.warnDistance) alert ??= ZoneAlert('Achtung: Sperrzone „$name“ in ${d.round()} m', inside: false);
+      if (d <= z.warnDistance && (alert == null || d < alert.distance)) {
+        alert = ZoneAlert('Achtung: $name in ${d.round()} m. Umkehren.', inside: false, zone: z, distance: d);
+      }
     }
-    if (alert == null && distanceToArea(position!, g.field.boundary) > 0) {
-      alert = ZoneAlert('Ihr verlasst das Spielfeld.', inside: false);
+    final out = distanceToArea(position!, g.field.boundary);
+    if (alert == null && out > 0) {
+      alert = ZoneAlert('Ihr verlasst das Spielfeld. Umkehren.', inside: false, distance: out);
     }
-    final changed = alert?.message != zoneAlert?.message;
+    final changed = alert?.inside != zoneAlert?.inside || alert?.zone?.id != zoneAlert?.zone?.id || (alert == null) != (zoneAlert == null);
     zoneAlert = alert;
     if (changed && alert != null) onAlert?.call(alert.inside ? 'zone_inside' : 'zone_near');
   }
@@ -614,7 +743,11 @@ class GameController extends ChangeNotifier {
     s.serverState = (res['state'] as Map?)?.cast<String, dynamic>();
     s.recall = (res['recall'] as Map?)?.cast<String, dynamic>();
     s.lastSyncAt = DateTime.now();
-    if (s.eventStatus == 'recalled' && previousStatus != 'recalled') onAlert?.call('recall');
+    if (s.eventStatus == 'recalled' && previousStatus != 'recalled') {
+      s.recallAcknowledged = false;
+      onAlert?.call('recall');
+    }
+    if (s.eventStatus != 'recalled') s.recallAcknowledged = false;
     _recompute();
   }
 
