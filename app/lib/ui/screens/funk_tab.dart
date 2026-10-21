@@ -64,7 +64,8 @@ List<RadioEntry> radioLog(BuildContext context, GameController c) {
     if (!delivered.contains(text)) out.add(RadioEntry(sender: m.from == 'hq' ? hq : m.from, text: text, time: at(m.time)));
   }
   for (final m in s.messages) {
-    if (m.kind == 'system') continue;
+    // Ein Cue steht nur mit Funkspruch im Protokoll.
+    if (m.kind == 'system' || (m.kind == 'cue' && m.text.isEmpty)) continue;
     final sender = !m.incoming
         ? 'Ihr'
         : (m.kind == 'hint' ? 'Tipp' : (m.sender == null || m.sender == 'hq' ? hq : (game.character(m.sender)?.name.of(context) ?? m.sender!)));
@@ -72,10 +73,10 @@ List<RadioEntry> radioLog(BuildContext context, GameController c) {
     out.add(
       RadioEntry(
         sender: sender,
-        text: m.body,
+        text: m.text,
         time: m.at.toLocal(),
         pending: m.pending,
-        live: m.incoming && m.kind == 'chat' && m.id != null,
+        live: m.incoming && (m.kind == 'chat' || m.kind == 'cue') && m.id != null,
         mine: !m.incoming,
       ),
     );

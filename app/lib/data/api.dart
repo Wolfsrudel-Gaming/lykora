@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -71,6 +72,43 @@ class Api {
       body: bytes,
     ),
   );
+
+  /// Adresse einer Mediendatei: [src] ist relativ zur Server-Adresse (media/…) oder eine URL.
+  Uri mediaUri(String src) {
+    if (src.startsWith('http://') || src.startsWith('https://')) return Uri.parse(src);
+    final base = server.endsWith('/') ? server.substring(0, server.length - 1) : server;
+    return Uri.parse('$base/${src.startsWith('/') ? src.substring(1) : src}');
+  }
+
+  /// Lädt eine Mediendatei nach [file]; false, wenn das nicht geklappt hat.
+  ///
+  /// Erst in eine Hilfsdatei, damit ein Abbruch keine halbe Datei hinterlässt. Medien sind
+  /// öffentlich; der Gerätetoken geht deshalb nicht mit, auch nicht an fremde Adressen.
+  Future<bool> download(String src, File file) async {
+    final part = File('${file.path}.part');
+    try {
+      final res = await _client.send(http.Request('GET', mediaUri(src))).timeout(timeout);
+      // Eine Anmeldeseite im WLAN (Captive Portal) antwortet mit 200 und HTML; die wäre sonst als Klang gespeichert.
+      if (res.statusCode != 200 || (res.headers['content-type'] ?? '').startsWith('text/html')) {
+        await res.stream.drain<void>();
+        return false;
+      }
+      final sink = part.openWrite();
+      try {
+        // Reißt der Strom ab, nicht ewig warten.
+        await sink.addStream(res.stream.timeout(const Duration(seconds: 30)));
+      } finally {
+        await sink.close();
+      }
+      await part.rename(file.path);
+      return true;
+    } catch (_) {
+      try {
+        if (await part.exists()) await part.delete();
+      } catch (_) {}
+      return false;
+    }
+  }
 }
 
 /// Liest den Inhalt eines Einstiegs-QR: lykora://join?server=…&code=… oder ein reiner Event-Code.

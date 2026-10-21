@@ -10,9 +10,25 @@ import '../engine/team_state.dart';
 import '../model/game.dart';
 import 'api.dart';
 import 'session.dart';
+import '../services/live.dart';
 import '../services/nfc.dart' show normalizeTagId;
 
 const _uuid = Uuid();
+
+/// Name im Medienordner für einen nachgeladenen Cue, z. B. media/lib/eule.ogg → cue-lib-eule.ogg.
+/// Der ganze Pfad (bei URLs mit Host) geht ein, damit zwei Dateien gleichen Namens sich nicht überschreiben.
+String cueFileName(String src) {
+  final uri = Uri.tryParse(src);
+  final parts = [
+    if (uri != null && uri.host.isNotEmpty) uri.host,
+    for (final p in uri?.pathSegments ?? [src])
+      if (p.isNotEmpty && p != '.' && p != '..') p,
+  ];
+  if (parts.length > 1 && parts.first == 'media') parts.removeAt(0);
+  final name = parts.join('-').replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  // Dateinamen dürfen nicht beliebig lang werden; das Ende mit der Endung bleibt.
+  return 'cue-${name.length > 120 ? name.substring(name.length - 120) : name}';
+}
 
 /// Warnung zu einer Sperrzone oder zur Spielfeldgrenze.
 class ZoneAlert {
@@ -42,16 +58,24 @@ class ActionResult {
 /// Jede Handlung des Teams wird sofort lokal ausgewertet und gespeichert. Der Abgleich
 /// läuft im Hintergrund, sobald Netz da ist; der Server entscheidet am Ende.
 class GameController extends ChangeNotifier {
-  GameController({required this.store, Api Function(String server, String? token)? apiFactory, int Function()? clock, this.backgroundLoops = true})
-    : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
-      _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
+  GameController({
+    required this.store,
+    Api Function(String server, String? token)? apiFactory,
+    int Function()? clock,
+    this.backgroundLoops = true,
+    this.connectLive,
+  }) : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
+       _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
 
-  /// Abgleich und Sekundentakt im Hintergrund; in Widget-Tests aus, weil dort die Zeit simuliert ist.
+  /// Abgleich, Sekundentakt und Anstupsen im Hintergrund; in Widget-Tests aus, weil dort die Zeit simuliert ist.
   final bool backgroundLoops;
 
   final SessionStore store;
   final Api Function(String server, String? token) _apiFactory;
   final int Function() _deviceClock;
+
+  /// Baut die Verbindung zum Anstupsen auf; ohne Angabe ein echter WebSocket.
+  final SocketConnect? connectLive;
 
   Session? session;
   Game? game;
@@ -62,7 +86,11 @@ class GameController extends ChangeNotifier {
   TeamState _state = TeamState();
   Timer? _syncTimer;
   Timer? _tick;
+  LiveLink? _live;
   bool syncing = false;
+
+  /// Während eines Abgleichs angestupst: direkt danach noch einmal abgleichen.
+  bool _syncAgain = false;
   bool online = false;
   String? lastError;
   int _failures = 0;
@@ -77,14 +105,19 @@ class GameController extends ChangeNotifier {
   ZoneAlert? zoneAlert;
   final Map<String, int> _triggerAttempts = {};
 
+  /// Laufende Downloads für Cues, damit zwei gleiche Cues die Datei nicht doppelt laden
+  final _fetching = <String, Future<bool>>{};
+
   /// Gelaufener Weg der letzten 30 Minuten für die Fußspur auf der Karte
   final List<(GeoPoint, int)> trail = [];
 
   /// Ziel des Peilers; null heißt automatisch das nächste offene Ziel
   String? peilTarget;
 
-  /// Wird bei neuen Nachrichten aufgerufen, damit die Oberfläche vibrieren oder vorlesen kann.
-  void Function(ChatMessage message)? onIncomingMessage;
+  final _incoming = StreamController<ChatMessage>.broadcast();
+
+  /// Neue Nachrichten der Zentrale: Die Oberfläche vibriert und liest vor, die Klanglandschaft spielt Cues.
+  Stream<ChatMessage> get incoming => _incoming.stream;
 
   /// Wird bei Rückruf oder Warnung zu Sperrzonen aufgerufen.
   void Function(String kind)? onAlert;
@@ -114,23 +147,30 @@ class GameController extends ChangeNotifier {
     _api = _apiFactory(s.server, s.token);
   }
 
-  /// Startet den regelmäßigen Abgleich und die Zeitprüfung.
+  /// Startet den regelmäßigen Abgleich, die Zeitprüfung und die Verbindung, über die der Server anstupst.
   void startLoops() {
     if (!backgroundLoops) return;
     _tick?.cancel();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) => notifyListeners());
     _scheduleSync(const Duration(seconds: 1));
+    final s = session;
+    if (s != null && _live == null) {
+      _live = LiveLink(uri: liveUri(s.server, s.token), onPoke: _onPoke, connect: connectLive)..start();
+    }
   }
 
   void stopLoops() {
     _tick?.cancel();
     _syncTimer?.cancel();
+    _live?.stop();
+    _live = null;
   }
 
   @override
   void dispose() {
     stopLoops();
     gameId.dispose();
+    _incoming.close();
     super.dispose();
   }
 
@@ -188,45 +228,56 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> _downloadMedia() async {
-    final media = (game!.json['media'] as List? ?? const []).cast<Map>();
+    final media = game!.mediaList;
     if (media.isEmpty) return;
     final dir = store.mediaDir;
     await dir.create(recursive: true);
-    final client = HttpClient();
-    try {
-      for (final m in media) {
-        final src = m['src'] as String;
-        final uri = src.startsWith('http') ? Uri.parse(src) : Uri.parse('${session!.server}/$src');
-        final file = File('${dir.path}/${m['id']}');
-        if (await file.exists()) continue;
-        try {
-          final req = await client.getUrl(uri);
-          final res = await req.close();
-          if (res.statusCode == 200) await res.pipe(file.openWrite());
-        } catch (_) {
-          // Fehlende Medien verhindern das Spiel nicht.
-        }
-      }
-    } finally {
-      client.close();
+    for (final m in media) {
+      final file = File('${dir.path}/${m.id}');
+      // Fehlende Medien verhindern das Spiel nicht.
+      if (!await file.exists()) await _api!.download(m.src, file);
     }
   }
 
-  File? mediaFile(String id) {
+  /// Datei einer Medien-ID aus dem Spielpaket, falls sie auf dem Gerät liegt.
+  File? mediaFile(String? id) {
+    if (id == null) return null;
     final f = File('${store.mediaDir.path}/$id');
     return f.existsSync() ? f : null;
+  }
+
+  /// Datei zu einem Cue: aus dem Spielpaket oder einmal nachgeladen in den Medienordner.
+  Future<File?> cueFile(Cue cue) async {
+    final media = game?.media(cue.audio);
+    final inGame = media != null;
+    final own = inGame ? mediaFile(cue.audio) : null;
+    if (own != null) return own;
+    final src = cue.src ?? media?.src;
+    final api = _api;
+    if (src == null || api == null) return null;
+    final dir = store.mediaDir;
+    await dir.create(recursive: true);
+    // Fehlte die Datei schon beim Packen, liegt sie danach unter ihrer ID aus dem Spiel.
+    final file = File('${dir.path}/${inGame ? cue.audio : cueFileName(src)}');
+    if (await file.exists()) return file;
+    final ok = await (_fetching[file.path] ??= api.download(src, file).whenComplete(() {
+      _fetching.remove(file.path);
+    }));
+    return ok ? file : null;
   }
 
   /// Team verlassen und alle lokalen Daten löschen.
   Future<void> leave() async {
     stopLoops();
-    await store.clear();
     session = null;
     game = null;
     gameId.value = null;
     _state = TeamState();
     trail.clear();
     peilTarget = null;
+    // Ein Abgleich, der gerade speichert, darf die gelöschten Daten nicht wieder anlegen.
+    await _saving;
+    await store.clear();
     notifyListeners();
   }
 
@@ -562,6 +613,8 @@ class GameController extends ChangeNotifier {
       if (accuracy != null) 'accuracy': accuracy,
       if (message != null && message.isNotEmpty) 'message': message,
     };
+    // Damit die SOS-Seite zeigen kann, ob die Spielleitung den Alarm gelesen hat; gespeichert wird mit dem nächsten Abgleich.
+    s.lastSosId = record['id'] as String;
     try {
       await _api!.sos(record);
       return true;
@@ -576,6 +629,15 @@ class GameController extends ChangeNotifier {
   }
 
   bool get sosPending => session?.pendingSos.isNotEmpty ?? false;
+
+  /// Stand eines SOS laut letztem Abgleich (acknowledgedAt, resolvedAt, acknowledgedBy); null, solange der Server nichts meldet.
+  Json? sosStatus(String? clientId) {
+    if (clientId == null) return null;
+    for (final x in session?.sos ?? const <Json>[]) {
+      if (x['clientId'] == clientId) return x;
+    }
+    return null;
+  }
 
   /// Text für die SOS-SMS, siehe server/src/routes/integrations.ts.
   String sosSmsText({String? message}) {
@@ -628,11 +690,21 @@ class GameController extends ChangeNotifier {
     _syncTimer = Timer(delay, () => sync());
   }
 
+  /// Der Server hat angestupst: gleich abgleichen, und läuft schon ein Abgleich, direkt danach noch einmal.
+  void _onPoke() {
+    if (syncing) {
+      _syncAgain = true;
+    } else {
+      sync();
+    }
+  }
+
   /// Gleicht Aktionen, Positionen, SOS, Nachrichten und Fotos mit dem Server ab.
   Future<void> sync() async {
     final s = session;
     if (s == null || syncing) return;
     syncing = true;
+    final wasOnline = online;
     notifyListeners();
     try {
       for (final sos in s.pendingSos.toList()) {
@@ -664,6 +736,8 @@ class GameController extends ChangeNotifier {
       online = true;
       lastError = null;
       _failures = 0;
+      // Netz wieder da: Die Verbindung zum Anstupsen muss nicht erst ihre Pause abwarten.
+      if (!wasOnline) _live?.wake();
     } on ApiException catch (e) {
       online = !e.offline;
       lastError = e.message;
@@ -677,7 +751,10 @@ class GameController extends ChangeNotifier {
       notifyListeners();
       // Mit Netz alle 15 s, ohne Netz seltener, um Akku zu sparen.
       final delay = _failures == 0 ? 15 : math.min(15 * (1 << math.min(_failures, 3)), 120);
-      if (_tick != null && _tick!.isActive) _scheduleSync(Duration(seconds: delay));
+      final again = _syncAgain;
+      _syncAgain = false;
+      // Nach leave() oder stopLoops() nicht weiter abgleichen.
+      if (_tick != null && _tick!.isActive) _scheduleSync(again ? Duration.zero : Duration(seconds: delay));
     }
   }
 
@@ -737,8 +814,9 @@ class GameController extends ChangeNotifier {
       if (s.messages.any((x) => x.id == m.id && x.incoming)) continue;
       s.messages.add(m);
       s.messageCursor = math.max(s.messageCursor, m.id!);
-      onIncomingMessage?.call(m);
+      if (!_incoming.isClosed) _incoming.add(m);
     }
+    if (res['sos'] is List) s.sos = (res['sos'] as List).cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
     s.leaderboard = (res['leaderboard'] as List?)?.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
     s.serverState = (res['state'] as Map?)?.cast<String, dynamic>();
     s.recall = (res['recall'] as Map?)?.cast<String, dynamic>();

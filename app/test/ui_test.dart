@@ -1,5 +1,6 @@
 // Rendert die wichtigsten Bildschirme mit den echten Schriften und bedient sie wie ein Team.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:lykora/app.dart';
 import 'package:lykora/data/api.dart';
 import 'package:lykora/data/controller.dart';
 import 'package:lykora/data/session.dart';
+import 'package:lykora/services/fx.dart';
+import 'package:lykora/services/soundscape.dart';
 import 'package:lykora/ui/design/components.dart';
 import 'package:lykora/ui/design/tokens.dart';
 import 'package:lykora/ui/safety/sos_screen.dart';
@@ -18,6 +21,7 @@ import 'package:lykora/ui/screens/join_screen.dart';
 import 'package:lykora/ui/screens/map_view.dart';
 import 'package:lykora/ui/screens/prep_screen.dart';
 import 'package:lykora/ui/screens/reward_screen.dart';
+import 'package:lykora/ui/screens/settings_screen.dart';
 import 'package:lykora/ui/screens/station_screen.dart';
 
 import 'support.dart';
@@ -273,6 +277,138 @@ void main() {
     }
     await act(tester, () async => gesture.up());
     expect(server.sos, hasLength(1));
+  });
+
+  testWidgets('SOS zeigt, ob die Spielleitung gelesen hat', (tester) async {
+    final (c, s) = await _setup(tester);
+    await tester.pumpWidget(_wrap(c, s, const SosScreen()));
+    await settle(tester);
+    final gesture = await tester.startGesture(tester.getCenter(find.bySemanticsLabel(RegExp('SOS. Drei Sekunden'))));
+    await tester.pump(const Duration(milliseconds: 200));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await act(tester, () async => gesture.up());
+    final id = server.sos.single['id'] as String;
+    expect(find.text('Internet: Alarm ist bei der Spielleitung angekommen.'), findsOneWidget);
+    expect(find.textContaining('Warten, bis die Spielleitung'), findsOneWidget);
+
+    server.sosAck[id] = {'acknowledgedAt': DateTime.now().toUtc().toIso8601String(), 'acknowledgedBy': 'Anna'};
+    await act(tester, () => c.sync());
+    expect(find.text('Spielleitung hat gelesen (Anna).'), findsOneWidget);
+    expect(find.textContaining('Warten, bis'), findsNothing);
+    expect(find.textContaining('Bleibt, wo ihr seid'), findsOneWidget);
+
+    server.sosAck[id] = {...server.sosAck[id]!, 'resolvedAt': DateTime.now().toUtc().toIso8601String()};
+    await act(tester, () => c.sync());
+    expect(find.textContaining('erledigt'), findsOneWidget);
+    expect(find.textContaining('Bleibt, wo ihr seid'), findsNothing);
+  });
+
+  testWidgets('SOS abgelehnt: bleibt „nicht gesendet“, auch nach dem nächsten Abgleich', (tester) async {
+    final (c, s) = await _setup(tester);
+    server.rejectSos = true;
+    await tester.pumpWidget(_wrap(c, s, const SosScreen()));
+    await settle(tester);
+    final gesture = await tester.startGesture(tester.getCenter(find.bySemanticsLabel(RegExp('SOS. Drei Sekunden'))));
+    await tester.pump(const Duration(milliseconds: 200));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await act(tester, () async => gesture.up());
+    expect(find.textContaining('nicht gesendet'), findsOneWidget);
+    expect(find.textContaining('angekommen'), findsNothing);
+    await act(tester, () => c.sync());
+    expect(find.textContaining('angekommen'), findsNothing, reason: 'ein abgelehnter Alarm wartet nicht und kommt nie an');
+    expect(find.textContaining('Bleibt, wo ihr seid'), findsNothing);
+    expect(find.text('SMS jetzt senden'), findsOneWidget);
+  });
+
+  testWidgets('SOS ohne Netz: nach dem Nachreichen „angekommen“', (tester) async {
+    final (c, s) = await _setup(tester);
+    server.online = false;
+    await tester.pumpWidget(_wrap(c, s, const SosScreen()));
+    await settle(tester);
+    final gesture = await tester.startGesture(tester.getCenter(find.bySemanticsLabel(RegExp('SOS. Drei Sekunden'))));
+    await tester.pump(const Duration(milliseconds: 200));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
+    await act(tester, () async => gesture.up());
+    expect(find.textContaining('nicht gesendet'), findsOneWidget);
+    expect(c.sosPending, isTrue);
+    server.online = true;
+    // Der Abgleich läuft in der simulierten Zeit weiter, in der auch das Speichern des Alarms begann;
+    // die echte Ereignisschleife bekommt in settle() ihre Runden für die Dateizugriffe.
+    final sync = c.sync();
+    await settle(tester, 30);
+    await sync;
+    expect(server.sos.single['deferred'], isTrue);
+    expect(find.text('Internet: Alarm ist bei der Spielleitung angekommen.'), findsOneWidget);
+    expect(find.textContaining('Warten, bis die Spielleitung'), findsOneWidget);
+  });
+
+  testWidgets('Cue: Klang allein bleibt aus dem Funk, mit Text kommt er als Funkspruch', (tester) async {
+    final (c, s) = await _setup(tester);
+    await tester.runAsync(() async {
+      await c.start();
+      await c.markIntroSeen();
+    });
+    await tester.pumpWidget(LykoraApp(controller: c, settings: s));
+    await settle(tester);
+    server.pendingMessages
+      ..add({
+        'kind': 'cue',
+        'body': jsonEncode({'audio': 'eule', 'src': 'media/lib/eule.ogg', 'volume': 0.8}),
+      })
+      ..add({
+        'kind': 'cue',
+        'body': jsonEncode({'audio': 'lib:wolf-heulen', 'src': 'media/lib/wolf-heulen.ogg', 'volume': 0.8, 'text': 'Was war das?'}),
+      });
+    await act(tester, () => c.sync());
+    expect(find.text('Was war das?'), findsOneWidget, reason: 'Funk-Hinweis wie bei anderen Funksprüchen');
+    expect(find.bySemanticsLabel('Funk, 1 neu'), findsOneWidget);
+    await tester.tap(find.widgetWithText(SnackBarAction, 'Funk'));
+    await settle(tester);
+    expect(find.bySemanticsLabel('Funk, 1 neu'), findsNothing);
+    expect(find.text('Was war das?'), findsWidgets);
+    expect(find.textContaining('"audio"'), findsNothing);
+    expect(find.textContaining('eule'), findsNothing);
+  });
+
+  testWidgets('Packen zählt die Klänge, die wirklich auf dem Handy liegen', (tester) async {
+    PrepScreen.skipPacking = false;
+    addTearDown(() => PrepScreen.skipPacking = true);
+    final (c, s) = await _setup(tester, join: false);
+    server.missingMedia.add('/lykora/media/lib/donner.ogg');
+    await tester.runAsync(() => c.join(server: 'https://example.org/lykora', code: 'K7M2QX', teamName: 'Füchse'));
+    await tester.pumpWidget(LykoraApp(controller: c, settings: s));
+    await tester.pump();
+    expect(find.text('Klänge und Bilder'), findsOneWidget);
+    expect(find.text('8 von 9 Klängen'), findsOneWidget);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    await settle(tester);
+    expect(find.text('STARTKLAR?'), findsOneWidget);
+  });
+
+  testWidgets('Einstellungen: Lautstärke der Atmosphäre und Schalter Geräusche', (tester) async {
+    final (c, s) = await _setup(tester);
+    addTearDown(() => Fx.instance.sound = true);
+    await tester.pumpWidget(_wrap(c, s, const SettingsScreen()));
+    await settle(tester);
+    expect(find.text('Atmosphäre 80 %'), findsOneWidget);
+    tester.widget<Slider>(find.byType(Slider).first).onChanged!(0.3);
+    await settle(tester);
+    expect(s.ambience, 0.3);
+    expect(Soundscape.instance.volume, 0.3);
+    expect(find.text('Atmosphäre 30 %'), findsOneWidget);
+    await tester.tap(find.text('Geräusche'));
+    await settle(tester);
+    expect(s.sound, isFalse);
+    expect(find.text('Atmosphäre aus'), findsOneWidget);
+    expect(tester.widget<Slider>(find.byType(Slider).first).onChanged, isNull);
   });
 
   testWidgets('Rückruf liegt als echte Durchsage über dem Spiel', (tester) async {

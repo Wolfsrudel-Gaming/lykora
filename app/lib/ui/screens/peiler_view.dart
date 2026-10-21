@@ -9,6 +9,7 @@ import '../../engine/geo.dart';
 import '../../model/game.dart';
 import '../../services/compass.dart';
 import '../../services/fx.dart';
+import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../widgets/direction.dart';
@@ -44,6 +45,7 @@ class _PeilerViewState extends State<PeilerView> {
   @override
   void dispose() {
     Compass.instance.release();
+    Soundscape.instance.release(this);
     super.dispose();
   }
 
@@ -89,16 +91,23 @@ class _PeilerViewState extends State<PeilerView> {
         final t = context.tok;
         final game = c.game!;
         final target = widget.fixed ?? c.nextTarget;
-        if (target == null) return _NoTarget(finished: c.finished);
+        if (target == null) {
+          Soundscape.instance.peil(this, null, null);
+          return _NoTarget(finished: c.finished);
+        }
         final pos = c.position;
         final loc = target.trigger('gps')?.location ?? target.location;
         final triggered = c.state.triggered.contains(target.id);
         final radius = target.trigger('gps')?.radius ?? 20;
         final d = pos == null || loc == null ? null : distance(pos, loc);
         final stage = d == null ? (triggered ? PeilStage.here : PeilStage.far) : _peiler.update(target.id, d, radius: radius, triggered: triggered);
+        // Ziel und Stufe für die Klanglandschaft: Nahe Stationen bringen ihre Atmosphäre mit.
+        Soundscape.instance.peil(this, target.id, stage);
         if (_lastStage != stage) {
           if (_lastStage != null && stage.index > _lastStage!.index && widget.active) {
             stage == PeilStage.here ? Fx.instance.play(Sound.arrival) : _pulse(stage);
+            // Geräusch der Station zu dieser Stufe, z. B. eine Eule, sobald das Team nah ist.
+            Soundscape.instance.approach(target.id, stage, c.mediaFile(target.sound.approach(stage.key)));
           }
           _lastStage = stage;
         }
@@ -431,7 +440,7 @@ class _NoTarget extends StatelessWidget {
   }
 }
 
-/// Taschenmodus: Bildschirm schwarz, Ton und Vibration führen weiter.
+/// Taschenmodus: Bildschirm schwarz, Ton und Vibration führen weiter, die Atmosphäre läuft weiter.
 class _Pocket extends StatelessWidget {
   const _Pocket({required this.onWake, required this.stage});
   final VoidCallback onWake;

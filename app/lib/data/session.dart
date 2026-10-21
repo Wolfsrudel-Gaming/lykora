@@ -51,7 +51,7 @@ class ChatMessage {
   /// to_team oder from_team
   final String direction;
 
-  /// chat, hint, system, story oder predefined
+  /// chat, hint, system, story, predefined oder cue
   final String kind;
   final String? sender;
   final String body;
@@ -60,6 +60,12 @@ class ChatMessage {
   bool pending;
 
   bool get incoming => direction == 'to_team';
+
+  /// Klang-Cue der Spielleitung; null bei anderen Nachrichten oder unlesbarem Inhalt.
+  Cue? get cue => kind == 'cue' ? Cue.parse(body) : null;
+
+  /// Text fürs Funkprotokoll; ein Cue hat nur Text, wenn ein Funkspruch dabei ist.
+  String get text => kind == 'cue' ? (cue?.text ?? '') : body;
 
   Json toJson() => {
     'id': id,
@@ -71,6 +77,41 @@ class ChatMessage {
     'clientId': clientId,
     'pending': pending,
   };
+}
+
+/// Klang, den die Spielleitung live einspielt: Nachricht mit kind cue, body als JSON {audio, src, volume, text}.
+class Cue {
+  const Cue({required this.audio, this.src, this.volume = 0.8, this.text});
+
+  /// null, wenn [body] kein gültiger Cue ist.
+  static Cue? parse(String body) {
+    Object? j;
+    try {
+      j = jsonDecode(body);
+    } on FormatException {
+      return null;
+    }
+    if (j is! Map || j['audio'] is! String || (j['audio'] as String).isEmpty) return null;
+    final src = j['src'];
+    final volume = j['volume'];
+    final text = j['text'] is String ? (j['text'] as String).trim() : '';
+    return Cue(
+      audio: j['audio'] as String,
+      src: src is String && src.isNotEmpty ? src : null,
+      volume: volume is num ? volume.toDouble().clamp(0.0, 1.0) : 0.8,
+      text: text.isEmpty ? null : text,
+    );
+  }
+
+  /// Medien-ID aus dem Spiel oder `lib:<id>` aus der Bibliothek
+  final String audio;
+
+  /// Pfad relativ zur Server-Adresse (media/…) oder URL, falls die Datei nicht im Spielpaket liegt
+  final String? src;
+  final double volume;
+
+  /// Funkspruch dazu, falls die Spielleitung einen geschrieben hat
+  final String? text;
 }
 
 /// Alles, was die App über das laufende Spiel weiß. Wird nach jeder Änderung gespeichert.
@@ -95,6 +136,8 @@ class Session {
         ..pendingPositions = (j['pendingPositions'] as List? ?? const []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
         ..pendingSos = (j['pendingSos'] as List? ?? const []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
         ..pendingUploads = (j['pendingUploads'] as List? ?? const []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
+        ..sos = (j['sos'] as List? ?? const []).cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
+        ..lastSosId = j['lastSosId'] as String?
         ..leaderboard = (j['leaderboard'] as List?)?.cast<Map>().map((m) => m.cast<String, dynamic>()).toList()
         ..serverState = (j['serverState'] as Map?)?.cast<String, dynamic>()
         ..recall = (j['recall'] as Map?)?.cast<String, dynamic>()
@@ -123,6 +166,12 @@ class Session {
   List<Json> pendingPositions = [];
   List<Json> pendingSos = [];
   List<Json> pendingUploads = [];
+
+  /// Stand der eigenen SOS-Meldungen laut Server: id, clientId, channel, acknowledgedAt, resolvedAt, acknowledgedBy
+  List<Json> sos = [];
+
+  /// id des zuletzt auf diesem Handy ausgelösten SOS
+  String? lastSosId;
   List<Json>? leaderboard;
   Json? serverState;
   Json? recall;
@@ -167,6 +216,8 @@ class Session {
     'pendingPositions': pendingPositions,
     'pendingSos': pendingSos,
     'pendingUploads': pendingUploads,
+    'sos': sos,
+    'lastSosId': lastSosId,
     'leaderboard': leaderboard,
     'serverState': serverState,
     'recall': recall,

@@ -80,7 +80,8 @@ class Game {
 
   late final List<Character> characters = _list(json['characters']).map(Character.new).toList();
   late final List<Chapter> chapters = _list(story['chapters']).map(Chapter.new).toList();
-  late final Map<String, Json> _media = {for (final m in _list(json['media'])) m['id'] as String: m};
+  late final List<Media> mediaList = _list(json['media']).map(Media.new).toList();
+  late final Map<String, Media> _media = {for (final m in mediaList) m.id: m};
 
   Settings get settings => Settings(json['settings'] as Json? ?? {});
   Field get field => Field(json['field'] as Json);
@@ -132,7 +133,10 @@ class Game {
     return null;
   }
 
-  Json? media(String? id) => id == null ? null : _media[id];
+  Media? media(String? id) => id == null ? null : _media[id];
+
+  /// Grund-Atmosphäre und eigene Aufnahmen statt der eingebauten Geräusche.
+  GameSound get sound => GameSound(json['sound'] as Json? ?? const {});
 
   /// Alle Takte, in denen ein Dokument steckt, damit die Akte zeigen kann, woher es stammt.
   Iterable<(Station, Beat)> get allBeats sync* {
@@ -161,6 +165,9 @@ class Chapter {
   String get id => json['id'] as String;
   LText get title => LText(json['title']);
   LText get text => LText((json['piece'] as Json?)?['text']);
+
+  /// Atmosphäre, solange dieses Kapitel läuft
+  Ambience? get ambience => json['ambience'] == null ? null : Ambience(json['ambience'] as Json);
 }
 
 /// Ein Takt einer Szene, siehe beat im Schema.
@@ -172,6 +179,9 @@ class Beat {
   LText get title => LText(json['title']);
   LText get text => LText(json['text']);
   String? get audio => json['audio'] as String?;
+
+  /// Geräusch, das mit dem Takt einsetzt, zusätzlich zur Stimme in [audio]
+  String? get sfx => json['sfx'] as String?;
   String? get image => json['image'] as String?;
   String? get item => json['item'] as String?;
   LText get ack => LText(json['ack']);
@@ -293,6 +303,9 @@ class Station {
   /// Sprechzeile des Peilgeräts je Stufe: far, mid, near, here
   LText approach(String stage) => LText((json['approach'] as Json?)?[stage]);
 
+  /// Atmosphäre in der Nähe, Geräusche beim Annähern und beim Lösen
+  StationSound get sound => StationSound(json['sound'] as Json? ?? const {});
+
   Task? get task => json['task'] == null ? null : Task(json['task'] as Json);
   List<Hint> get hints => _list(json['hints']).map(Hint.new).toList();
   Json get rewards => json['rewards'] as Json? ?? {};
@@ -366,4 +379,57 @@ class Item {
   LText get body => LText(json['body']);
   String? get image => json['image'] as String?;
   String? get icon => json['icon'] as String?;
+}
+
+/// Eine Mediendatei des Spiels; [src] ist relativ zur Server-Adresse (media/…) oder eine URL.
+class Media {
+  Media(this.json);
+  final Json json;
+  String get id => json['id'] as String;
+
+  /// image, audio oder video
+  String get type => json['type'] as String;
+  String get src => json['src'] as String;
+  bool get isAudio => type == 'audio';
+  LText get alt => LText(json['alt']);
+  LText get transcript => LText(json['transcript']);
+
+  /// Urheber und Lizenz
+  LText get credit => LText(json['credit']);
+}
+
+/// Atmosphäre: ein Geräusch in Schleife, weich ein- und ausgeblendet.
+class Ambience {
+  Ambience(this.json);
+  final Json json;
+
+  /// ID aus media, Typ audio
+  String get audio => json['audio'] as String;
+  double get volume => _num(json['volume'], 0.6);
+
+  /// Nur an Stationen: ab dieser Peilstufe (mid, near oder here) läuft die Atmosphäre.
+  String get from => json['from'] as String? ?? 'near';
+}
+
+/// Klang des ganzen Spiels, siehe sound im Schema.
+class GameSound {
+  GameSound(this.json);
+  final Json json;
+  Ambience? get ambience => json['ambience'] == null ? null : Ambience(json['ambience'] as Json);
+
+  /// Eigene Aufnahme statt des eingebauten Geräuschs: arrival, solved, wrong, chapter, radio, hint, key
+  String? ui(String key) => (json['ui'] as Json?)?[key] as String?;
+}
+
+/// Klang einer Station, siehe stationSound im Schema.
+class StationSound {
+  StationSound(this.json);
+  final Json json;
+  Ambience? get ambience => json['ambience'] == null ? null : Ambience(json['ambience'] as Json);
+
+  /// Einmaliges Geräusch beim Erreichen der Peilstufe mid, near oder here
+  String? approach(String stage) => (json['approach'] as Json?)?[stage] as String?;
+
+  /// Geräusch beim Lösen
+  String? get solved => json['solved'] as String?;
 }

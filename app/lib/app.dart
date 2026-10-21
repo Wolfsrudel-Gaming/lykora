@@ -5,6 +5,7 @@ import 'data/controller.dart';
 import 'data/session.dart';
 import 'model/game.dart';
 import 'services/fx.dart';
+import 'services/soundscape.dart';
 import 'ui/design/tokens.dart';
 import 'ui/safety/safety_layer.dart';
 import 'ui/screens/briefing_screen.dart';
@@ -14,7 +15,18 @@ import 'ui/screens/prep_screen.dart';
 
 /// Einstellungen des Geräts: Lichtmodus, Lesefassung, Schriftgröße, Vorlesen, Ton.
 class AppSettings extends ChangeNotifier {
-  AppSettings(this.store);
+  AppSettings(this.store) {
+    Fx.instance.addListener(_onFx);
+    // Solange die Vorlesestimme spricht, ist die Atmosphäre leiser. Anfang und Ende meldet die Stimme
+    // selbst; auf das Ende von speak() ist kein Verlass, nach einem Fehler kommt es nie.
+    _tts
+      ..setStartHandler(() => Fx.instance.duck(_voice))
+      ..setContinueHandler(() => Fx.instance.duck(_voice))
+      ..setCompletionHandler(_quiet)
+      ..setCancelHandler(_quiet)
+      ..setPauseHandler(_quiet)
+      ..setErrorHandler((_) => _quiet());
+  }
   final SessionStore store;
   LightMode lightMode = LightMode.night;
 
@@ -24,7 +36,12 @@ class AppSettings extends ChangeNotifier {
   bool readAloud = false;
   bool sound = true;
   bool vibration = true;
+
+  /// Lautstärke der Atmosphäre, 0 bis 1
+  double ambience = 0.8;
   final FlutterTts _tts = FlutterTts();
+  bool _alarm = false;
+  static const _voice = #readAloud;
 
   Future<void> load() async {
     final j = await store.loadSettings();
@@ -35,16 +52,18 @@ class AppSettings extends ChangeNotifier {
     readAloud = j['readAloud'] as bool? ?? false;
     sound = j['sound'] as bool? ?? true;
     vibration = j['vibration'] as bool? ?? true;
+    ambience = ((j['ambience'] as num?)?.toDouble() ?? 0.8).clamp(0.0, 1.0);
     _applyFx();
   }
 
-  Future<void> update({LightMode? lightMode, Object? young = _keep, double? textScale, bool? readAloud, bool? sound, bool? vibration}) async {
+  Future<void> update({LightMode? lightMode, Object? young = _keep, double? textScale, bool? readAloud, bool? sound, bool? vibration, double? ambience}) async {
     this.lightMode = lightMode ?? this.lightMode;
     if (young != _keep) this.young = young as bool?;
     this.textScale = textScale ?? this.textScale;
     this.readAloud = readAloud ?? this.readAloud;
     this.sound = sound ?? this.sound;
     this.vibration = vibration ?? this.vibration;
+    this.ambience = ambience ?? this.ambience;
     _applyFx();
     notifyListeners();
     await store.saveSettings({
@@ -54,6 +73,7 @@ class AppSettings extends ChangeNotifier {
       'readAloud': this.readAloud,
       'sound': this.sound,
       'vibration': this.vibration,
+      'ambience': this.ambience,
     });
   }
 
@@ -63,11 +83,28 @@ class AppSettings extends ChangeNotifier {
     Fx.instance
       ..sound = sound
       ..vibration = vibration;
+    Soundscape.instance.volume = ambience;
+  }
+
+  /// Ein Sicherheitsalarm unterbricht auch das Vorlesen sofort.
+  void _onFx() {
+    final alarm = Fx.instance.safetyActive;
+    if (alarm && !_alarm) stopSpeaking();
+    _alarm = alarm;
+  }
+
+  @override
+  void dispose() {
+    Fx.instance.removeListener(_onFx);
+    super.dispose();
   }
 
   /// Nächster Lichtmodus für den Lichtschalter: Nacht → Rotlicht → Bernstein → Tag.
   Future<void> cycleLight() => update(lightMode: LightMode.values[(lightMode.index + 1) % LightMode.values.length]);
 
+  void _quiet() => Fx.instance.unduck(_voice);
+
+  /// Liest vor; solange die Stimme spricht, ist die Atmosphäre leiser.
   Future<void> speak(String text, {String lang = 'de', double rate = 0.5}) async {
     if (!Fx.enabled) return;
     try {
@@ -75,10 +112,13 @@ class AppSettings extends ChangeNotifier {
       await _tts.setLanguage(lang == 'de' ? 'de-DE' : lang);
       await _tts.setSpeechRate(rate);
       await _tts.speak(text);
-    } catch (_) {}
+    } catch (_) {
+      _quiet();
+    }
   }
 
   Future<void> stopSpeaking() async {
+    _quiet();
     if (!Fx.enabled) return;
     try {
       await _tts.stop();

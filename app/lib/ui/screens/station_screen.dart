@@ -9,6 +9,7 @@ import '../../data/controller.dart';
 import '../../engine/answers.dart';
 import '../../model/game.dart';
 import '../../services/fx.dart';
+import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../story/beats.dart';
@@ -34,6 +35,12 @@ class _StationScreenState extends State<StationScreen> {
   List<Beat> _beats(Station s) => [...s.scene.arrival, ...s.scene.beats];
 
   @override
+  void dispose() {
+    Soundscape.instance.release(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
     return ListenableBuilder(
@@ -47,6 +54,8 @@ class _StationScreenState extends State<StationScreen> {
         final available = c.visibleStations.contains(s) && (!s.isFinal || c.fragmentsComplete());
         final beats = _beats(s);
         _step ??= c.session!.seenScenes.contains(s.id) ? beats.length : 0;
+        // Solange die Szene offen ist, gehört ihr die Atmosphäre der Station.
+        Soundscape.instance.scene(this, triggered || solved ? s.id : null);
 
         final Widget stage;
         var dot = 0;
@@ -262,7 +271,7 @@ class _TaskStageState extends State<_TaskStage> {
       if (!o.ok) {
         showMessage(context, reasonText(o.reason), error: true);
       } else if (o.verdict == Verdict.correct) {
-        Fx.instance.play(Sound.solved);
+        Soundscape.instance.solved(c.mediaFile(s.sound.solved));
         Fx.instance.buzz(Buzz.arrival);
         _text.clear();
         widget.onSolved();
@@ -301,7 +310,7 @@ class _TaskStageState extends State<_TaskStage> {
               const SizedBox(height: 6),
               Text(costText.isEmpty ? 'Kostet nichts.' : costText, style: t.muted),
               const SizedBox(height: 20),
-              LKey(label: 'Tipp anfordern', icon: Icons.settings_input_antenna_rounded, sound: Sound.squelchOn, onPressed: () => Navigator.of(ctx).pop(true)),
+              LKey(label: 'Tipp anfordern', icon: Icons.settings_input_antenna_rounded, sound: Sound.hint, onPressed: () => Navigator.of(ctx).pop(true)),
               const SizedBox(height: Space.gap),
               LKey(label: 'Doch nicht', kind: KeyKind.tertiary, onPressed: () => Navigator.of(ctx).pop(false)),
             ],

@@ -377,10 +377,18 @@ class _Packing extends StatelessWidget {
     final c = Lykora.game(context);
     final t = context.tok;
     final game = c.game!;
-    final media = (game.json['media'] as List? ?? const []).length;
+    // Gezählt wird, was wirklich auf dem Handy liegt.
+    String count(String type, String one, String many, String fewer) {
+      final all = game.mediaList.where((m) => m.type == type).toList();
+      final have = all.where((m) => c.mediaFile(m.id) != null).length;
+      if (all.isEmpty) return '';
+      return have == all.length ? '$have ${have == 1 ? one : many}' : '$have von ${all.length} $fewer';
+    }
+
+    final packed = [count('audio', 'Klang', 'Klänge', 'Klängen'), count('image', 'Bild', 'Bilder', 'Bildern')].where((x) => x.isNotEmpty);
     final items = [
       ('Geschichte', '${game.stations.length} Stationen, ${game.chapters.length} Kapitel'),
-      ('Hörstücke und Bilder', media == 0 ? 'Vorlesestimme an Bord' : '$media Dateien'),
+      ('Klänge und Bilder', packed.isEmpty ? 'Vorlesestimme an Bord' : packed.join(', ')),
       ('Karte', 'Spielfeld, Sammelpunkt, Sperrzonen'),
       ('Notfallinfos', 'Funktionieren immer offline'),
     ];

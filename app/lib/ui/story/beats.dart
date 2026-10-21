@@ -3,11 +3,14 @@
 // Die Geschichte kommt zuerst über das Ohr. Gibt es ein Hörstück, spielt es von selbst;
 // sonst liest die Vorlesestimme, wenn das Team das eingeschaltet hat.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../model/game.dart';
 import '../../services/fx.dart';
+import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 
@@ -26,11 +29,15 @@ String speakerName(BuildContext context, Game game, Beat beat) {
   };
 }
 
-/// Spielt das Hörstück eines Takts oder liest ihn vor, wenn das eingeschaltet ist.
+/// Spielt das Hörstück eines Takts oder liest ihn vor, wenn das eingeschaltet ist. Ein Geräusch
+/// des Takts (sfx) setzt zugleich ein.
 Future<void> voiceBeat(BuildContext context, Beat beat, {bool force = false}) async {
+  // Während eines Sicherheitsalarms schweigt die Geschichte.
+  if (Fx.instance.safetyActive) return;
   final c = Lykora.game(context);
   final prefs = Lykora.prefs(context);
-  final file = beat.audio == null ? null : c.mediaFile(beat.audio!);
+  unawaited(Soundscape.instance.effect(c.mediaFile(beat.sfx)));
+  final file = c.mediaFile(beat.audio);
   if (file != null) {
     if (beat.kind == 'radio') await Fx.instance.play(Sound.squelchOn, volume: 0.5);
     await Fx.instance.playStory(file);

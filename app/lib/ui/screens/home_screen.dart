@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
@@ -35,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _unread = 0;
   Set<String> _triggered = {};
   GameController? _c;
+  StreamSubscription<ChatMessage>? _messages;
 
   @override
   void initState() {
@@ -46,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     final c = _c = Lykora.game(context);
     c.startLoops();
-    c.onIncomingMessage = _onMessage;
+    _messages = c.incoming.listen(_onMessage);
     _triggered = {...c.state.triggered};
     c.addListener(_watch);
     if (await LocationService.instance.ensurePermission() == null) {
@@ -57,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _c?.removeListener(_watch);
+    _messages?.cancel();
     super.dispose();
   }
 
@@ -73,11 +77,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onMessage(ChatMessage m) {
     if (!mounted || m.kind == 'system') return;
-    Fx.instance.play(Sound.squelchOn);
+    final text = m.text;
+    // Ein Cue ohne Funkspruch ist nur Klang; während eines Sicherheitsalarms bleibt er ganz still.
+    if (m.kind == 'cue' && (text.isEmpty || Fx.instance.safetyActive)) return;
+    // Beim Cue spielt sein eigener Klang statt des Rauschens.
+    if (m.kind != 'cue') Fx.instance.play(m.kind == 'hint' ? Sound.hint : Sound.squelchOn);
     Fx.instance.buzz(Buzz.pulse);
     if (_tab != 1) setState(() => _unread++);
     final prefs = Lykora.prefs(context);
-    if (prefs.readAloud) prefs.speak(m.body);
+    if (prefs.readAloud) prefs.speak(text);
     final t = context.tok;
     final game = Lykora.game(context).game!;
     ScaffoldMessenger.of(context)
@@ -91,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Caps('Funk · ${m.kind == 'hint' ? 'Tipp' : (game.hq?.name.of(context) ?? game.hqName.of(context))}', color: t.p.accent),
               const SizedBox(height: 4),
-              Text(m.body, style: t.body.copyWith(fontSize: 18), maxLines: 3, overflow: TextOverflow.ellipsis),
+              Text(text, style: t.body.copyWith(fontSize: 18), maxLines: 3, overflow: TextOverflow.ellipsis),
             ],
           ),
           action: SnackBarAction(label: 'Funk', textColor: t.p.accent, onPressed: () => _select(1)),

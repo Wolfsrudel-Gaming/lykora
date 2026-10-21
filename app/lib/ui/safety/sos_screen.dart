@@ -6,7 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app.dart';
+import '../../model/game.dart';
 import '../../services/fx.dart';
+import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import 'emergency_screen.dart';
@@ -14,7 +16,8 @@ import 'safety_layer.dart';
 
 /// Notruf an die Spielleitung. Drei Sekunden halten verhindert Fehlalarme in der Tasche.
 ///
-/// Das Öffnen löst nichts aus; man kann jederzeit zurück. Die Geschichte schweigt, solange die Seite offen ist.
+/// Das Öffnen löst nichts aus; man kann jederzeit zurück. Die Geschichte schweigt, solange die Seite offen ist,
+/// auch die Atmosphäre. Nach dem Senden zeigt die Seite, ob die Spielleitung den Alarm gelesen hat.
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
 
@@ -34,10 +37,17 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   String? _reason;
   int _ticks = 0;
 
+  /// id des gesendeten Alarms, um seinen Stand beim Server zu finden
+  String? _sosId;
+
+  /// Ohne Netz gespeichert; der Abgleich reicht ihn nach.
+  bool _deferred = false;
+
   @override
   void initState() {
     super.initState();
     Fx.instance.stopStory();
+    Soundscape.instance.hush(this, true);
     WidgetsBinding.instance.addPostFrameCallback((_) => sosOpen.value = true);
   }
 
@@ -45,6 +55,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   void dispose() {
     // Nicht mitten im Abbau des Baums benachrichtigen.
     Future.microtask(() => sosOpen.value = false);
+    Soundscape.instance.release(this);
     _hold.dispose();
     super.dispose();
   }
@@ -65,7 +76,11 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   Future<void> _send() async {
     Fx.instance.buzz(Buzz.safety);
     setState(() => _phase = _Phase.sending);
-    final ok = await Lykora.game(context).sos(message: _reason);
+    final c = Lykora.game(context);
+    final ok = await c.sos(message: _reason);
+    _sosId = c.session?.lastSosId;
+    // Abgelehnt ist nicht gespeichert: Nur ein wartender Alarm kann später als angekommen gelten.
+    _deferred = !ok && (c.session?.pendingSos.any((p) => p['id'] == _sosId) ?? false);
     if (mounted) setState(() => _phase = ok ? _Phase.sent : _Phase.queued);
   }
 
@@ -123,7 +138,14 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
                   style: t.heading.copyWith(color: ink, fontSize: 22),
                 ),
               ] else
-                _Status(phase: _phase, onSms: _sms),
+                ListenableBuilder(
+                  listenable: c,
+                  builder: (context, _) {
+                    // Offline gespeichert und inzwischen beim Abgleich nachgereicht.
+                    final delivered = _phase == _Phase.queued && _deferred && !(c.session?.pendingSos.any((p) => p['id'] == _sosId) ?? true);
+                    return _Status(phase: delivered ? _Phase.sent : _phase, status: c.sosStatus(_sosId), onSms: _sms);
+                  },
+                ),
               const SizedBox(height: 28),
               LKey(
                 label: '${safety.emergencyNumber} anrufen',
@@ -214,9 +236,12 @@ class _HoldCircle extends StatelessWidget {
 }
 
 class _Status extends StatelessWidget {
-  const _Status({required this.phase, required this.onSms});
+  const _Status({required this.phase, required this.onSms, this.status});
   final _Phase phase;
   final VoidCallback onSms;
+
+  /// Stand laut Server: acknowledgedAt, resolvedAt, acknowledgedBy
+  final Json? status;
 
   @override
   Widget build(BuildContext context) {
@@ -237,6 +262,9 @@ class _Status extends StatelessWidget {
         ],
       ),
     );
+    final read = status?['acknowledgedAt'] != null;
+    final done = status?['resolvedAt'] != null;
+    final by = status?['acknowledgedBy'] as String?;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -246,6 +274,13 @@ class _Status extends StatelessWidget {
           _ => row(false, 'Internet: nicht gesendet. Wird automatisch nachgeholt, sobald Netz da ist.'),
         },
         if (phase == _Phase.sent) ...[
+          if (read)
+            row(true, 'Spielleitung hat gelesen${by == null || by.isEmpty ? '' : ' ($by)'}.')
+          else if (!done)
+            row(null, 'Warten, bis die Spielleitung den Alarm liest …'),
+          if (done) row(true, 'Alarm erledigt. Die Spielleitung hat ihn abgeschlossen.'),
+        ],
+        if (phase == _Phase.sent && !done) ...[
           const SizedBox(height: 8),
           Text('Bleibt, wo ihr seid. Hilfe kommt. Mit „Finde mich“ seid ihr im Dunkeln leichter zu sehen.', style: t.body.copyWith(color: ink)),
         ],
