@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 export interface Config {
   port: number;
   host: string;
@@ -7,6 +9,10 @@ export interface Config {
   publicUrl: string;
   databaseUrl: string;
   dataDir: string;
+  /** Mitgelieferte Klangbibliothek: <id>.ogg und library.json. */
+  mediaLibraryDir: string;
+  /** Build des Web-Dashboards (index.html und Assets). */
+  webDir: string;
   logLevel: string;
   sessionDays: number;
   /** Gemeinsames Geheimnis für eingehende SMS vom SMS-Gateway. Leer schaltet den Eingang ab. */
@@ -32,6 +38,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     publicUrl: (env.PUBLIC_URL ?? `http://localhost:${port}${basePath}`).replace(/\/+$/, ""),
     databaseUrl,
     dataDir: env.DATA_DIR ?? "./data",
+    // src/ und dist/ liegen gleich tief im Server-Ordner, daher passen die Standardpfade für beide.
+    mediaLibraryDir: env.MEDIA_LIBRARY_DIR || fileURLToPath(new URL("../media-library", import.meta.url)),
+    webDir: env.WEB_DIR || fileURLToPath(new URL("../../web/dist", import.meta.url)),
     logLevel: env.LOG_LEVEL ?? "info",
     sessionDays: Number(env.SESSION_DAYS ?? 14),
     smsWebhookSecret: env.SMS_WEBHOOK_SECRET ?? "",

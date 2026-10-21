@@ -4,9 +4,11 @@ import { badRequest, notFound } from "../lib/errors.ts";
 import { STAFF_ACTIONS } from "../engine/team.ts";
 import type { Permission } from "../lib/roles.ts";
 import { loadEvent, loadTeam, logEvent, publicTeam, refreshTeam, summarizeState } from "../services/events.ts";
+import { resolveCueAudio } from "../services/media.ts";
 import { randomUUID } from "node:crypto";
 
 const staff = [{ staff: [] }];
+const eventParams = { type: "object", required: ["eventId"], properties: { eventId: { type: "string", format: "uuid" } } } as const;
 const teamParams = {
   type: "object",
   required: ["eventId", "teamId"],
@@ -17,7 +19,7 @@ const teamParams = {
 const permissionFor = (type: string): Permission => (type === "staff_solve" || type === "staff_reject" ? "event.review" : "event.intervene");
 
 export default async function staffRoutes(app: FastifyInstance) {
-  const { db, live } = app.deps;
+  const { db, config, live } = app.deps;
 
   app.post<{ Params: { eventId: string; teamId: string }; Body: { type: (typeof STAFF_ACTIONS)[number]; payload?: Record<string, unknown>; note?: string } }>(
     "/events/:eventId/teams/:teamId/actions",
@@ -49,7 +51,7 @@ export default async function staffRoutes(app: FastifyInstance) {
     async (req) => {
       const { user } = await authorizeEvent(db, req, req.params.eventId, permissionFor(req.body.type));
       const payload = req.body.payload ?? {};
-      return db.tx(async (tx) => {
+      const result = await db.tx(async (tx) => {
         const event = await loadEvent(tx, req.params.eventId);
         const team = await loadTeam(tx, event.id, req.params.teamId);
         if (payload.station !== undefined && !event.game.stations.some((s) => s.id === payload.station)) throw notFound("Station");
@@ -64,6 +66,9 @@ export default async function staffRoutes(app: FastifyInstance) {
         await logEvent(tx, live, event.id, req.body.type, { ...payload, note: req.body.note }, { teamId: team.id, userId: user.id });
         return { outcome: state.outcomes.find((o) => o.clientId === clientId), state: summarizeState(state) };
       });
+      // Erst nach dem Commit, sonst holt sich das Handy noch den alten Stand.
+      live.poke(req.params.eventId, req.params.teamId, "action");
+      return result;
     },
   );
 
@@ -89,7 +94,7 @@ export default async function staffRoutes(app: FastifyInstance) {
     async (req) => {
       const { user } = await authorizeEvent(db, req, req.params.eventId, "event.review");
       const b = req.body;
-      return db.tx(async (tx) => {
+      const updated = await db.tx(async (tx) => {
         const event = await loadEvent(tx, req.params.eventId);
         await loadTeam(tx, event.id, req.params.teamId);
         await tx.query(
@@ -105,6 +110,8 @@ export default async function staffRoutes(app: FastifyInstance) {
         await logEvent(tx, live, event.id, "team_updated", { ...b }, { teamId: team.id, userId: user.id });
         return publicTeam(team);
       });
+      live.poke(req.params.eventId, req.params.teamId, "team");
+      return updated;
     },
   );
 
@@ -163,6 +170,55 @@ export default async function staffRoutes(app: FastifyInstance) {
       );
       await logEvent(db, live, req.params.eventId, "message_sent", { kind: msg.kind, body: msg.body }, { teamId, userId: user.id });
       live.publish(req.params.eventId, "message", msg);
+      live.poke(req.params.eventId, teamId, "message");
+      return reply.status(201).send(msg);
+    },
+  );
+
+  app.post<{ Params: { eventId: string }; Body: { teamId?: string | null; audio: string; volume?: number; text?: string; sender?: string } }>(
+    "/events/:eventId/cues",
+    {
+      schema: {
+        tags: ["staff"],
+        summary: "Klang live bei einem Team oder allen Teams abspielen (Klangpult)",
+        description: [
+          "audio ist die ID eines Klangs aus media des Spiels (Typ audio) oder lib:<id> aus der Klangbibliothek.",
+          "teamId leer = an alle Teams. text erscheint dazu als Funkspruch.",
+          "Gespeichert wird eine Nachricht mit kind cue; ihr body ist JSON mit audio, src, volume und text.",
+        ].join(" "),
+        security: staff,
+        params: eventParams,
+        body: {
+          type: "object",
+          required: ["audio"],
+          properties: {
+            teamId: { type: ["string", "null"], format: "uuid" },
+            audio: { type: "string", minLength: 1, maxLength: 100 },
+            volume: { type: "number", minimum: 0, maximum: 1 },
+            text: { type: "string", maxLength: 300 },
+            sender: { type: "string", maxLength: 60 },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const { user } = await authorizeEvent(db, req, req.params.eventId, "event.message");
+      const teamId = req.body.teamId ?? null;
+      if (teamId) await loadTeam(db, req.params.eventId, teamId);
+      const event = await loadEvent(db, req.params.eventId);
+      const { audio } = req.body;
+      const src = await resolveCueAudio(event.game, audio, config.mediaLibraryDir);
+      if (!src) throw badRequest("unknown_audio", `Den Klang „${audio}“ gibt es weder im Spiel noch in der Bibliothek`);
+      const volume = req.body.volume ?? 0.8;
+      const text = req.body.text?.trim() || undefined;
+      const msg = await db.one(
+        `insert into messages (event_id, team_id, direction, kind, sender, body, user_id)
+         values ($1, $2, 'to_team', 'cue', $3, $4, $5) returning id, team_id, direction, kind, sender, body, created_at`,
+        [event.id, teamId, req.body.sender ?? "hq", JSON.stringify({ audio, src, volume, text }), user.id],
+      );
+      await logEvent(db, live, event.id, "cue_sent", { audio, src, volume, text }, { teamId, userId: user.id });
+      live.publish(event.id, "message", msg);
+      live.poke(event.id, teamId, "cue");
       return reply.status(201).send(msg);
     },
   );

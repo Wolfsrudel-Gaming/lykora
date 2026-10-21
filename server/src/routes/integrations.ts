@@ -54,6 +54,8 @@ export default async function integrationRoutes(app: FastifyInstance) {
       );
       live.publish(team.event_id, "sos", { ...row, team_name: team.name, emergency_phone: team.emergency_phone });
       await logEvent(db, live, team.event_id, "sos", { sosId: row.id, channel: "sms", lat: row.lat, lon: row.lon }, { teamId: team.id });
+      // Hat ein anderes Handy des Teams Netz, zeigt es gleich, dass die SMS angekommen ist.
+      live.poke(team.event_id, team.id, "sos");
       return reply.status(201).send({ handled: true });
     },
   );

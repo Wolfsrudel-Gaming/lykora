@@ -16,6 +16,8 @@ export interface AuthTeam {
   deviceToken: string;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function bearerToken(req: FastifyRequest): string | undefined {
   const header = req.headers.authorization;
   if (header?.startsWith("Bearer ")) return header.slice(7).trim();
@@ -66,7 +68,8 @@ export async function authorize(db: Db, req: FastifyRequest, orgId: string, perm
 }
 
 async function orgOf(db: Db, table: "games" | "events", id: string): Promise<string> {
-  const row = /^[0-9a-f-]{36}$/i.test(id) ? await db.one<{ org_id: string }>(`select org_id from ${table} where id = $1`, [id]) : undefined;
+  // Streng prüfen: Postgres lehnt schiefe UUIDs mit einem Fehler ab, und Hooks vor der Schema-Prüfung landen auch hier.
+  const row = UUID.test(id) ? await db.one<{ org_id: string }>(`select org_id from ${table} where id = $1`, [id]) : undefined;
   if (!row) throw notFound(table === "games" ? "Spiel" : "Event");
   return row.org_id;
 }

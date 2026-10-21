@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { authorize, authorizeEvent } from "../lib/auth.ts";
 import { newCode } from "../lib/crypto.ts";
 import { conflict, notFound } from "../lib/errors.ts";
+import { closeWithError } from "../lib/live.ts";
 import { can } from "../lib/roles.ts";
 import { toCsv } from "../lib/csv.ts";
 import {
@@ -240,6 +241,7 @@ export default async function eventRoutes(app: FastifyInstance) {
         return loadEvent(tx, e.id);
       });
       live.publish(event.id, "status", { status: event.status, reason });
+      live.poke(event.id, null, "status");
       return eventDto(event, config.publicUrl, true);
     },
   );
@@ -409,8 +411,8 @@ export default async function eventRoutes(app: FastifyInstance) {
         const { role } = await authorizeEvent(db, req, req.params.eventId, "event.read");
         live.subscribe(req.params.eventId, socket, can(role, "event.positions"));
         socket.send(JSON.stringify({ type: "hello", data: { eventId: req.params.eventId } }));
-      } catch (err: any) {
-        socket.close(4000 + (err.statusCode ?? 500) % 1000, err.message);
+      } catch (err) {
+        closeWithError(socket, err, req.log);
       }
     },
   );
@@ -453,6 +455,8 @@ export default async function eventRoutes(app: FastifyInstance) {
       if (!row) throw notFound("SOS");
       await logEvent(db, live, req.params.eventId, `sos_${req.params.action}`, { sosId: row.id }, { teamId: row.team_id, userId: user.id });
       live.publish(req.params.eventId, "sos", row);
+      // Das Handy zeigt dem Team, dass der Alarm angekommen ist.
+      live.poke(req.params.eventId, row.team_id, "sos");
       return row;
     },
   );

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createReadStream } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { authorizeEvent, requireTeam } from "../lib/auth.ts";
 import { hashToken, newCode, newToken } from "../lib/crypto.ts";
 import { badRequest, conflict, notFound } from "../lib/errors.ts";
+import { closeWithError } from "../lib/live.ts";
 import { TEAM_ACTIONS, elapsedAt } from "../engine/team.ts";
 import {
   allTeamStates,
@@ -208,7 +209,8 @@ export default async function playRoutes(app: FastifyInstance) {
         description: [
           "Aktionen tragen eine eindeutige id und ihren Zeitstempel; doppelt gesendete werden ignoriert.",
           "Mit deviceTime gleicht der Server eine falsch gehende Uhr des Handys aus.",
-          "Die Antwort enthält den vom Server bestätigten Spielstand, neue Nachrichten und den Event-Status.",
+          "Die Antwort enthält den vom Server bestätigten Spielstand, neue Nachrichten (auch Klang-Cues mit kind cue),",
+          "den Stand der eigenen SOS-Meldungen und den Event-Status.",
         ].join(" "),
         security: team,
         body: {
@@ -303,6 +305,13 @@ export default async function playRoutes(app: FastifyInstance) {
          where event_id = $1 and direction = 'to_team' and (team_id = $2 or team_id is null) and id > $3 order by id limit 200`,
         [event.id, auth.teamId, req.body.messagesAfter ?? 0],
       );
+      // Damit das Handy zeigen kann, dass die Spielleitung den Alarm gesehen hat.
+      const sos = await db.query<{ id: string; client_id: string | null; channel: string; acknowledged_at: Date | null; resolved_at: Date | null; acknowledged_by: string | null }>(
+        `select s.id, s.client_id, s.channel, s.acknowledged_at, s.resolved_at, u.name as acknowledged_by
+         from sos s left join users u on u.id = s.acknowledged_by
+         where s.team_id = $1 order by s.client_time desc, s.received_at desc limit 20`,
+        [auth.teamId],
+      );
       let leaderboard = null;
       if (leaderboardVisible(event, state)) {
         const states = await allTeamStates(db, event);
@@ -324,9 +333,42 @@ export default async function playRoutes(app: FastifyInstance) {
         outcomes: actions.map((a) => outcomes.get(a.id) ?? { clientId: a.id, status: "ignored", reason: "unknown" }),
         state: summarizeState(state),
         messages,
+        sos: sos.map((s) => ({
+          id: s.id,
+          clientId: s.client_id,
+          channel: s.channel,
+          acknowledgedAt: s.acknowledged_at,
+          resolvedAt: s.resolved_at,
+          acknowledgedBy: s.acknowledged_by,
+        })),
         leaderboard,
         recall: event.status === "recalled" ? { assemblyPoint: event.game.field.assemblyPoint } : null,
       };
+    },
+  );
+
+  app.get(
+    "/play/live",
+    {
+      websocket: true,
+      schema: {
+        tags: ["play"],
+        summary: "Anstupsen der App (WebSocket, Gerätetoken als access_token)",
+        description: [
+          "Sendet hello, danach poke mit reason (message, cue, status, action, sos, team), sobald das Team abgleichen soll,",
+          "und alle 25 s ping. Ungültiger Token: Verbindung wird mit Code 4401 geschlossen.",
+        ].join(" "),
+        querystring: { type: "object", properties: { access_token: { type: "string" } } },
+      },
+    },
+    async (socket, req: FastifyRequest) => {
+      try {
+        const auth = await requireTeam(db, req);
+        live.subscribeTeam(auth.eventId, auth.teamId, socket);
+        socket.send(JSON.stringify({ type: "hello" }));
+      } catch (err) {
+        closeWithError(socket, err, req.log);
+      }
     },
   );
 

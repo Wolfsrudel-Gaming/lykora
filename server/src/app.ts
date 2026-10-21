@@ -13,12 +13,24 @@ import eventRoutes from "./routes/events.ts";
 import staffRoutes from "./routes/staff.ts";
 import playRoutes from "./routes/play.ts";
 import integrationRoutes from "./routes/integrations.ts";
+import mediaRoutes from "./routes/media.ts";
+import fileRoutes from "./routes/files.ts";
+import webRoutes from "./routes/web.ts";
 
 export interface Deps {
   db: Db;
   config: Config;
   live: LiveHub;
 }
+
+/** Verständliche Codes für Fehler, die Fastify selbst meldet. */
+const FRAMEWORK_ERRORS: Record<string, { error: string; message: string }> = {
+  FST_ERR_CTP_BODY_TOO_LARGE: { error: "too_large", message: "Die Datei oder Anfrage ist zu groß" },
+  FST_ERR_CTP_INVALID_MEDIA_TYPE: { error: "unsupported_type", message: "Dateityp nicht unterstützt" },
+};
+
+/** Browser schicken bei WebSockets den Token in der Adresse mit; der gehört nicht ins Log. */
+export const redactTokens = (url: string) => url.replace(/([?&]access_token=)[^&]*/g, "$1***");
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -28,7 +40,15 @@ declare module "fastify" {
 
 export async function buildApp(config: Config, db: Db, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: opts.logger === false ? false : { level: config.logLevel },
+    logger:
+      opts.logger === false
+        ? false
+        : {
+            level: config.logLevel,
+            serializers: {
+              req: (req: any) => ({ method: req.method, url: redactTokens(req.url), host: req.host, remoteAddress: req.ip }),
+            },
+          },
     trustProxy: true,
     bodyLimit: 2 * 1024 * 1024,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: "array", allErrors: false } },
@@ -44,11 +64,15 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
       return reply.status(400).send({ error: "invalid_request", message: err.message });
     }
     if (err.statusCode && err.statusCode < 500) {
-      return reply.status(err.statusCode).send({ error: err.code ?? "error", message: err.message });
+      return reply.status(err.statusCode).send(FRAMEWORK_ERRORS[err.code] ?? { error: err.code ?? "error", message: err.message });
     }
     req.log.error(err);
     return reply.status(500).send({ error: "internal", message: "Interner Fehler" });
   });
+
+  app.setNotFoundHandler((req, reply) =>
+    reply.status(404).send({ error: "not_found", message: `Route ${req.method} ${req.url.split("?")[0]} nicht gefunden` }),
+  );
 
   const api = `${config.basePath}/api`;
 
@@ -70,11 +94,13 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
         { name: "staff", description: "Eingriffe von Spielleitung und Betreuern" },
         { name: "play", description: "Schnittstelle der Spieler-App" },
         { name: "integrations", description: "Eingänge für externe Systeme" },
+        { name: "media", description: "Medien der Spiele und Klangbibliothek" },
       ],
     },
   });
   await app.register(swaggerUi, { routePrefix: `${api}/docs` });
-  await app.register(websocket);
+  // Dashboard und App senden über den WebSocket nichts; ohne Grenze nähme ws bis zu 100 MB je Nachricht an.
+  await app.register(websocket, { options: { maxPayload: 4096 } });
 
   await app.register(
     async (scope) => {
@@ -89,9 +115,12 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
       await scope.register(staffRoutes);
       await scope.register(playRoutes);
       await scope.register(integrationRoutes);
+      await scope.register(mediaRoutes);
     },
     { prefix: api },
   );
+  await app.register(fileRoutes, { prefix: config.basePath });
+  await app.register(webRoutes);
 
   return app;
 }
