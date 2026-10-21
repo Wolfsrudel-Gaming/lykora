@@ -1,15 +1,17 @@
-# Veröffentlicht die Test-APK als GitHub Release, sobald ein Tag wie app-v0.1.0 gepusht wird.
+# Hängt die Test-APKs an ein GitHub Release. Auslöser: auf GitHub unter „Releases“
+# ein Release mit einem Tag wie app-v0.1.0 veröffentlichen.
 name: App-Release
 
 on:
-  push:
-    tags: ["app-v*"]
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: startsWith(github.event.release.tag_name, 'app-v')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,8 +36,9 @@ jobs:
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "build/lykora-$v-arm32.apk"
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name }}
           files: app/build/lykora-*.apk
-          prerelease: true
+          append_body: true
           body: |
             Test-APK für Android. Für fast alle Handys ab etwa 2017 passt die Datei mit „arm64“; „arm32“ ist für sehr alte Geräte.
             Installation: Datei auf dem Handy öffnen und „Unbekannte Apps installieren“ für den Browser oder Dateimanager erlauben.
