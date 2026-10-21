@@ -52,6 +52,7 @@ function checkReferences(game) {
   };
 
   const stations = unique("stations", ids(game.stations));
+  const characters = unique("characters", ids(game.characters));
   const fragments = unique("fragments", ids(game.fragments));
   const items = unique("items", ids(game.items));
   const media = unique("media", ids(game.media));
@@ -68,12 +69,27 @@ function checkReferences(game) {
   mediaRefs("story.outro", game.story?.outro?.media);
   for (const c of game.story?.chapters ?? []) mediaRefs(`story.chapters[${c.id}]`, c.piece?.media);
   if (game.story?.hq?.avatar) ref("story.hq.avatar", media, game.story.hq.avatar, "Medien-ID");
-  for (const i of game.items ?? []) if (i.icon) ref(`items[${i.id}].icon`, media, i.icon, "Medien-ID");
+  for (const i of game.items ?? []) {
+    if (i.icon) ref(`items[${i.id}].icon`, media, i.icon, "Medien-ID");
+    if (i.image) ref(`items[${i.id}].image`, media, i.image, "Medien-ID");
+  }
+  for (const c of game.characters ?? []) if (c.portrait) ref(`characters[${c.id}].portrait`, media, c.portrait, "Medien-ID");
+  const beatRefs = (where, beats) => {
+    for (const b of beats ?? []) {
+      if (b.speaker) ref(where, characters, b.speaker, "Figur");
+      if (b.item) ref(where, items, b.item, "Item-ID");
+      if (b.audio) ref(where, media, b.audio, "Medien-ID");
+      if (b.image) ref(where, media, b.image, "Medien-ID");
+    }
+  };
 
   for (const s of game.stations ?? []) {
     const where = `stations[${s.id}]`;
     mediaRefs(`${where}.story`, s.story?.media);
     mediaRefs(`${where}.task`, s.task?.media);
+    beatRefs(`${where}.scene.arrival`, s.scene?.arrival);
+    beatRefs(`${where}.scene.beats`, s.scene?.beats);
+    beatRefs(`${where}.scene.afterSolve`, s.scene?.afterSolve);
     const r = s.rewards ?? {};
     (r.fragments ?? []).forEach((id) => ref(`${where}.rewards`, fragments, id, "Fragment-ID"));
     (r.items ?? []).forEach((id) => ref(`${where}.rewards`, items, id, "Item-ID"));

@@ -23,6 +23,12 @@
     "settings": { "$ref": "#/$defs/settings" },
     "field": { "$ref": "#/$defs/field" },
     "story": { "$ref": "#/$defs/story" },
+    "presentation": { "$ref": "#/$defs/presentation" },
+    "characters": {
+      "description": "Figuren der Geschichte: Zentrale, Erzähler und Personen, denen die Teams begegnen.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/character" }
+    },
     "fragments": {
       "description": "Code-Fragmente. Jedes Fragment trägt seine Position im Finalcode; die Reihenfolge beim Sammeln ist egal.",
       "type": "array",
@@ -295,6 +301,68 @@
         }
       }
     },
+    "presentation": {
+      "description": "Wie die App die Spielwelt nennt und zeigt. Ohne Angaben gelten Standards je Genre.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "device": { "$ref": "#/$defs/text", "description": "Name des Peilgeräts, z. B. „Irrlicht-Glas“." },
+        "caseFile": { "$ref": "#/$defs/text", "description": "Name der Akte, z. B. „Tagebuch der Nacht“." },
+        "stamp": { "$ref": "#/$defs/text", "description": "Text des Stempels beim Lösen, z. B. „GELÖST“." }
+      }
+    },
+    "character": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["hq", "narrator", "npc"], "default": "npc" },
+        "name": { "$ref": "#/$defs/text" },
+        "callSign": { "$ref": "#/$defs/text", "description": "Rufzeichen im Funk, z. B. „Nachtfalke an Team“." },
+        "description": { "$ref": "#/$defs/text" },
+        "portrait": { "$ref": "#/$defs/id" }
+      }
+    },
+    "scene": {
+      "description": "Eine Station als Szene: Ankunft, Takte vor dem Rätsel, Takte nach dem Lösen.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "arrival": { "type": "array", "items": { "$ref": "#/$defs/beat" } },
+        "beats": { "type": "array", "items": { "$ref": "#/$defs/beat" } },
+        "afterSolve": { "type": "array", "items": { "$ref": "#/$defs/beat" } }
+      }
+    },
+    "beat": {
+      "description": "Ein Takt einer Szene. narration: Erzähler. radio: Funkspruch. document: Fundstück zum Lesen. dialogue: Figur spricht, Team antwortet. group: Anweisung an alle. chapter: Kapitelkarte. image: Bild.",
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["narration", "radio", "document", "dialogue", "group", "chapter", "image"] },
+        "speaker": { "$ref": "#/$defs/id", "description": "ID aus characters." },
+        "title": { "$ref": "#/$defs/text" },
+        "text": { "$ref": "#/$defs/text" },
+        "audio": { "$ref": "#/$defs/id" },
+        "image": { "$ref": "#/$defs/id" },
+        "item": { "$ref": "#/$defs/id", "description": "Bei document: das Dokument kommt als Item in die Akte." },
+        "ack": { "$ref": "#/$defs/text", "description": "Beschriftung des Knopfs zum Weitergehen, z. B. „Wir sind bereit“." },
+        "responses": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "$ref": "#/$defs/text" },
+              "reply": { "$ref": "#/$defs/text", "description": "Antwort der Figur darauf." }
+            }
+          }
+        }
+      }
+    },
     "storyPiece": {
       "type": "object",
       "additionalProperties": false,
@@ -328,6 +396,13 @@
         "name": { "$ref": "#/$defs/text" },
         "description": { "$ref": "#/$defs/text" },
         "icon": { "$ref": "#/$defs/id" },
+        "kind": {
+          "description": "object: Gegenstand. document: Brief, Notiz, Zeitungsausschnitt (body wird als Dokument gezeigt). evidence: Beweisstück.",
+          "enum": ["object", "document", "evidence"],
+          "default": "object"
+        },
+        "body": { "$ref": "#/$defs/text" },
+        "image": { "$ref": "#/$defs/id" },
         "tradeable": { "type": "boolean", "default": false }
       }
     },
@@ -366,6 +441,18 @@
           "items": { "$ref": "#/$defs/trigger" }
         },
         "story": { "$ref": "#/$defs/storyPiece" },
+        "scene": { "$ref": "#/$defs/scene" },
+        "approach": {
+          "description": "Was das Peilgerät beim Annähern sagt, je Stufe.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "far": { "$ref": "#/$defs/text" },
+            "mid": { "$ref": "#/$defs/text" },
+            "near": { "$ref": "#/$defs/text" },
+            "here": { "$ref": "#/$defs/text" }
+          }
+        },
         "task": { "$ref": "#/$defs/task" },
         "hints": {
           "description": "Hinweise in Stufen, üblich sind drei: Schubs, deutlicher Tipp, fast Lösung.",
@@ -482,6 +569,10 @@
           "properties": {
             "type": { "const": "code" },
             "question": { "$ref": "#/$defs/text" },
+            "input": {
+              "description": "lock: Zahlenschloss mit Rädern (Standard bei reinen Ziffern). keyboard: Eingabefeld.",
+              "enum": ["lock", "keyboard"]
+            },
             "answers": {
               "description": "Zahlen- oder Zeichencodes, exakt geprüft.",
               "type": "array",

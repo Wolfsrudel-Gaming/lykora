@@ -59,3 +59,9 @@ test("versteckte Station ohne Freischaltung erzeugt eine Warnung", () => {
   assert.deepEqual(errors, []);
   assert.ok(warnings.some((w) => w.includes("versteck")));
 });
+
+test("Szene mit unbekannter Figur wird gemeldet", () => {
+  const game = example();
+  game.stations[1].scene.arrival[0].speaker = "niemand";
+  assert.ok(validateGame(game).errors.some((e) => e.includes("niemand")));
+});

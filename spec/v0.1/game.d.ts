@@ -128,6 +128,10 @@ export type Task =
       type: "code";
       question: Text;
       /**
+       * lock: Zahlenschloss mit Rädern (Standard bei reinen Ziffern). keyboard: Eingabefeld.
+       */
+      input?: "lock" | "keyboard";
+      /**
        * Zahlen- oder Zeichencodes, exakt geprüft.
        *
        * @minItems 1
@@ -224,6 +228,11 @@ export interface LykoraSpielformatV01 {
   settings: Settings;
   field: Field;
   story?: Story;
+  presentation?: Presentation;
+  /**
+   * Figuren der Geschichte: Zentrale, Erzähler und Personen, denen die Teams begegnen.
+   */
+  characters?: Character[];
   /**
    * Code-Fragmente. Jedes Fragment trägt seine Position im Finalcode; die Reihenfolge beim Sammeln ist egal.
    */
@@ -410,6 +419,57 @@ export interface StoryPiece {
   speaker?: "narrator" | "hq" | "npc";
 }
 /**
+ * Wie die App die Spielwelt nennt und zeigt. Ohne Angaben gelten Standards je Genre.
+ *
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "presentation".
+ */
+export interface Presentation {
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  device?:
+    | string
+    | {
+        [k: string]: string;
+      };
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  caseFile?:
+    | string
+    | {
+        [k: string]: string;
+      };
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  stamp?:
+    | string
+    | {
+        [k: string]: string;
+      };
+}
+/**
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "character".
+ */
+export interface Character {
+  id: Id;
+  kind?: "hq" | "narrator" | "npc";
+  name: Text;
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  callSign?:
+    | string
+    | {
+        [k: string]: string;
+      };
+  description?: Text;
+  portrait?: Id;
+}
+/**
  * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
  * via the `definition` "fragment".
  */
@@ -431,6 +491,12 @@ export interface Item {
   name: Text;
   description?: Text;
   icon?: Id;
+  /**
+   * object: Gegenstand. document: Brief, Notiz, Zeitungsausschnitt (body wird als Dokument gezeigt). evidence: Beweisstück.
+   */
+  kind?: "object" | "document" | "evidence";
+  body?: Text;
+  image?: Id;
   tradeable?: boolean;
 }
 /**
@@ -464,6 +530,16 @@ export interface Station {
    */
   triggers: Trigger[];
   story?: StoryPiece;
+  scene?: Scene;
+  /**
+   * Was das Peilgerät beim Annähern sagt, je Stufe.
+   */
+  approach?: {
+    far?: Text;
+    mid?: Text;
+    near?: Text;
+    here?: Text;
+  };
   task?: Task;
   /**
    * Hinweise in Stufen, üblich sind drei: Schubs, deutlicher Tipp, fast Lösung.
@@ -478,6 +554,60 @@ export interface Station {
    * Notizen für Spielleitung und Aufbau; nie für Teams sichtbar.
    */
   notes?: string;
+}
+/**
+ * Eine Station als Szene: Ankunft, Takte vor dem Rätsel, Takte nach dem Lösen.
+ *
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "scene".
+ */
+export interface Scene {
+  arrival?: Beat[];
+  beats?: Beat[];
+  afterSolve?: Beat[];
+}
+/**
+ * Ein Takt einer Szene. narration: Erzähler. radio: Funkspruch. document: Fundstück zum Lesen. dialogue: Figur spricht, Team antwortet. group: Anweisung an alle. chapter: Kapitelkarte. image: Bild.
+ *
+ * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
+ * via the `definition` "beat".
+ */
+export interface Beat {
+  kind: "narration" | "radio" | "document" | "dialogue" | "group" | "chapter" | "image";
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  speaker?: string;
+  title?: Text;
+  text?: Text;
+  audio?: Id;
+  image?: Id;
+  /**
+   * Stabile ID, eindeutig innerhalb des Spiels.
+   */
+  item?: string;
+  /**
+   * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+   */
+  ack?:
+    | string
+    | {
+        [k: string]: string;
+      };
+  /**
+   * @maxItems 3
+   */
+  responses?: {
+    label: Text;
+    /**
+     * Text in einer Sprache oder als Übersetzungen je Sprachcode.
+     */
+    reply?:
+      | string
+      | {
+          [k: string]: string;
+        };
+  }[];
 }
 /**
  * This interface was referenced by `LykoraSpielformatV01`'s JSON-Schema
