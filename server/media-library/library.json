@@ -1,0 +1,192 @@
+[
+  {
+    "id": "wald-nacht",
+    "title": "Wald bei Nacht",
+    "category": "ambience",
+    "loop": true,
+    "duration": 60,
+    "file": "wald-nacht.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "wind",
+    "title": "Wind in den Bäumen",
+    "category": "ambience",
+    "loop": true,
+    "duration": 48,
+    "file": "wind.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "regen",
+    "title": "Regen",
+    "category": "ambience",
+    "loop": true,
+    "duration": 40,
+    "file": "regen.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "bach",
+    "title": "Bach",
+    "category": "ambience",
+    "loop": true,
+    "duration": 40,
+    "file": "bach.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "lagerfeuer",
+    "title": "Lagerfeuer",
+    "category": "ambience",
+    "loop": true,
+    "duration": 48,
+    "file": "lagerfeuer.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "funkrauschen",
+    "title": "Funkrauschen",
+    "category": "ambience",
+    "loop": true,
+    "duration": 32,
+    "file": "funkrauschen.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "hoehle",
+    "title": "Höhle mit Tropfen",
+    "category": "ambience",
+    "loop": true,
+    "duration": 60,
+    "file": "hoehle.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "sturm",
+    "title": "Sturm mit Regen und Donner",
+    "category": "ambience",
+    "loop": true,
+    "duration": 60,
+    "file": "sturm.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "eule",
+    "title": "Waldkauz ruft",
+    "category": "sfx",
+    "loop": false,
+    "duration": 6.0,
+    "file": "eule.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "donner",
+    "title": "Donnerschlag",
+    "category": "sfx",
+    "loop": false,
+    "duration": 6.0,
+    "file": "donner.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "schritte-laub",
+    "title": "Schritte im Laub",
+    "category": "sfx",
+    "loop": false,
+    "duration": 2.8,
+    "file": "schritte-laub.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "ast-knackt",
+    "title": "Ast knackt",
+    "category": "sfx",
+    "loop": false,
+    "duration": 1.5,
+    "file": "ast-knackt.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "tuer-knarzt",
+    "title": "Tür knarzt",
+    "category": "sfx",
+    "loop": false,
+    "duration": 3.2,
+    "file": "tuer-knarzt.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "kiste-auf",
+    "title": "Holzkiste öffnet sich",
+    "category": "sfx",
+    "loop": false,
+    "duration": 2.2,
+    "file": "kiste-auf.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "schloss-klick",
+    "title": "Schloss klickt",
+    "category": "sfx",
+    "loop": false,
+    "duration": 0.8,
+    "file": "schloss-klick.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "funk-knacken",
+    "title": "Funkgerät knackt",
+    "category": "sfx",
+    "loop": false,
+    "duration": 1.2,
+    "file": "funk-knacken.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "herzschlag",
+    "title": "Herzschlag",
+    "category": "sfx",
+    "loop": false,
+    "duration": 4.0,
+    "file": "herzschlag.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "glocke",
+    "title": "Glockenschlag",
+    "category": "sfx",
+    "loop": false,
+    "duration": 6.0,
+    "file": "glocke.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  },
+  {
+    "id": "wolf-heulen",
+    "title": "Wolf heult",
+    "category": "sfx",
+    "loop": false,
+    "duration": 6.0,
+    "file": "wolf-heulen.ogg",
+    "license": "CC0-1.0",
+    "credit": "Lykora-Klangbibliothek, erzeugt mit server/tool/sound_library.py"
+  }
+]
