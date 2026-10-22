@@ -1,7 +1,7 @@
 import { request, type IncomingMessage } from "node:http";
 
 /** Höchste API-Version, gegen die der Updater geschrieben ist. Ältere Engines bekommen ihre eigene. */
-const MAX_API_VERSION = "1.47";
+const MAX_API_VERSION = "1.48";
 
 export class DockerError extends Error {
   readonly statusCode: number;

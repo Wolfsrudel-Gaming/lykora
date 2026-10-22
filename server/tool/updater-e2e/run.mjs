@@ -27,6 +27,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { request } from "node:http";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -72,6 +73,27 @@ const inspect = (name) => {
   return res.status === 0 ? JSON.parse(res.stdout)[0] : null;
 };
 const imageId = (ref) => docker("image", "inspect", "--format", "{{.Id}}", ref);
+/**
+ * Was Compose in com.docker.compose.image schreibt: mit containerd-Image-Store den Digest des Manifests
+ * der eigenen Plattform, sonst die Image-ID. Die Manifeste nennt die Engine nur über die API (ab 1.48).
+ */
+const composeImageLabel = (ref) =>
+  new Promise((resolve, reject) => {
+    const req = request({ socketPath: process.env.DOCKER_SOCKET ?? "/var/run/docker.sock", path: `/v1.48/images/${encodeURIComponent(ref)}/json?manifests=1` }, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        if (res.statusCode !== 200) return reject(new Error(`Image ${ref}: ${res.statusCode} ${body}`));
+        const image = JSON.parse(body);
+        const arch = process.arch === "x64" ? "amd64" : process.arch;
+        const own = (image.Manifests ?? []).filter((m) => m.Kind === "image" && m.Available);
+        const match = own.find((m) => m.ImageData?.Platform?.os === "linux" && m.ImageData.Platform.architecture === arch);
+        resolve(match?.ID ?? (own.length === 1 ? own[0].ID : image.Id));
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
 const healthy = (name) => inspect(name)?.State.Health?.Status === "healthy";
 const projectContainers = () =>
   quiet("ps", "-a", "--filter", `name=^${PROJECT}-`, "--format", "{{.Names}}").stdout.split("\n").filter(Boolean).sort();
@@ -319,7 +341,7 @@ async function main() {
   imageIds.add(v2Id);
   const server2 = inspect(NAMES.server);
   check("neuer Server-Container unter altem Namen mit v2", server2.Id !== server1.Id && server2.Image === v2Id && server2.Config.Labels["org.opencontainers.image.revision"] === v2.commit);
-  check("gesund, Compose-Labels und Port bleiben", healthy(NAMES.server) && server2.Config.Labels["com.docker.compose.project"] === PROJECT && server2.Config.Labels["com.docker.compose.image"] === v2Id && JSON.stringify(server2.HostConfig.PortBindings) === JSON.stringify(server1.HostConfig.PortBindings));
+  check("gesund, Compose-Labels und Port bleiben", healthy(NAMES.server) && server2.Config.Labels["com.docker.compose.project"] === PROJECT && server2.Config.Labels["com.docker.compose.image"] === (await composeImageLabel(REF)) && JSON.stringify(server2.HostConfig.PortBindings) === JSON.stringify(server1.HostConfig.PortBindings));
   check("alte Version als lykora-rollback markiert", imageId(`${REPO}:lykora-rollback`) === v1Id);
   const updater2 = await until(() => {
     const u = inspect(NAMES.updater);
@@ -360,9 +382,9 @@ async function main() {
   check("derselbe v2-Container, keine Reste", inspect(NAMES.server).Id === server2.Id && projectContainers().join(",") === [`${PROJECT}-db-1`, NAMES.server, NAMES.updater].join(","), projectContainers().join(","));
   // Darum geht es beim Zurücksetzen des Tags und beim Label com.docker.compose.image: Compose legt den
   // Server nicht mit der kaputten v3 neu an und lässt auch die vom Updater angelegten Container stehen.
-  const updater2 = inspect(NAMES.updater);
+  const updaterBefore = inspect(NAMES.updater);
   compose("up", "-d", "--no-build", "--pull", "never");
-  check("„docker compose up -d“ lässt die Container von Server und Updater stehen", inspect(NAMES.server).Id === server2.Id && inspect(NAMES.updater).Id === updater2.Id);
+  check("„docker compose up -d“ lässt die Container von Server und Updater stehen", inspect(NAMES.server).Id === server2.Id && inspect(NAMES.updater).Id === updaterBefore.Id);
   p = await until(() => plan(), "Plan nach dem Rückfall");
   check("automatisch erst nach einer Pause erneut", p.action === "wait" && /gescheitert/.test(p.reason), JSON.stringify(p));
   // Vor dem nächsten Selbst-Update, danach ist dieses Log weg.

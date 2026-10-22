@@ -153,8 +153,10 @@ describe("Update mit der Docker-Engine", () => {
   });
 
   it("schreibt in com.docker.compose.image, was Compose erwartet: den Digest des Manifests der eigenen Plattform", async () => {
+    // Manifeste je Plattform nennt die Engine erst ab API 1.48 (Docker 28).
+    engine.apiVersion = "1.48";
     composeSetup();
-    const arch = { x64: "amd64", arm64: "arm64" }[process.arch] ?? process.arch;
+    const arch = process.arch === "x64" ? "amd64" : process.arch;
     const own = `sha256:${"1".repeat(64)}`;
     const foreign = `sha256:${"2".repeat(64)}`;
     const v2 = engine.addImage("", imageConfig("bbb"), [

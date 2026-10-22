@@ -175,7 +175,7 @@ describe("Image-Referenzen", () => {
 
 describe("Docker-Engine", () => {
   it("handelt die API-Version aus", () => {
-    expect(negotiateVersion({ ApiVersion: "1.56", MinAPIVersion: "1.40" })).toBe("1.47");
+    expect(negotiateVersion({ ApiVersion: "1.56", MinAPIVersion: "1.40" })).toBe("1.48");
     expect(negotiateVersion({ ApiVersion: "1.41", MinAPIVersion: "1.12" })).toBe("1.41");
     expect(negotiateVersion({ ApiVersion: "1.60", MinAPIVersion: "1.50" })).toBe("1.50");
   });
