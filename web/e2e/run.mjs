@@ -621,6 +621,37 @@ async function main() {
   await page.getByRole("cell", { name: "Jonas Betreuer", exact: true }).waitFor();
   check("Mitglied mit Rolle Betreuer angelegt", true);
   await shot(page, "mitglieder");
+
+  // 16a. Einstellungen: Zahnrad in der Kopfzeile, Darstellung; ohne LYKORA_IMAGE sind Updates nicht eingerichtet.
+  await page.getByRole("link", { name: /^Einstellungen/ }).click();
+  await page.getByRole("heading", { name: "Darstellung" }).waitFor();
+  await page.getByRole("heading", { name: "Server und Updates" }).waitFor();
+  await page.getByText("Updates sind nicht eingerichtet").waitFor();
+  await page.getByRole("heading", { name: "Verlauf" }).waitFor();
+  check("Admin der Instanz sieht „Server und Updates“; ohne LYKORA_IMAGE nicht eingerichtet", true);
+  await page.getByRole("radio", { name: /^Tag/ }).check();
+  await page.locator('html[data-theme="day"]').waitFor();
+  await page.getByRole("radio", { name: /^Nacht/ }).check();
+  await page.locator('html[data-theme="night"]').waitFor();
+  check("Darstellung in den Einstellungen schaltet das Thema", true);
+  await shot(page, "einstellungen", { fullPage: true });
+
+  // Versionshinweis: Nach dem Wiederverbinden der Live-Verbindung meldet der Server eine andere Version.
+  await page.goto(`${APP}/events/${eventId}/leitstand`);
+  await page.locator(".conn.open").waitFor();
+  const newBuild = { version: "999", commit: "0123456789abcdef0123456789abcdef01234567", builtAt: "2026-10-21T09:30:00Z" };
+  await page.context().route("**/lykora/api/system/version", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(newBuild) }));
+  await page.context().setOffline(true);
+  await page.locator(".conn.closed").waitFor();
+  await page.context().setOffline(false);
+  await page.locator(".conn.open").waitFor();
+  await page.locator(".version-band", { hasText: "Lykora wurde aktualisiert (Build 999)" }).waitFor();
+  check("Band „Lykora wurde aktualisiert“ nach dem Wiederverbinden, ohne selbst neu zu laden", page.url().includes("/leitstand"));
+  await shot(page, "version-band");
+  await page.getByRole("button", { name: "Hinweis ausblenden" }).click();
+  await page.locator(".version-band").waitFor({ state: "detached" });
+  await page.context().unroute("**/lykora/api/system/version");
+
   const phone = await newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await phone.page.goto(`${APP}/events/${eventId}/leitstand`);
   await phone.page.getByLabel("E-Mail").fill("betreuer@example.org");
@@ -662,6 +693,13 @@ async function main() {
   await gmPhone.page.goto(`${APP}/events/${eventId}/leitstand?tab=teams`);
   await gmPhone.page.locator(".team-row", { hasText: "Füchse" }).waitFor();
   await shot(gmPhone.page, "leitstand-handy");
+
+  // Einstellungen am Handy: eine Spalte, nichts läuft über.
+  await gmPhone.page.goto(`${APP}/einstellungen`);
+  await gmPhone.page.getByRole("heading", { name: "Server und Updates" }).waitFor();
+  await shot(gmPhone.page, "einstellungen-handy", { fullPage: true });
+  await gmPhone.page.goto(`${APP}/events/${eventId}/leitstand?tab=teams`);
+  await gmPhone.page.locator(".team-row", { hasText: "Füchse" }).waitFor();
 
   // Sitzung läuft ab: Das Dashboard schickt zur Anmeldung und danach zurück in den Leitstand.
   await api("POST", "/auth/logout", undefined, admin.token);

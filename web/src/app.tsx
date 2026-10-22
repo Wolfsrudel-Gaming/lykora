@@ -1,8 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 import { can } from "./lib/roles.ts";
 import { href, matchRoute, navigate, useLocation, type Match, type RouteName } from "./lib/router.ts";
-import { currentOrg, restoreSession, selectOrg, session, setTheme, signOut, theme } from "./lib/session.ts";
+import { onLiveReconnect } from "./lib/live.ts";
+import { api, currentOrg, restoreSession, selectOrg, session, setTheme, signOut, theme } from "./lib/session.ts";
 import { useStore } from "./lib/store.ts";
+import { buildLabel, dismissVersion, newerVersion, refreshUpdateHint, updateHint, versionNotice, watchVersion } from "./lib/update.ts";
 import { ConfirmHost, ErrorNotice, Link, Loading, Toasts } from "./ui/components.tsx";
 import { Icon, Lantern } from "./ui/icons.tsx";
 import { lazyPage } from "./ui/lazy.tsx";
@@ -14,6 +16,7 @@ import { EventNewPage } from "./pages/EventNew.tsx";
 import { EventPage } from "./pages/Event.tsx";
 import { MembersPage } from "./pages/Members.tsx";
 import { AccountPage } from "./pages/Account.tsx";
+import { SettingsPage } from "./pages/Settings.tsx";
 import { NotFound } from "./pages/NotFound.tsx";
 
 // Leitstand (mit Karte) und Spiele-Werkzeuge kommen als eigene Chunks.
@@ -62,6 +65,8 @@ function Page({ match }: { match: Match }) {
       return <MembersPage />;
     case "account":
       return <AccountPage />;
+    case "settings":
+      return <SettingsPage />;
     default:
       return <NotFound />;
   }
@@ -70,9 +75,20 @@ function Page({ match }: { match: Match }) {
 function TopBar({ match }: { match: Match | null }) {
   const s = useStore(session);
   const { value: mode } = useStore(theme);
+  const hint = useStore(updateHint);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.path]);
+  // Punkt am Zahnrad für Admins der Instanz; refreshUpdateHint fragt höchstens alle 10 Minuten.
+  useEffect(() => {
+    if (!s.instanceAdmin) return;
+    const refresh = () => void refreshUpdateHint(() => api.updateStatus());
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    return () => clearInterval(timer);
+  }, [s.instanceAdmin]);
+  // Nur für Admins der Instanz: Nach einem Nutzerwechsel im selben Tab könnte der Punkt sonst nachleuchten.
+  const dot = s.instanceAdmin && hint.available;
   const role = s.orgs.find((o) => o.id === s.orgId)?.role;
   const section = match?.name ?? "";
   const nav: { to: RouteName; label: string; active: boolean; show: boolean }[] = [
@@ -129,6 +145,16 @@ function TopBar({ match }: { match: Match | null }) {
         >
           <Icon name={mode === "night" ? "sun" : "moon"} />
         </button>
+        <Link
+          to={href("settings")}
+          class="btn small settings-link"
+          aria-current={section === "settings" ? "page" : undefined}
+          aria-label={dot ? "Einstellungen, Update verfügbar" : "Einstellungen"}
+          title="Einstellungen"
+        >
+          <Icon name="gear" />
+          {dot && <span class="hint-dot" aria-hidden="true" />}
+        </Link>
         <Link to={href("account")} class="btn small" aria-current={section === "account" ? "page" : undefined} title="Konto">
           {s.user?.name ?? "Konto"}
         </Link>
@@ -140,11 +166,36 @@ function TopBar({ match }: { match: Match | null }) {
   );
 }
 
+/** Band für alle, wenn der Server seit dem Laden eine andere Version hat. Neu lädt nur der Nutzer selbst. */
+function VersionBand() {
+  const next = newerVersion(useStore(versionNotice));
+  if (!next) return null;
+  return (
+    <div class="version-band" role="status">
+      <span>Lykora wurde aktualisiert ({buildLabel(next)}). Neu laden, um die neue Version zu nutzen.</span>
+      <span class="row nowrap">
+        <button type="button" class="btn small primary" onClick={() => window.location.reload()}>
+          Neu laden
+        </button>
+        <button type="button" class="btn small ghost" aria-label="Hinweis ausblenden" onClick={dismissVersion}>
+          <Icon name="x" />
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export function App() {
   const s = useStore(session);
   const loc = useLocation();
   const match = matchRoute(loc.path);
   const signedIn = !!s.token && !!s.user;
+
+  // Versionshinweis: Version beim Laden merken, alle 5 Minuten und nach jedem Wiederverbinden prüfen.
+  useEffect(() => {
+    if (!signedIn) return;
+    return watchVersion(() => api.version(), { onReconnect: onLiveReconnect });
+  }, [signedIn]);
 
   useEffect(() => {
     if (!s.ready || match?.name === "join") return;
@@ -154,7 +205,7 @@ export function App() {
     } else if (signedIn && (match?.name === "login" || match?.name === "home")) {
       const next = loc.query.get("weiter");
       navigate(next && next.startsWith("/") && !next.startsWith("//") ? next : href(homeRoute()), { replace: true });
-    } else if (signedIn && !s.orgs.length && match?.name !== "orgs" && match?.name !== "account") {
+    } else if (signedIn && !s.orgs.length && match?.name !== "orgs" && match?.name !== "account" && match?.name !== "settings") {
       navigate(href("orgs"), { replace: true });
     }
   }, [s.ready, signedIn, match?.name, s.orgs.length]);
@@ -196,6 +247,7 @@ export function App() {
         Zum Inhalt
       </a>
       <TopBar match={match} />
+      <VersionBand />
       <main id="inhalt" class="main">
         {match && match.name !== "home" ? <Page match={match} /> : match ? <Loading /> : <NotFound />}
       </main>

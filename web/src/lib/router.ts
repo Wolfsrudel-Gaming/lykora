@@ -22,6 +22,7 @@ export const ROUTES = {
   gameMaterials: "/spiele/:gameId/material",
   members: "/mitglieder",
   account: "/konto",
+  settings: "/einstellungen",
   join: "/join/:code",
 } as const;
 

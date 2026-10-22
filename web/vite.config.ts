@@ -53,6 +53,9 @@ export default defineConfig(({ command, isPreview }) => ({
   base: command === "serve" && !isPreview ? DEV_BASE : "./",
   esbuild: { jsx: "automatic", jsxImportSource: "preact" },
   plugins: [lykoraBase()],
+  // Der Validator-Kern aus dem verknüpften Workspace @lykora/spec lädt Ajv als CommonJS;
+  // der Dev-Server bündelt es vor, der Build braucht nichts.
+  optimizeDeps: { include: ["ajv/dist/2020.js"] },
   build: {
     target: "es2022",
     assetsInlineLimit: 0,

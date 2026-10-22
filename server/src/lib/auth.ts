@@ -57,6 +57,25 @@ export async function roleIn(db: Db, userId: string, orgId: string): Promise<Rol
   return row?.role;
 }
 
+/**
+ * Instanz-Admin: Admin der ältesten Organisation. Das ist die beim ersten Start angelegte, in die
+ * auch create-admin schreibt. Nur Instanz-Admins dürfen den Server selbst verwalten, etwa Updates.
+ */
+export async function isInstanceAdmin(db: Db, userId: string): Promise<boolean> {
+  const row = await db.one(
+    `select 1 from memberships where user_id = $1 and role = 'admin'
+       and org_id = (select id from organizations order by created_at limit 1)`,
+    [userId],
+  );
+  return !!row;
+}
+
+export async function requireInstanceAdmin(db: Db, req: FastifyRequest): Promise<AuthUser> {
+  const user = await requireUser(db, req);
+  if (!(await isInstanceAdmin(db, user.id))) throw forbidden("Nur für Admins der Instanz");
+  return user;
+}
+
 /** Meldet den Nutzer an und prüft seine Rolle in der Organisation. */
 export async function authorize(db: Db, req: FastifyRequest, orgId: string, permission: Permission) {
   const user = await requireUser(db, req);

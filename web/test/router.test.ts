@@ -16,6 +16,7 @@ describe("Router", () => {
     expect(matchRoute("/spiele/g1/material")?.name).toBe("gameMaterials");
     expect(matchRoute("/mitglieder")?.name).toBe("members");
     expect(matchRoute("/konto")?.name).toBe("account");
+    expect(matchRoute("/einstellungen")?.name).toBe("settings");
     expect(matchRoute("/organisation")?.name).toBe("orgs");
   });
 

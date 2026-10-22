@@ -18,6 +18,14 @@ export function isFatalClose(code: number): boolean {
   return code === 4401 || code === 4403 || code === 4404;
 }
 
+const reconnectListeners = new Set<() => void>();
+
+/** Meldet jeden Neuaufbau einer Live-Verbindung nach einem Abriss, z. B. für den Versionshinweis. */
+export function onLiveReconnect(fn: () => void): () => void {
+  reconnectListeners.add(fn);
+  return () => reconnectListeners.delete(fn);
+}
+
 export interface LiveOptions {
   url: () => string;
   onEvent: (event: LiveEvent) => void;
@@ -95,6 +103,7 @@ export class LiveConnection {
         this.wasOpen = true;
         this.attempt = 0;
         this.opts.onState("open", reconnected);
+        if (reconnected) for (const fn of reconnectListeners) fn();
       }
       this.opts.onEvent(event);
     };

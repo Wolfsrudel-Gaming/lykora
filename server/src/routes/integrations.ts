@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { timingSafeEqual } from "node:crypto";
+import { safeEqual } from "../lib/crypto.ts";
 import { forbidden, notFound } from "../lib/errors.ts";
 import { logEvent } from "../services/events.ts";
 
@@ -21,8 +21,6 @@ export function parseSosSms(text: string) {
     message: m[5]?.trim() || null,
   };
 }
-
-const safeEqual = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 export default async function integrationRoutes(app: FastifyInstance) {
   const { db, config, live } = app.deps;

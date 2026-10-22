@@ -23,6 +23,8 @@ export interface OrgMembership {
 
 export interface Me extends User {
   orgs: OrgMembership[];
+  /** Admin der ältesten Organisation; verwaltet den Server selbst, etwa Updates. */
+  instanceAdmin: boolean;
 }
 
 export interface LoginResult {
@@ -47,8 +49,11 @@ export interface EventDto {
   name: string;
   status: EventStatus;
   gameId: string;
-  gameVersion: number;
+  /** null bei Probeläufen: der Probestand hat keine Versionsnummer */
+  gameVersion: number | null;
   gameTitle: Text;
+  /** Probelauf aus dem Baukasten; nach 7 Tagen samt Probestand gelöscht */
+  test: boolean;
   scheduledAt: string | null;
   startedAt: string | null;
   endedAt: string | null;
@@ -68,7 +73,10 @@ export interface GameSummary {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  /** null, solange nichts veröffentlicht ist */
   latest_version: number | null;
+  /** Entwurf des Baukastens oder null */
+  draft: DraftSummary | null;
 }
 
 export interface GameVersionInfo {
@@ -80,7 +88,8 @@ export interface GameVersionInfo {
 
 export interface GameDetail extends GameSummary {
   org_id: string;
-  content: Game;
+  /** neueste Version; null, solange nichts veröffentlicht ist */
+  content: Game | null;
   versions: GameVersionInfo[];
 }
 
@@ -89,6 +98,50 @@ export interface GameVersion {
   content: Game;
   comment: string | null;
   created_at: string;
+}
+
+// Entwürfe des Baukastens (server/src/routes/games.ts)
+
+/**
+ * Merker des Baukastens (Vorlage, Vor-Ort, ausgeblendete Hinweise, Checkliste); nie Teil des Spiels.
+ * TODO(A2): durch EditorMeta aus ./editor/types.ts ersetzen, sobald es die Datei gibt.
+ */
+export type EditorMeta = Record<string, unknown>;
+
+export interface DraftSummary {
+  revision: number;
+  updated_at: string;
+  /** Name der Person, die zuletzt gespeichert hat */
+  updated_by: string | null;
+  /** Version, aus der der Entwurf stammt oder zuletzt veröffentlicht wurde */
+  base_version: number | null;
+  /** weicht von der neuesten Version ab, oder es gibt keine */
+  changed: boolean;
+}
+
+export interface DraftDto {
+  gameId: string;
+  revision: number;
+  /** Spiel, darf ungültig sein */
+  content: unknown;
+  meta: EditorMeta;
+  base_version: number | null;
+  updated_at: string;
+  updated_by: { id: string; name: string } | null;
+}
+
+/** Geplantes Event (Status draft), das noch eine ältere Version spielt */
+export interface PlannedEvent {
+  id: string;
+  name: string;
+  gameVersion: number;
+  scheduledAt: string | null;
+}
+
+export interface PublishResult {
+  version: number;
+  draft: DraftSummary;
+  plannedEvents: PlannedEvent[];
 }
 
 export interface ValidationResult {
@@ -323,4 +376,77 @@ export interface LiveEvent {
   type: "hello" | "status" | "message" | "sos" | "upload" | "team_joined" | "position" | "team" | "log";
   data: unknown;
   at?: string;
+}
+
+// Version und Updates (server/src/services/update.ts)
+
+export interface VersionInfo {
+  /** Laufnummer der CI, z. B. "57"; "dev" ohne Image */
+  version: string;
+  commit: string | null;
+  builtAt: string | null;
+}
+
+export type UpdaterState = "idle" | "pulling" | "updating" | "restarting" | "failed" | "rolled_back" | "unsupported";
+export type UpdateTrigger = "auto" | "manual";
+export type UpdateState = "running" | "succeeded" | "failed" | "rolled_back";
+
+export interface UpdateWindow {
+  /** "HH:MM" in der Zeitzone des Servers; darf über Mitternacht gehen */
+  from: string;
+  to: string;
+}
+
+export interface UpdateSettings {
+  auto: boolean;
+  window: UpdateWindow | null;
+}
+
+export interface UpdateChange {
+  sha: string;
+  title: string;
+  date: string | null;
+  url: string;
+}
+
+export interface UpdateEntry {
+  id: string;
+  trigger: UpdateTrigger;
+  state: UpdateState;
+  from: VersionInfo;
+  to: VersionInfo;
+  message: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface UpdateStatus {
+  /** LYKORA_IMAGE gesetzt */
+  configured: boolean;
+  image: string | null;
+  current: VersionInfo;
+  available: (VersionInfo & { digest: string }) | null;
+  /** null: noch nicht geprüft oder Prüfung fehlgeschlagen */
+  upToDate: boolean | null;
+  lastCheckAt: string | null;
+  checkError: string | null;
+  /** Neueste zuerst, höchstens 30 */
+  changes: UpdateChange[];
+  settings: UpdateSettings;
+  timezone: string;
+  /** Was ein automatisches Update gerade aufhält */
+  blockedBy:
+    | { reason: "event_running"; events: { id: string; name: string; status: EventStatus }[] }
+    | { reason: "outside_window"; nextWindowAt: string }
+    | null;
+  updater: {
+    /** In den letzten 3 Minuten gefragt */
+    connected: boolean;
+    lastSeenAt: string | null;
+    state: UpdaterState | null;
+    message: string | null;
+  };
+  pending: { trigger: UpdateTrigger; requestedAt: string; to: VersionInfo } | null;
+  /** Neueste 10 */
+  history: UpdateEntry[];
 }

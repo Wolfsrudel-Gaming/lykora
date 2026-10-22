@@ -1,4 +1,5 @@
-# Lykora mit PostgreSQL. Start: cp .env.example .env, Werte anpassen, dann docker compose up -d
+# Lykora mit PostgreSQL. Start: cp .env.example .env, Werte anpassen, dann docker compose pull && docker compose up -d
+# Fertige Images baut die CI bei jedem Push (ghcr.io/wolfsrudel-gaming/lykora). Selbst bauen: docker compose up -d --build
 
 services:
   db:
@@ -20,8 +21,11 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    image: lykora-server:latest
+    image: ${LYKORA_IMAGE:-ghcr.io/wolfsrudel-gaming/lykora:testbuild}
     restart: unless-stopped
+    # Diesen Container ersetzt der Updater, wenn ein Update eingespielt wird.
+    labels:
+      io.lykora.autoupdate: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -34,11 +38,39 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
       SMS_WEBHOOK_SECRET: ${SMS_WEBHOOK_SECRET:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Unter diesem Image sucht der Server nach neuen Versionen.
+      LYKORA_IMAGE: ${LYKORA_IMAGE:-ghcr.io/wolfsrudel-gaming/lykora:testbuild}
+      UPDATE_TIMEZONE: ${UPDATE_TIMEZONE:-Europe/Berlin}
+      LYKORA_REGISTRY_USER: ${LYKORA_REGISTRY_USER:-}
+      LYKORA_REGISTRY_TOKEN: ${LYKORA_REGISTRY_TOKEN:-}
     volumes:
       - data:/data
     # Nur lokal erreichbar; davor sitzt der Webserver mit HTTPS, der /lykora weiterleitet.
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
+
+  # Spielt neue Versionen ein, aber nur, wenn ein Admin das in den Einstellungen des Dashboards
+  # erlaubt oder „Jetzt aktualisieren“ drückt; sonst fragt er nur den Server. Zieht ausschließlich das
+  # Image, mit dem der Server schon läuft, und ersetzt nur Container mit dem Label io.lykora.autoupdate.
+  # Braucht dafür den Docker-Socket. Den Token für den Server liest er aus dem Volume data.
+  updater:
+    image: ${LYKORA_IMAGE:-ghcr.io/wolfsrudel-gaming/lykora:testbuild}
+    command: ["node", "dist/updater.js"]
+    # root, damit er den Docker-Socket benutzen darf
+    user: "0"
+    restart: unless-stopped
+    labels:
+      io.lykora.updater: "true"
+    environment:
+      LYKORA_SERVER_URL: http://server:3000${BASE_PATH:-/lykora}
+      LYKORA_REGISTRY_USER: ${LYKORA_REGISTRY_USER:-}
+      LYKORA_REGISTRY_TOKEN: ${LYKORA_REGISTRY_TOKEN:-}
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - data:/data:ro
+    # Der Healthcheck im Image gilt dem Server.
+    healthcheck:
+      disable: true
 
 volumes:
   db:

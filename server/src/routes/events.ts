@@ -47,12 +47,13 @@ export function joinInfo(publicUrl: string, event: Pick<EventRow, "join_code">) 
   };
 }
 
-function eventDto(event: EventRow, publicUrl: string, showPin: boolean) {
+export function eventDto(event: EventRow, publicUrl: string, showPin: boolean) {
   return {
     id: event.id,
     orgId: event.org_id,
     name: event.name,
     status: event.status,
+    test: event.test,
     gameId: event.game_id,
     gameVersion: event.game_version,
     gameTitle: event.game.meta.title,
@@ -69,7 +70,7 @@ function eventDto(event: EventRow, publicUrl: string, showPin: boolean) {
   };
 }
 
-async function uniqueJoinCode(db: FastifyInstance["deps"]["db"]): Promise<string> {
+export async function uniqueJoinCode(db: Pick<FastifyInstance["deps"]["db"], "one">): Promise<string> {
   for (let i = 0; i < 10; i++) {
     const code = newCode(6);
     if (!(await db.one("select 1 from events where join_code = $1", [code]))) return code;
@@ -99,7 +100,8 @@ export default async function eventRoutes(app: FastifyInstance) {
       schema: {
         tags: ["events"],
         summary: "Event aus einem Spiel anlegen",
-        description: "Ohne version wird die neueste Version des Spiels verwendet. Spätere Änderungen am Spiel wirken nicht auf das Event.",
+        description:
+          "Ohne version wird die neueste veröffentlichte Version des Spiels verwendet. Spätere Änderungen am Spiel wirken nicht auf das Event. Ein Spiel ohne Version gibt 409 no_version.",
         security: staff,
         params: { type: "object", properties: { orgId: { type: "string", format: "uuid" } } },
         body: {
@@ -117,12 +119,19 @@ export default async function eventRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const { user } = await authorize(db, req, req.params.orgId, "event.manage");
+      const game = await db.one<{ id: string }>("select id from games where id = $1 and org_id = $2", [req.body.gameId, req.params.orgId]);
+      if (!game) throw notFound("Spiel");
+      // Nur veröffentlichte Versionen; Probestände (kind = 'test') spielen nur Probeläufe.
       const version = await db.one<{ id: string }>(
-        `select v.id from game_versions v join games g on g.id = v.game_id
-         where g.id = $1 and g.org_id = $2 and ($3::int is null or v.version = $3) order by v.version desc limit 1`,
-        [req.body.gameId, req.params.orgId, req.body.version ?? null],
+        `select id from game_versions where game_id = $1 and kind = 'release' and ($2::int is null or version = $2)
+         order by version desc limit 1`,
+        [req.body.gameId, req.body.version ?? null],
       );
-      if (!version) throw notFound("Spiel oder Version");
+      if (!version) {
+        const published = await db.one("select 1 from game_versions where game_id = $1 and kind = 'release'", [req.body.gameId]);
+        if (published) throw notFound("Version");
+        throw conflict("no_version", "Das Spiel ist noch nicht veröffentlicht");
+      }
       const row = await db.one<{ id: string }>(
         `insert into events (org_id, game_version_id, name, join_code, supervisor_pin, scheduled_at, retention_days, created_by)
          values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
@@ -151,12 +160,13 @@ export default async function eventRoutes(app: FastifyInstance) {
     },
   );
 
-  app.patch<{ Params: { eventId: string }; Body: { name?: string; scheduledAt?: string | null; retentionDays?: number } }>(
+  app.patch<{ Params: { eventId: string }; Body: { name?: string; scheduledAt?: string | null; retentionDays?: number; version?: number } }>(
     "/events/:eventId",
     {
       schema: {
         tags: ["events"],
         summary: "Event bearbeiten",
+        description: "Mit version wechselt ein geplantes Event (Status draft) auf eine andere veröffentlichte Version desselben Spiels; Code und Betreuer-PIN bleiben. Sonst 409 event_started.",
         security: staff,
         params: eventParams,
         body: {
@@ -165,19 +175,35 @@ export default async function eventRoutes(app: FastifyInstance) {
             name: { type: "string", minLength: 1 },
             scheduledAt: { type: ["string", "null"], format: "date-time" },
             retentionDays: { type: "integer", minimum: 1, maximum: 365 },
+            version: { type: "integer", minimum: 1 },
           },
         },
       },
     },
     async (req) => {
-      await authorizeEvent(db, req, req.params.eventId, "event.manage");
+      const { user } = await authorizeEvent(db, req, req.params.eventId, "event.manage");
       const b = req.body;
-      await db.query(
-        `update events set name = coalesce($2, name),
-           scheduled_at = case when $3::boolean then $4::timestamptz else scheduled_at end,
-           retention_days = coalesce($5, retention_days) where id = $1`,
-        [req.params.eventId, b.name ?? null, "scheduledAt" in b, b.scheduledAt ?? null, b.retentionDays ?? null],
-      );
+      await db.tx(async (tx) => {
+        const e = await loadEventForUpdate(tx, req.params.eventId);
+        if (b.version !== undefined) {
+          if (e.status !== "draft" || e.test) throw conflict("event_started", "Nur geplante Events lassen sich auf eine andere Version umstellen");
+          const v = await tx.one<{ id: string; version: number }>(
+            "select id, version from game_versions where game_id = $1 and version = $2 and kind = 'release'",
+            [e.game_id, b.version],
+          );
+          if (!v) throw notFound("Version");
+          if (v.id !== e.game_version_id) {
+            await tx.query("update events set game_version_id = $2 where id = $1", [e.id, v.id]);
+            await logEvent(tx, live, e.id, "event_version_changed", { from: e.game_version, to: v.version }, { userId: user.id });
+          }
+        }
+        await tx.query(
+          `update events set name = coalesce($2, name),
+             scheduled_at = case when $3::boolean then $4::timestamptz else scheduled_at end,
+             retention_days = coalesce($5, retention_days) where id = $1`,
+          [e.id, b.name ?? null, "scheduledAt" in b, b.scheduledAt ?? null, b.retentionDays ?? null],
+        );
+      });
       return eventDto(await loadEvent(db, req.params.eventId), config.publicUrl, true);
     },
   );

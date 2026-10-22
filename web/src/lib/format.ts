@@ -114,8 +114,12 @@ export function fromLocalInput(value: string): string | null {
 
 /** Stabile ID aus einem Dateinamen: Kleinbuchstaben, Ziffern und Bindestriche, wie das Spielformat sie verlangt. */
 export function kebabId(name: string, fallback = "medium"): string {
-  const stem = name.replace(/\.[a-z0-9]{1,5}$/i, "");
-  const id = stem
+  return slugId(name.replace(/\.[a-z0-9]{1,5}$/i, ""), fallback);
+}
+
+/** ID aus einem Namen wie kebabId, ohne eine Dateiendung abzuschneiden: „Akt 1.2“ wird zu akt-1-2. */
+export function slugId(name: string, fallback: string): string {
+  const id = name
     .toLowerCase()
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")

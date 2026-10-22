@@ -22,8 +22,11 @@ export interface EventRow {
   ended_at: Date | null;
   purged_at: Date | null;
   created_at: Date;
+  /** Probelauf aus dem Baukasten: spielt einen Probestand, wird nach 7 Tagen gelöscht. */
+  test: boolean;
   game_id: string;
-  game_version: number;
+  /** null bei Probeläufen: der Probestand hat keine Versionsnummer. */
+  game_version: number | null;
   game: Game;
 }
 

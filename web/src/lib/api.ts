@@ -1,5 +1,7 @@
 import type {
   ActionRow,
+  DraftDto,
+  EditorMeta,
   EventAction,
   EventDto,
   Game,
@@ -18,13 +20,17 @@ import type {
   Outcome,
   Overview,
   PublicTeam,
+  PublishResult,
   Role,
   Sos,
   Standing,
   TeamDetail,
   TeamStateSummary,
   TrackPoint,
+  UpdateSettings,
+  UpdateStatus,
   ValidationResult,
+  VersionInfo,
 } from "./types.ts";
 
 /** Fehler aus der API mit Code und Meldung des Servers ({error, message}). */
@@ -89,6 +95,8 @@ export interface EventPatch {
   name?: string;
   scheduledAt?: string | null;
   retentionDays?: number;
+  /** Andere veröffentlichte Version desselben Spiels; nur im Status draft, sonst 409 event_started */
+  version?: number;
 }
 
 export interface MemberInput {
@@ -248,8 +256,41 @@ export class Api {
     return this.request<void>("DELETE", `/games/${gameId}`);
   }
 
-  materials(gameId: string) {
-    return this.request<Materials>("GET", `/games/${gameId}/materials`);
+  /** Aus der neuesten Version (409 no_version ohne Version) oder mit "draft" aus dem Entwurf (404 no_draft). */
+  materials(gameId: string, source?: "draft") {
+    return this.request<Materials>("GET", `/games/${gameId}/materials`, undefined, { query: { source } });
+  }
+
+  // Entwürfe des Baukastens: einer je Spiel, mit Revision gegen gleichzeitiges Speichern
+
+  /** 404 no_draft, wenn es keinen gibt. */
+  draft(gameId: string) {
+    return this.request<DraftDto>("GET", `/games/${gameId}/draft`);
+  }
+
+  /** revision 0 legt den Entwurf an; bei fremdem Stand 409 draft_conflict mit details.draft. */
+  saveDraft(gameId: string, body: { content: Game; meta: EditorMeta; revision: number }) {
+    return this.request<{ revision: number; updated_at: string }>("PUT", `/games/${gameId}/draft`, body);
+  }
+
+  /** Neues Spiel nur mit Entwurf, ohne Prüfung und ohne Version; 400 not_a_game. */
+  createDraftGame(orgId: string, body: { content: Game; meta?: EditorMeta }) {
+    return this.request<GameSummary>("POST", `/orgs/${orgId}/games/drafts`, body);
+  }
+
+  /** Nur bei einem Spiel mit Version, sonst 409 no_version. */
+  discardDraft(gameId: string) {
+    return this.request<void>("DELETE", `/games/${gameId}/draft`);
+  }
+
+  /** 400 invalid_game mit details.errors und details.warnings; 409 draft_conflict. */
+  publishDraft(gameId: string, body: { revision: number; comment?: string }) {
+    return this.request<PublishResult>("POST", `/games/${gameId}/draft/publish`, body);
+  }
+
+  /** Probelauf mit dem Entwurf; beendet einen laufenden Probelauf des Spiels. Fehler wie publishDraft. */
+  createTestEvent(gameId: string, body: { revision: number }) {
+    return this.request<EventDto>("POST", `/games/${gameId}/test-events`, body);
   }
 
   // Medien und Klänge
@@ -388,6 +429,29 @@ export class Api {
   /** Foto oder Video eines Teams; braucht den Token, daher als Blob statt als Bildadresse. */
   upload(eventId: string, uploadId: string) {
     return this.request<Blob>("GET", `/events/${eventId}/uploads/${uploadId}`, undefined, { blob: true });
+  }
+
+  // Version und Updates; alles außer der Version nur für Admins der Instanz
+
+  version() {
+    return this.request<VersionInfo>("GET", "/system/version");
+  }
+
+  updateStatus() {
+    return this.request<UpdateStatus>("GET", "/system/update");
+  }
+
+  saveUpdateSettings(settings: UpdateSettings) {
+    return this.request<UpdateStatus>("PUT", "/system/update/settings", settings);
+  }
+
+  checkUpdate() {
+    return this.request<UpdateStatus>("POST", "/system/update/check", {});
+  }
+
+  /** 202 mit Status; 409 mit event_running, updater_offline, up_to_date oder not_configured. */
+  applyUpdate() {
+    return this.request<UpdateStatus>("POST", "/system/update/apply", {});
   }
 }
 

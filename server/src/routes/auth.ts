@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireUser, bearerToken } from "../lib/auth.ts";
+import { isInstanceAdmin, requireUser, bearerToken } from "../lib/auth.ts";
 import { hashPassword, hashToken, newToken, verifyPassword } from "../lib/crypto.ts";
 import { badRequest, unauthorized } from "../lib/errors.ts";
 
@@ -46,15 +46,26 @@ export default async function authRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
-  app.get("/me", { schema: { tags: ["auth"], summary: "Angemeldeter Nutzer mit Organisationen", security: [{ staff: [] }] } }, async (req) => {
-    const user = await requireUser(db, req);
-    const orgs = await db.query(
-      `select o.id, o.name, o.slug, m.role from memberships m join organizations o on o.id = m.org_id
-       where m.user_id = $1 order by o.name`,
-      [user.id],
-    );
-    return { ...user, orgs };
-  });
+  app.get(
+    "/me",
+    {
+      schema: {
+        tags: ["auth"],
+        summary: "Angemeldeter Nutzer mit Organisationen",
+        description: "instanceAdmin: Admin der ältesten Organisation; darf den Server selbst verwalten, etwa Updates.",
+        security: [{ staff: [] }],
+      },
+    },
+    async (req) => {
+      const user = await requireUser(db, req);
+      const orgs = await db.query(
+        `select o.id, o.name, o.slug, m.role from memberships m join organizations o on o.id = m.org_id
+         where m.user_id = $1 order by o.name`,
+        [user.id],
+      );
+      return { ...user, orgs, instanceAdmin: await isInstanceAdmin(db, user.id) };
+    },
+  );
 
   app.post<{ Body: { currentPassword: string; newPassword: string } }>(
     "/me/password",

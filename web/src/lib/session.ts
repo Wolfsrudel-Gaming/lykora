@@ -6,19 +6,22 @@ import { href, location, navigate } from "./router.ts";
 import { load, save } from "./storage.ts";
 import { createStore } from "./store.ts";
 import type { OrgMembership, Role, User } from "./types.ts";
+import { resetUpdateHint } from "./update.ts";
 
 export interface Session {
   token: string | null;
   user: User | null;
   orgs: OrgMembership[];
   orgId: string | null;
+  /** Admin der Instanz: sieht „Server und Updates“ in den Einstellungen */
+  instanceAdmin: boolean;
   /** Gespeicherte Anmeldung ist geprüft */
   ready: boolean;
   /** Prüfung der gespeicherten Anmeldung gescheitert, ohne dass sie ungültig wäre (z. B. kein Netz) */
   offline: string | null;
 }
 
-export const session = createStore<Session>({ token: load("token"), user: null, orgs: [], orgId: load("org"), ready: false, offline: null });
+export const session = createStore<Session>({ token: load("token"), user: null, orgs: [], orgId: load("org"), instanceAdmin: false, ready: false, offline: null });
 
 export const api = new Api({
   root: base().api,
@@ -43,7 +46,14 @@ export async function restoreSession(): Promise<void> {
   if (!session.get().token) return session.set({ ready: true, offline: null });
   try {
     const me = await api.me();
-    session.set({ user: { id: me.id, email: me.email, name: me.name }, orgs: me.orgs, orgId: applyOrgs(me.orgs), ready: true, offline: null });
+    session.set({
+      user: { id: me.id, email: me.email, name: me.name },
+      orgs: me.orgs,
+      orgId: applyOrgs(me.orgs),
+      instanceAdmin: me.instanceAdmin === true,
+      ready: true,
+      offline: null,
+    });
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
       save("token", null);
@@ -59,13 +69,14 @@ export async function signIn(email: string, password: string): Promise<void> {
   save("token", result.token);
   session.set({ token: result.token });
   const me = await api.me();
-  session.set({ user: result.user, orgs: me.orgs, orgId: applyOrgs(me.orgs), ready: true, offline: null });
+  session.set({ user: result.user, orgs: me.orgs, orgId: applyOrgs(me.orgs), instanceAdmin: me.instanceAdmin === true, ready: true, offline: null });
 }
 
 export async function signOut(opts: { expired?: boolean } = {}): Promise<void> {
   if (!opts.expired) await api.logout().catch(() => undefined);
   save("token", null);
-  session.set({ token: null, user: null, orgs: [] });
+  session.set({ token: null, user: null, orgs: [], instanceAdmin: false });
+  resetUpdateHint();
   if (opts.expired) {
     notify("Sitzung abgelaufen. Bitte neu anmelden.", "warn");
     // Nach der neuen Anmeldung geht es auf derselben Seite weiter, z. B. im Leitstand.

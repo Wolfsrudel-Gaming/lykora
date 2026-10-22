@@ -16,11 +16,14 @@ import integrationRoutes from "./routes/integrations.ts";
 import mediaRoutes from "./routes/media.ts";
 import fileRoutes from "./routes/files.ts";
 import webRoutes from "./routes/web.ts";
+import systemRoutes from "./routes/system.ts";
+import { UpdateService, type UpdateOptions } from "./services/update.ts";
 
 export interface Deps {
   db: Db;
   config: Config;
   live: LiveHub;
+  updates: UpdateService;
 }
 
 /** Verständliche Codes für Fehler, die Fastify selbst meldet. */
@@ -38,7 +41,11 @@ declare module "fastify" {
   }
 }
 
-export async function buildApp(config: Config, db: Db, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
+export async function buildApp(
+  config: Config,
+  db: Db,
+  opts: { logger?: boolean; updates?: UpdateOptions } = {},
+): Promise<FastifyInstance> {
   const app = Fastify({
     logger:
       opts.logger === false
@@ -53,8 +60,9 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
     bodyLimit: 2 * 1024 * 1024,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: "array", allErrors: false } },
   });
-  const deps: Deps = { db, config, live: new LiveHub() };
+  const deps: Deps = { db, config, live: new LiveHub(), updates: new UpdateService(db, config, opts.updates) };
   app.decorate("deps", deps);
+  app.addHook("onClose", async () => deps.updates.stop());
 
   app.setErrorHandler((err: any, req, reply) => {
     if (err instanceof HttpError) {
@@ -84,6 +92,7 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
         securitySchemes: {
           staff: { type: "http", scheme: "bearer", description: "Sitzungstoken aus /auth/login" },
           team: { type: "http", scheme: "bearer", description: "Gerätetoken aus /join" },
+          updater: { type: "http", scheme: "bearer", description: "Token aus UPDATER_TOKEN oder DATA_DIR/updater.token" },
         },
       },
       tags: [
@@ -95,6 +104,7 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
         { name: "play", description: "Schnittstelle der Spieler-App" },
         { name: "integrations", description: "Eingänge für externe Systeme" },
         { name: "media", description: "Medien der Spiele und Klangbibliothek" },
+        { name: "system", description: "Version und Updates des Servers" },
       ],
     },
   });
@@ -116,6 +126,7 @@ export async function buildApp(config: Config, db: Db, opts: { logger?: boolean 
       await scope.register(playRoutes);
       await scope.register(integrationRoutes);
       await scope.register(mediaRoutes);
+      await scope.register(systemRoutes);
     },
     { prefix: api },
   );

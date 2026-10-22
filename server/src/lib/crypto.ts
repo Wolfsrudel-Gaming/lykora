@@ -24,6 +24,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(expected, actual);
 }
 
+/** Vergleich in konstanter Zeit; über die Hashes, damit auch die Länge nichts verrät. */
+export function safeEqual(a: string, b: string): boolean {
+  const digest = (s: string) => createHash("sha256").update(s).digest();
+  return timingSafeEqual(digest(a), digest(b));
+}
+
 export function newToken(): string {
   return randomBytes(32).toString("base64url");
 }

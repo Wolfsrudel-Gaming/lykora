@@ -17,6 +17,14 @@ const purge = () => purgeExpired(db, config.dataDir, log).catch((err) => app.log
 await purge();
 const timer = setInterval(purge, 60 * 60 * 1000);
 
+// Schließt ein Update ab, das vor dem Neustart lief, und prüft danach regelmäßig die Registry.
+await app.deps.updates.start(log);
+log(
+  app.deps.updates.configured
+    ? `Lykora ${config.build.version}; Update-Prüfung alle ${config.updateCheckMinutes} Minuten für ${config.updateImage}`
+    : `Lykora ${config.build.version}; keine Update-Prüfung (${config.updateImage ? `${config.updateImage} ist lokal gebaut` : "LYKORA_IMAGE ist leer"})`,
+);
+
 await app.listen({ port: config.port, host: config.host });
 app.log.info(`Lykora läuft unter ${config.publicUrl} (API-Doku: ${config.publicUrl}/api/docs)`);
 
