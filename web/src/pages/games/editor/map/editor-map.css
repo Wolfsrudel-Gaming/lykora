@@ -593,6 +593,8 @@
 
 .ed-stationlist-help {
   margin: 6px 0 0 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .editor-nav .ed-stationlist-empty {

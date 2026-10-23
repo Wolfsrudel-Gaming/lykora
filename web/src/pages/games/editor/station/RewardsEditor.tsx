@@ -4,6 +4,7 @@
  * Kapitel danach; darunter die Belohnung als Satz. Ohne Rätsel ausgegraut (die Station wird nie gelöst).
  */
 
+import { plural } from "../../../../lib/format.ts";
 import { useId } from "preact/hooks";
 import { addFragment, fragmentOwner, SOLVE_POINTS } from "../../../../lib/editor/stations.ts";
 import { useEditorSelect, useIssuesAt } from "../../../../lib/editor/store.ts";
@@ -26,7 +27,7 @@ export function rewardSentence(game: Game, station: Station, lang: string): stri
   const r = station.rewards ?? {};
   const name = readText(station.name as never, lang) || "diese Station";
   const points = r.points ?? game.settings?.scoring?.solvePoints ?? SOLVE_POINTS;
-  const parts = [`${points} Punkte`];
+  const parts = [plural(points, "Punkt", "Punkte")];
   for (const id of r.fragments ?? []) {
     const f = (game.fragments ?? []).find((x) => x?.id === id);
     parts.push(`Codeteil ${f?.position ?? "?"}`);
@@ -130,7 +131,7 @@ export function RewardsEditor({ station, index }: { station: Station; index: num
   return (
     <Collapsible title="Belohnung" summary={noTask ? "ohne Rätsel keine Belohnung" : sentence} state={noTask ? "empty" : state} feld="rewards">
       <div data-block="rewards" class="stack">
-        {noTask && <p class="notice small">Ohne Rätsel gibt es keine Belohnung. Soll es eine geben, reicht eine einfache Auswahlfrage, z. B. „Seid ihr bereit?“ mit einer richtigen Antwort.</p>}
+        {noTask && <p class="notice small">Ohne Rätsel gibt es keine Belohnung. Soll es eine geben, reicht eine einfache Auswahlfrage, z. B. „Seid ihr bereit?“ mit einer richtigen Antwort (im Bereich „Rätsel“ als Abschluss anlegen).</p>}
         <fieldset class="stack st-plain" disabled={noTask}>
           <legend class="sr-only">Belohnung</legend>
           <NumberInput path={`${p}/rewards/points`} label="Punkte" integer min={0} placeholder={`${solvePoints} (Standard)`} hint="Leer gilt der Standard aus den Einstellungen." />

@@ -9,6 +9,11 @@ export function text(value: Text | undefined | null, lang = "de"): string {
   return value[lang] ?? Object.values(value)[0] ?? "";
 }
 
+/** „1 Tipp“, „2 Tipps“: Zahl mit der richtigen Form. */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 const two = (n: number) => String(n).padStart(2, "0");
 
 /** Dauer in Sekunden als „45:00“ oder „1:05:03“; negativ mit Minuszeichen. */

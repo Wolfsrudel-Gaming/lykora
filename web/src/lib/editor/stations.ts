@@ -24,7 +24,7 @@ export type StationKind = "raetsel" | "erzaehl" | "foto" | "briefing" | "finale"
 
 export const STATION_KINDS: Record<StationKind, { label: string; hint: string }> = {
   raetsel: { label: "Rätsel-Station", hint: "Frage mit getippter Antwort" },
-  erzaehl: { label: "Erzähl-Station", hint: "Nur Szene, ohne Rätsel" },
+  erzaehl: { label: "Erzähl-Station", hint: "Szene, dann „Seid ihr bereit?“" },
   foto: { label: "Foto-Station", hint: "Teams schicken ein Foto" },
   briefing: { label: "Sicherheits-Briefing", hint: "Alle zusammen, kurze Auswahlfrage" },
   finale: { label: "Finale", hint: "Öffnet sich mit allen Codeteilen" },
@@ -136,6 +136,23 @@ export function newTask(type: TaskType, lang: string, near?: Point): Task {
 }
 
 /**
+ * Einfachste Art, eine Station ohne echtes Rätsel abzuschließen: eine Bereit-Frage mit einer richtigen
+ * Antwort. Die Engine wertet die Station nur über ein Rätsel oder die Spielleitung als gelöst; so gibt es
+ * Belohnung und „Station gelöst“ in Regeln auch für eine reine Erzähl-Station.
+ */
+export function newReadyTask(lang: string): Task {
+  return {
+    type: "choice",
+    question: { [lang]: "Seid ihr bereit für die nächste Station?" },
+    options: [
+      { text: { [lang]: "Ja, weiter geht’s" }, correct: true },
+      { text: { [lang]: "Noch einen Moment" }, correct: false },
+    ],
+    shuffle: false,
+  };
+}
+
+/**
  * Rätselart wechseln: Frage bzw. Auftrag bleibt (question ↔ prompt), Antworten bleiben zwischen
  * Text und Code, Bilder zur Frage zwischen Text, Code und Auswahl; alles andere entsteht neu.
  * Was wegfällt, steht noch im Rückgängig-Verlauf.
@@ -223,7 +240,9 @@ export function newStation(kind: StationKind, name: string, game: Game, opts: { 
       station.task = newTask("photo", lang);
       break;
     case "erzaehl":
+      // Ohne Aufgabe würde die Station nie als gelöst gelten (keine Belohnung, Regeln greifen nicht).
       station.scene = { arrival: [newBeat("narration", lang)] };
+      station.task = newReadyTask(lang);
       break;
     case "briefing":
       station.scene = { arrival: [{ kind: "group", text: { [lang]: "Alle zusammenkommen: Lampen an, Warnwesten an, Handys geladen?" }, ack: { [lang]: "Alle bereit" } }] };

@@ -11,6 +11,7 @@ import { jumpTo } from "../../../lib/editor/jump.ts";
 import { editor, useEditor, useTextField } from "../../../lib/editor/store.ts";
 import { readText } from "../../../lib/editor/text.ts";
 import type { EditorState } from "../../../lib/editor/types.ts";
+import { plural } from "../../../lib/format.ts";
 import { href, setQuery } from "../../../lib/router.ts";
 import { api, errorText, notify } from "../../../lib/session.ts";
 import { Dialog, Link, confirm } from "../../../ui/components.tsx";
@@ -179,7 +180,7 @@ export function EditorHeader({
                   </span>
                 )}
                 {!counter.errors && counter.warnings > 0 && (
-                  <span class="count" aria-label={`${counter.warnings} Warnungen`}>
+                  <span class="count" aria-label={plural(counter.warnings, "Warnung", "Warnungen")}>
                     ! {counter.warnings}
                   </span>
                 )}

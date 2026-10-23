@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "preact/hooks";
 import type { StaffActionType, TeamPatch } from "../../lib/api.ts";
-import { formatAgo, formatBattery, formatClock, formatClockSeconds, formatDateTime, formatDuration, formatSpan, text } from "../../lib/format.ts";
+import { formatAgo, formatBattery, formatClock, formatClockSeconds, formatDateTime, formatDuration, formatSpan, plural, text } from "../../lib/format.ts";
 import { itemName, stationName } from "../../lib/game.ts";
 import { ACTION_LABELS, detailText, REASON_LABELS, VERDICT_LABELS } from "../../lib/labels.ts";
 import { can } from "../../lib/roles.ts";
@@ -167,7 +167,7 @@ export function TeamDetail({
         {d && (
           <>
             <dt>Falsch</dt>
-            <dd class="num">{d.state.wrongAnswers} Antworten</dd>
+            <dd class="num">{plural(d.state.wrongAnswers, "Antwort", "Antworten")}</dd>
           </>
         )}
         <dt>Start</dt>

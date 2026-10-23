@@ -1,6 +1,6 @@
 /** Teamliste mit Fortschritt und Lebenszeichen, dazu die Warnungen des Assistenten. */
 
-import { formatAgo, formatBattery, formatDuration } from "../../lib/format.ts";
+import { formatAgo, formatBattery, formatDuration, plural } from "../../lib/format.ts";
 import { remaining } from "../../lib/time.ts";
 import type { EventDto, Game, OverviewTeam, Warning } from "../../lib/types.ts";
 import { quickActions, severity, sortWarnings, URGENCY, WARNING_LABELS, type QuickAction } from "../../lib/warnings.ts";
@@ -85,7 +85,7 @@ export function TeamList({
                     <Icon name="battery" size={14} /> {formatBattery(t.battery)}
                   </span>
                   {t.supervisorPresent && <span>Betreuer dabei</span>}
-                  {p.hintsUsed > 0 && <span>{p.hintsUsed} Hinweise</span>}
+                  {p.hintsUsed > 0 && <span>{plural(p.hintsUsed, "Hinweis", "Hinweise")}</span>}
                 </span>
               )}
               {kinds.length > 0 && (

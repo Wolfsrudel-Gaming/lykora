@@ -10,7 +10,7 @@ import { base, mediaUrl } from "../../../lib/base.ts";
 import { useEditorSelect } from "../../../lib/editor/store.ts";
 import { readText } from "../../../lib/editor/text.ts";
 import type { Game } from "../../../lib/editor/types.ts";
-import { formatPercent } from "../../../lib/format.ts";
+import { formatPercent, plural } from "../../../lib/format.ts";
 import { href } from "../../../lib/router.ts";
 import { api } from "../../../lib/session.ts";
 import {
@@ -170,6 +170,76 @@ function SceneBeats({ beats, onChange, ctx }: { beats: BeatSoundForm[]; onChange
   );
 }
 
+type StationForm = SoundForm["stations"][number];
+
+/** Wie viele Klangfelder der Station belegt sind (Atmosphäre, Annäherung, Lösen, Takte der Szene). */
+export function assignedSounds(s: StationForm): number {
+  return (s.ambience.audio ? 1 : 0) + STAGES.filter((st) => s.approach[st]).length + (s.solved ? 1 : 0) + s.beats.filter((b) => b.audio || b.sfx).length;
+}
+
+/** Eine Station auf der Klang-Seite: eingeklappt, wenn noch nichts zugeordnet ist (bei vielen Stationen). */
+function StationSound({
+  index: i,
+  station: s,
+  count,
+  ctx,
+  expert,
+  setStation,
+}: {
+  index: number;
+  station: StationForm;
+  count: number;
+  ctx: PickContext;
+  expert: boolean;
+  setStation: (i: number, patch: Partial<StationForm>, label: string, key: string) => void;
+}) {
+  const assigned = assignedSounds(s);
+  // Nur beim Öffnen entscheiden; sonst klappt die Station beim Leeren des letzten Felds zu.
+  const [initiallyOpen] = useState(assigned > 0 || count <= 3);
+  return (
+    <section class="card stack" aria-label={`Station ${s.name}`}>
+      <details open={initiallyOpen}>
+        <summary>
+          <h4 class="d-sound-station">
+            {i + 1}. {s.name} {expert && <span class="mono small muted">{s.id}</span>}
+          </h4>
+          <span class="small muted">{assigned ? plural(assigned, "Klang", "Klänge") : "noch kein Klang"}</span>
+        </summary>
+        <div class="stack">
+          <div class="sound-grid">
+            <AmbienceFields label="Atmosphäre" value={s.ambience} onChange={(a) => setStation(i, { ambience: { ...s.ambience, ...a } }, `Atmosphäre von „${s.name}“ geändert`, "ambience")} ctx={ctx} />
+            {s.ambience.audio && (
+              <Field label="Atmosphäre ab Stufe">
+                <select value={s.ambience.from} onChange={(e) => setStation(i, { ambience: { ...s.ambience, from: e.currentTarget.value as Stage } }, `Atmosphäre von „${s.name}“ geändert`, "from")}>
+                  {STAGES.map((st) => (
+                    <option key={st} value={st}>
+                      {STAGE_LABELS[st]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+          </div>
+          <div class="sound-grid">
+            {STAGES.map((st) => (
+              <SoundPick
+                key={st}
+                label={`Annäherung: ${STAGE_LABELS[st]}`}
+                value={s.approach[st]}
+                onChange={(v) => setStation(i, { approach: { ...s.approach, [st]: v } }, `Annäherungsgeräusch von „${s.name}“ geändert`, `approach:${st}`)}
+                ctx={ctx}
+                filter="sfx"
+              />
+            ))}
+            <SoundPick label="Beim Lösen" value={s.solved} onChange={(solved) => setStation(i, { solved }, `Lösungsgeräusch von „${s.name}“ geändert`, "solved")} ctx={ctx} filter="sfx" />
+          </div>
+          {s.beats.length > 0 && <SceneBeats beats={s.beats} onChange={(beats, label) => setStation(i, { beats }, `${label} („${s.name}“)`, "beats")} ctx={ctx} />}
+        </div>
+      </details>
+    </section>
+  );
+}
+
 export function SoundSection({ gameId }: SectionProps) {
   const library = useLoad(() => api.librarySounds().catch(() => [] as LibrarySound[]), []);
   const game = useEditorSelect((s) => s.game);
@@ -236,39 +306,7 @@ export function SoundSection({ gameId }: SectionProps) {
       <section class="stack" aria-labelledby="klang-stationen">
         <h3 id="klang-stationen">Stationen</h3>
         {form.stations.map((s, i) => (
-          <section key={s.id} class="card stack" aria-label={`Station ${s.name}`}>
-            <h4>
-              {i + 1}. {s.name} {expert && <span class="mono small muted">{s.id}</span>}
-            </h4>
-            <div class="sound-grid">
-              <AmbienceFields label="Atmosphäre" value={s.ambience} onChange={(a) => setStation(i, { ambience: { ...s.ambience, ...a } }, `Atmosphäre von „${s.name}“ geändert`, "ambience")} ctx={ctx} />
-              {s.ambience.audio && (
-                <Field label="Atmosphäre ab Stufe">
-                  <select value={s.ambience.from} onChange={(e) => setStation(i, { ambience: { ...s.ambience, from: e.currentTarget.value as Stage } }, `Atmosphäre von „${s.name}“ geändert`, "from")}>
-                    {STAGES.map((st) => (
-                      <option key={st} value={st}>
-                        {STAGE_LABELS[st]}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </div>
-            <div class="sound-grid">
-              {STAGES.map((st) => (
-                <SoundPick
-                  key={st}
-                  label={`Annäherung: ${STAGE_LABELS[st]}`}
-                  value={s.approach[st]}
-                  onChange={(v) => setStation(i, { approach: { ...s.approach, [st]: v } }, `Annäherungsgeräusch von „${s.name}“ geändert`, `approach:${st}`)}
-                  ctx={ctx}
-                  filter="sfx"
-                />
-              ))}
-              <SoundPick label="Beim Lösen" value={s.solved} onChange={(solved) => setStation(i, { solved }, `Lösungsgeräusch von „${s.name}“ geändert`, "solved")} ctx={ctx} filter="sfx" />
-            </div>
-            {s.beats.length > 0 && <SceneBeats beats={s.beats} onChange={(beats, label) => setStation(i, { beats }, `${label} („${s.name}“)`, "beats")} ctx={ctx} />}
-          </section>
+          <StationSound key={s.id} index={i} station={s} count={form.stations.length} ctx={ctx} expert={expert} setStation={setStation} />
         ))}
       </section>
     </section>

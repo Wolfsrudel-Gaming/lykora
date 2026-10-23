@@ -59,7 +59,9 @@ export function whereOf(issue: EditorIssue, game: Game): string {
 
 /** Codes, die bei mehreren Stationen zu einer Zeile werden („6 Stationen stehen noch …“). */
 const GROUPED: Record<string, (names: string[]) => string> = {
-  station_at_template: (names) => `${names.length} Stationen stehen noch dort, wo die Vorlage sie hingesetzt hat: ${names.map((n) => `„${n}“`).join(", ")}. Zieht sie auf der Karte an eure Orte.`,
+  station_at_template: (names) => names.length === 1
+      ? `Die Station ${names.map((n) => `„${n}“`).join("")} steht noch dort, wo die Vorlage sie hingesetzt hat. Zieht sie auf der Karte an euren Ort.`
+      : `${names.length} Stationen stehen noch dort, wo die Vorlage sie hingesetzt hat: ${names.map((n) => `„${n}“`).join(", ")}. Zieht sie auf der Karte an eure Orte.`,
 };
 
 interface Row {

@@ -235,6 +235,14 @@
   max-height: calc(100vh - var(--editor-top) - var(--editor-head) - 24px);
   overflow-y: auto;
   min-width: 0;
+  /* Rollschatten: oben und unten zeigt ein Schatten, dass die Leiste weiter rollt. Die Abdeckungen
+     (local) wandern mit dem Inhalt und verdecken den Schatten, sobald man am Rand angekommen ist. */
+  background:
+    linear-gradient(var(--ground) 30%, transparent) center top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--ground) 70%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--text) 35%, transparent), transparent) center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--text) 35%, transparent), transparent) center bottom / 100% 10px no-repeat scroll;
+  scrollbar-width: thin;
 }
 
 .editor-nav ul,
@@ -769,10 +777,28 @@
   }
 }
 
+/* Druck: nur der Inhalt, in voller Papierbreite. Das Raster aus Navigation und Inhalt entfällt,
+   sonst rutscht der Inhalt in die (ausgeblendete) Navigationsspalte. */
 @media print {
   .editor-head-wrap,
   .editor-nav,
-  .editor-bottom {
-    display: none;
+  .editor-bottom,
+  .editor-other {
+    display: none !important;
+  }
+
+  .editor {
+    display: block;
+    padding: 0;
+  }
+
+  .editor-body {
+    display: block;
+    margin-top: 0;
+  }
+
+  .editor-content {
+    width: 100%;
+    max-width: none;
   }
 }

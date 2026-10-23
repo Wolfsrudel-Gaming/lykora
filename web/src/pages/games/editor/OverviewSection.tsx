@@ -9,9 +9,10 @@ import { useState } from "preact/hooks";
 import { TASK_LABELS } from "../../../lib/game.ts";
 import { jumpTo } from "../../../lib/editor/jump.ts";
 import { shallowArray, useEditorSelect } from "../../../lib/editor/store.ts";
+import { GENRE_LABELS } from "../../../lib/editor/templates/wizard.ts";
 import type { EditorIssue, EditorState, FieldAddress, Game, Point, Section } from "../../../lib/editor/types.ts";
 import { bySeverity } from "../../../lib/editor/validation.ts";
-import { formatBytes, formatDateTime } from "../../../lib/format.ts";
+import { formatBytes, formatDateTime, plural } from "../../../lib/format.ts";
 import { href } from "../../../lib/router.ts";
 import { api } from "../../../lib/session.ts";
 import { Link, useLoad, useMedia } from "../../../ui/components.tsx";
@@ -47,7 +48,6 @@ const STEP_MARK: Record<StepState, { mark: string; text: string }> = {
   open: { mark: "○", text: "noch nicht gemacht" },
 };
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const objects = <T,>(x: T[] | undefined | null): T[] => (Array.isArray(x) ? x.filter((e) => e && typeof e === "object") : []);
 
 /** Nächste Schritte aus Meldungen und Merkern (Reihenfolge wie UX §5.4); ausgeblendete Meldungen zählen nicht. */
@@ -82,7 +82,7 @@ export function nextSteps(s: Pick<EditorState, "game" | "meta" | "issues" | "lat
         ? `Stationen an echte Orte setzen – ${done} von ${stations.length} erledigt`
         : stations.length === 1
           ? "Die Station steht an einem echten Ort"
-          : `Alle ${stations.length} Stationen stehen an echten Orten`,
+          : stations.length === 1 ? "Die Station steht an einem echten Ort" : `Alle ${stations.length} Stationen stehen an echten Orten`,
       detail: confirmed ? `${confirmed} vor Ort bestätigt` : undefined,
       actions: open.size
         ? [
@@ -230,14 +230,13 @@ export function gameFacts(game: Game): GameFacts {
   };
 }
 
-const GENRES: Record<string, string> = { crime: "Krimi", mystery: "Mystery", agents: "Agenten", rescue: "Rettung", other: "Eigene Welt" };
 const AGES: Record<string, string> = { "6-9": "6–9 J.", "10-13": "10–13 J.", "14-17": "14–17 J.", adult: "Erwachsene" };
 
 /** Spielwelt in einer Zeile: „Mystery · Nacht · Grusel 1 · 10–13 J.“ */
 export function worldLine(game: Game): string {
   const m = game.meta ?? ({} as Game["meta"]);
   const parts: string[] = [];
-  if (m.genre) parts.push(GENRES[m.genre] ?? m.genre);
+  if (m.genre) parts.push(GENRE_LABELS[m.genre] ?? m.genre);
   if (m.night) parts.push("Nacht");
   if (typeof m.scareLevel === "number") parts.push(`Grusel ${m.scareLevel}`);
   if (Array.isArray(m.ageGroups) && m.ageGroups.length) parts.push(m.ageGroups.map((a) => AGES[a] ?? a).join(", "));

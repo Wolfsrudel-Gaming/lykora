@@ -749,11 +749,18 @@ async function main() {
   await page.goto(`${APP}/spiele/${gameId}/klang`);
   await page.waitForURL(/\/baukasten\/klang$/);
   const briefing = page.getByRole("region", { name: "Station Sicherheits-Briefing" });
+  // Stationen ohne Klang sind eingeklappt; erst aufklappen, dann zuordnen.
+  const openStation = async (region) => {
+    const details = region.locator(":scope > details");
+    if (!(await details.evaluate((d) => d.open))) await details.locator(":scope > summary").click();
+  };
+  await openStation(briefing);
   await briefing.getByLabel("Beim Lösen").selectOption("tuer-knarzt");
   await briefing.getByLabel("Atmosphäre", { exact: true }).selectOption("wald-nacht");
   await briefing.getByLabel("Atmosphäre ab Stufe").selectOption("here");
   // Die Försterin spricht ihren Text in der Szene an der Kiste selbst.
   const chest = page.getByRole("region", { name: "Station Die verschlossene Kiste" });
+  await openStation(chest);
   await chest.getByText(/^Szene: Stimmen und Geräusche/).click();
   const dialogue = chest.locator(".beat").filter({ has: page.locator(".label", { hasText: "Ankunft · Dialog · Försterin Brandt" }) });
   await dialogue.getByLabel("Aufnahme (z. B. Stimme)").selectOption("stimme-foersterin");
@@ -780,6 +787,26 @@ async function main() {
   await page.locator(".checklist", { hasText: "Schild mit Eule" }).waitFor();
   check("Materialliste aus den Requisiten", true);
   await shot(page, "materialliste");
+
+  // Stationsschilder im Druck: jedes Schild auf eigener A5-Seite in voller Breite, kein Baukasten-Rahmen
+  await page.goto(`${APP}/spiele/${gameId}/baukasten/veroeffentlichen?drucken=schilder`);
+  await page.locator(".pub-sign .qr img").first().waitFor();
+  await page.emulateMedia({ media: "print" });
+  const signs = await page.locator(".pub-sign").evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      const q = el.querySelector(".qr")?.getBoundingClientRect();
+      const c = el.querySelector(".pub-sign-code")?.getBoundingClientRect();
+      return { w: r.width, inside: !!q && !!c && q.left >= r.left && q.right <= r.right && c.right <= r.right + 1 };
+    }),
+  );
+  check("Schilder im Druck breit genug, QR-Code und Code im Rahmen", signs.length > 0 && signs.every((x) => x.w > 400 && x.inside), JSON.stringify(signs));
+  const pdf = await page.pdf({ preferCSSPageSize: true });
+  const pdfText = pdf.toString("latin1");
+  const pages = (pdfText.match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+  check("Je Schild genau eine Seite im PDF, keine Leerseite", pages === signs.length, `${pages} Seiten für ${signs.length} Schilder`);
+  check("Schild-Seiten im Format A5", /\/MediaBox\s*\[\s*0\s+0\s+(419\.\d+|420)\s+59[45]\.\d+/.test(pdfText));
+  await page.emulateMedia({ media: null });
 
   // Neue Version durch Einfügen: das Versteck wird sichtbar und braucht eine Foto-Prüfung von Hand.
   const latest = (await api("GET", `/games/${gameId}`, undefined, admin.token)).content;

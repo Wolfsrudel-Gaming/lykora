@@ -4,6 +4,7 @@
  * echter Text in einer Region, keine Grafik. Verbindlich ist der Probelauf.
  */
 
+import { plural } from "../../../../lib/format.ts";
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { base, mediaUrl } from "../../../../lib/base.ts";
 import { GPS_RADIUS, SCENE_PARTS, SOLVE_POINTS, type Beat, type Task } from "../../../../lib/editor/stations.ts";
@@ -222,7 +223,7 @@ function RewardView({ game, station, lang }: { game: Game; station: Station; lan
   return (
     <div class="st-card st-reward">
       <p class="st-stamp">{worldOf(game).stamp}</p>
-      {(game.settings?.mode ?? "competitive") === "competitive" && <p class="st-title">+{points} Punkte</p>}
+      {(game.settings?.mode ?? "competitive") === "competitive" && <p class="st-title">+{plural(points, "Punkt", "Punkte")}</p>}
       <ul class="small">
         {(r.fragments ?? []).map((id) => {
           const f = (game.fragments ?? []).find((x) => x?.id === id);

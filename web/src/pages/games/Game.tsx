@@ -8,7 +8,7 @@
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import { saveJson } from "../../lib/download.ts";
-import { formatDateTime, formatSpan, text } from "../../lib/format.ts";
+import { formatDateTime, formatSpan, plural, text } from "../../lib/format.ts";
 import { lang as gameLang, penaltyLabel, stationSoundLines, taskSummary, triggerLabel } from "../../lib/game.ts";
 import { can } from "../../lib/roles.ts";
 import { href, navigate, setQuery, useLocation } from "../../lib/router.ts";
@@ -404,7 +404,7 @@ export function Overview({ game, gameId }: { game: Game; gameId: string }) {
           ))}
         </dl>
         <p class="small muted">
-          {(game.media ?? []).filter((m) => m.type === "audio").length} Klänge im Spiel. <Link to={href("gameSound", { gameId })}>Klänge zuordnen</Link>
+          {plural((game.media ?? []).filter((m) => m.type === "audio").length, "Klang", "Klänge")} im Spiel. <Link to={href("gameSound", { gameId })}>Klänge zuordnen</Link>
         </p>
       </section>
 
@@ -454,7 +454,7 @@ export function Overview({ game, gameId }: { game: Game; gameId: string }) {
               ) : null}
               {s.rewards && (
                 <p class="small">
-                  Belohnung: {s.rewards.points ?? set.scoring?.solvePoints ?? 100} Punkte
+                  Belohnung: {plural(s.rewards.points ?? set.scoring?.solvePoints ?? 100, "Punkt", "Punkte")}
                   {s.rewards.fragments?.length ? ` · Fragment ${s.rewards.fragments.join(", ")}` : ""}
                   {s.rewards.items?.length ? ` · ${s.rewards.items.join(", ")}` : ""}
                   {s.rewards.reveal?.length ? ` · schaltet frei: ${s.rewards.reveal.join(", ")}` : ""}

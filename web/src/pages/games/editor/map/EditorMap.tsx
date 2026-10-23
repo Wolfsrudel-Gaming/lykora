@@ -197,7 +197,12 @@ export function EditorMap(props: EditorMapProps) {
       }).bindTooltip(esc(title), { direction: "top", offset: [0, -14] });
       if (editing) {
         marker.on("click", () => live.current.onSelect?.({ kind: "point", point: kind, index }));
-        marker.on("dragend", () => live.current.onPoint?.(kind, index, pt(marker.getLatLng())));
+        // Ziehen wählt den Punkt aus und behält den Fokus, damit danach die Pfeiltasten schieben.
+        marker.on("dragend", () => {
+          live.current.onSelect?.({ kind: "point", point: kind, index });
+          marker.getElement()?.focus({ preventScroll: true });
+          live.current.onPoint?.(kind, index, pt(marker.getLatLng()));
+        });
       }
       add(key, marker);
     };
@@ -234,7 +239,12 @@ export function EditorMap(props: EditorMapProps) {
       if (editing || readOnly) marker.on("click", () => live.current.onSelect?.({ kind: "station", id: s.id }));
       if (editing) {
         marker.on("drag", () => circles.get(s.id)?.setLatLng(marker.getLatLng()));
-        marker.on("dragend", () => live.current.onStation?.(s.id, pt(marker.getLatLng())));
+        // Ziehen wählt die Station aus und behält den Fokus, damit danach die Pfeiltasten schieben.
+        marker.on("dragend", () => {
+          live.current.onSelect?.({ kind: "station", id: s.id });
+          marker.getElement()?.focus({ preventScroll: true });
+          live.current.onStation?.(s.id, pt(marker.getLatLng()));
+        });
       }
       add(`station:${s.id}`, marker);
     });

@@ -13,6 +13,7 @@ import { jumpTo } from "../../../../lib/editor/jump.ts";
 import { editor, saveForAction, useEditorSelect } from "../../../../lib/editor/store.ts";
 import { readText } from "../../../../lib/editor/text.ts";
 import type { EditorIssue, Game, PublishResult } from "../../../../lib/editor/types.ts";
+import { plural } from "../../../../lib/format.ts";
 import { setQuery, useLocation } from "../../../../lib/router.ts";
 import { api, errorText, notify } from "../../../../lib/session.ts";
 import { useLoad } from "../../../../ui/components.tsx";
@@ -24,8 +25,6 @@ import { SignsPrint, SolutionPrint } from "./SignsPrint.tsx";
 import { TestRunDialog } from "./TestRunDialog.tsx";
 import { suggestComment, WhatsNew } from "./WhatsNew.tsx";
 import "./publish.css";
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function PublishSection({ gameId }: SectionProps) {
   const loc = useLocation();

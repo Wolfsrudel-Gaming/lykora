@@ -1,7 +1,7 @@
 /** Spiel als JSON-Datei oder eingefügt hochladen, vorher vom Server prüfen lassen. */
 
 import { useState } from "preact/hooks";
-import { text } from "../../lib/format.ts";
+import { plural, text } from "../../lib/format.ts";
 import { api, errorText } from "../../lib/session.ts";
 import type { Game, ValidationResult } from "../../lib/types.ts";
 import { describeError, parseJson } from "../../lib/validation.ts";
@@ -202,8 +202,8 @@ export function GameUpload({
       {ok && game && (
         <form class="stack" onSubmit={save}>
           <p class="notice ok">
-            Gültig: „{text(game.meta.title, lang)}“ mit {game.stations.length} Stationen
-            {game.media?.length ? ` und ${game.media.length} Medien` : ""}.
+            Gültig: „{text(game.meta.title, lang)}“ mit {plural(game.stations.length, "Station", "Stationen")}
+            {game.media?.length ? ` und ${plural(game.media.length, "Medium", "Medien")}` : ""}.
           </p>
           {expectId && game.id !== expectId && (
             <p class="notice">

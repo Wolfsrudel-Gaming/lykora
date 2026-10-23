@@ -1,6 +1,6 @@
 /** Materialliste zum Packen und Aufbauen, druckfreundlich. */
 
-import { formatDate } from "../../lib/format.ts";
+import { formatDate, plural } from "../../lib/format.ts";
 import { ApiError } from "../../lib/api.ts";
 import { api } from "../../lib/session.ts";
 import type { MaterialItem } from "../../lib/types.ts";
@@ -65,7 +65,7 @@ export function MaterialsPage({ gameId }: { gameId: string }) {
         </p>
       </header>
       <p class="muted">
-        {total} Teile an {groups.size} Stationen. Abhaken beim Packen und beim Abbau.
+        {plural(total, "Teil", "Teile")} an {plural(groups.size, "Station", "Stationen")}. Abhaken beim Packen und beim Abbau.
       </p>
       {items.length === 0 ? (
         <Empty>Das Spiel nennt keine Requisiten. Du trägst sie im Baukasten bei jeder Station unter „Aufbau“ ein.</Empty>

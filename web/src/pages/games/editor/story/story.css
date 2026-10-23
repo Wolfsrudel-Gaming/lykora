@@ -180,6 +180,23 @@
   margin-top: 12px;
 }
 
+/* Station auf der Klang-Seite: Name und Zähler in einer Zeile der Kopfzeile */
+.d-section details > summary:has(.d-sound-station) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.d-sound-station {
+  display: inline;
+  margin: 0;
+}
+
+.d-section details[open] > summary:has(.d-sound-station) {
+  margin-bottom: 12px;
+}
+
 /* Schmal: Knöpfe ↑/↓ unter den Eintrag, damit Bausteine die volle Breite behalten */
 
 @media (max-width: 600px) {

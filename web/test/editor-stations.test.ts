@@ -102,10 +102,10 @@ describe("newStation", () => {
     expect(newStation("finale", "Ziel", g).final).toBe(true);
   });
 
-  it("Erzähl-Station hat eine Szene und kein Rätsel", () => {
+  it("Erzähl-Station hat eine Szene und eine Bereit-Frage, damit sie als gelöst gilt", () => {
     const s = newStation("erzaehl", "Der Brunnen", base());
-    expect(s.task).toBeUndefined();
     expect(s.scene?.arrival?.[0]?.kind).toBe("narration");
+    expect(s.task).toMatchObject({ type: "choice", options: [{ correct: true }, { correct: false }] });
   });
 });
 

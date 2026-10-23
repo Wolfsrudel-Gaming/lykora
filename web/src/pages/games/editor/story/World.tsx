@@ -4,6 +4,7 @@
  */
 
 import { useEditorSelect } from "../../../../lib/editor/store.ts";
+import { GENRE_LABELS } from "../../../../lib/editor/templates/wizard.ts";
 import type { Game } from "../../../../lib/editor/types.ts";
 import { worldOf } from "../station/world.ts";
 import { IssueList } from "../ui/IssueList.tsx";
@@ -14,7 +15,6 @@ import { store, Tiles, useLiveIssues, type TileOption } from "./shared.tsx";
 type Genre = NonNullable<Game["meta"]["genre"]>;
 type AgeGroup = NonNullable<Game["meta"]["ageGroups"]>[number];
 
-const GENRE_TITLES: Record<Genre, string> = { other: "Abenteuer", crime: "Krimi", mystery: "Mystery", agents: "Agenten", rescue: "Rettung" };
 const GENRES: Genre[] = ["other", "crime", "mystery", "agents", "rescue"];
 
 /** Standardnamen der App je Genre (ohne eigene Angaben in presentation). */
@@ -64,9 +64,9 @@ export function World() {
         value={genre}
         options={GENRES.map((g) => {
           const w = genreWorld(g);
-          return { value: g, title: GENRE_TITLES[g], text: `${w.device} · ${w.caseFile} · „${w.stamp}“` };
+          return { value: g, title: GENRE_LABELS[g], text: `${w.device} · ${w.caseFile} · „${w.stamp}“` };
         })}
-        onChange={(g) => store().setField("/meta/genre", g, `Genre: ${GENRE_TITLES[g]}`)}
+        onChange={(g) => store().setField("/meta/genre", g, `Genre: ${GENRE_LABELS[g]}`)}
         hint="Bestimmt Farben, Schrift und die Namen der Dinge in der App."
       />
       <fieldset class="field ed-field" data-feld="meta.ageGroups">

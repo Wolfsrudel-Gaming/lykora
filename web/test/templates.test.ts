@@ -57,6 +57,12 @@ describe("Vorlagen", () => {
     });
   }
 
+  it("das leere Spiel startet ohne Hinweis auf eine ungenutzte Figur", async () => {
+    const leer = TEMPLATES.find((t) => t.id === "leer")!;
+    const { game, meta } = wizard(await leer.load());
+    expect(validateDraft(game, meta).filter((i) => i.code === "character_silent")).toEqual([]);
+  });
+
   it("das Beispiel „Sturmnacht“ lädt und zieht ebenfalls um", async () => {
     const { game } = wizard(await EXAMPLE_GAME());
     expect(game.field.assemblyPoint.location).toEqual(BONN);

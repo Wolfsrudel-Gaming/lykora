@@ -10,6 +10,7 @@ import {
   formatSpan,
   fromLocalInput,
   kebabId,
+  plural,
   slugify,
   text,
   toLocalInput,
@@ -22,6 +23,12 @@ describe("Formatierung", () => {
     expect(text({ de: "Hallo", en: "Hello" }, "en")).toBe("Hello");
     expect(text({ en: "Hello" }, "de")).toBe("Hello");
     expect(text(undefined)).toBe("");
+  });
+
+  it("setzt die Einzahl bei genau einem", () => {
+    expect(plural(1, "Tipp", "Tipps")).toBe("1 Tipp");
+    expect(plural(0, "Tipp", "Tipps")).toBe("0 Tipps");
+    expect(plural(2, "Station", "Stationen")).toBe("2 Stationen");
   });
 
   it("zeigt Dauern als Uhr", () => {

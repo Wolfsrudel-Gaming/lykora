@@ -46,7 +46,7 @@ export function LocalBackupDialog() {
   };
 
   return (
-    // Esc verwirft nichts: die Entscheidung trifft die Person mit einem der beiden Knöpfe.
+    // Esc verwirft nichts: die Entscheidung trifft die Person mit einem der Knöpfe. Den Fokus bekommt nie „Verwerfen“.
     <Dialog open={!!backup} title="Ungespeicherte Änderungen auf diesem Gerät" onClose={() => undefined}>
       {text && (
         <div class="stack">
@@ -66,7 +66,7 @@ export function LocalBackupDialog() {
             <button type="button" class="btn" onClick={() => editor.get().current?.discardBackup()}>
               Verwerfen
             </button>
-            <button type="button" class="btn primary" disabled={busy} onClick={() => void apply()}>
+            <button type="button" class="btn primary" disabled={busy} data-autofocus={older ? undefined : ""} onClick={() => void apply()}>
               {older ? "Trotzdem übernehmen" : "Übernehmen"}
             </button>
           </div>

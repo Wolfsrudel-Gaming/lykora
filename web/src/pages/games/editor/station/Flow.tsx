@@ -4,6 +4,7 @@
  * eine andere Spur legen. Altdaten (nur story) erscheinen als „Erzähltext (einfach)“ mit Umwandeln.
  */
 
+import { plural } from "../../../../lib/format.ts";
 import { BEAT_KIND_INFO, BEAT_KINDS, convertStoryToScene, newBeat, SCENE_PARTS, TASK_TYPE_LABELS, type Beat, type BeatKind, type ScenePart } from "../../../../lib/editor/stations.ts";
 import { useEditorSelect } from "../../../../lib/editor/store.ts";
 import { readText } from "../../../../lib/editor/text.ts";
@@ -26,7 +27,7 @@ export function Flow({ gameId, station, index }: { gameId: string; station: Stat
   const p = stationPath(index);
   const count = SCENE_PARTS.reduce((n, part) => n + (station.scene?.[part]?.length ?? 0), 0);
   const state = useSectionState([`${p}/scene`, `${p}/story`, `${p}/task`, `${p}/hints`], count > 0 || !!station.task);
-  const summary = [count === 1 ? "1 Block" : `${count} Blöcke`, station.task ? `Rätsel: ${TASK_TYPE_LABELS[station.task.type] ?? "?"}` : "ohne Rätsel", station.hints?.length ? `${station.hints.length} Tipps` : ""].filter(Boolean).join(" · ");
+  const summary = [plural(count, "Block", "Blöcke"), station.task ? `Rätsel: ${TASK_TYPE_LABELS[station.task.type] ?? "?"}` : "ohne Rätsel", station.hints?.length ? plural(station.hints.length, "Tipp", "Tipps") : ""].filter(Boolean).join(" · ");
   const legacy = !!station.story && !station.scene;
   return (
     <Collapsible title="Ablauf an der Station" summary={summary} state={state} open feld="scene">

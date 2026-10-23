@@ -57,13 +57,15 @@ export function SignsPrint({ gameId }: { gameId: string }) {
         <div class="pub-signs">
           {signs.map((s) => (
             <article key={s.qr} class="pub-sign" aria-label={`Schild ${s.number}`}>
-              <p class="pub-sign-number">{s.number}</p>
-              {names && <p class="pub-sign-name">{s.name}</p>}
-              <QrCode value={s.qr} size={480} label={`QR-Code ${s.qr}`} />
-              <p class="pub-sign-code">
-                Kein Scan? In der App „Code eingeben“: <strong class="mono">{s.qr}</strong>
-              </p>
-              <p class="pub-sign-brand">Lykora</p>
+              <div class="pub-sign-body">
+                <p class="pub-sign-number">{s.number}</p>
+                {names && <p class="pub-sign-name">{s.name}</p>}
+                <QrCode value={s.qr} size={480} label={`QR-Code ${s.qr}`} />
+                <p class="pub-sign-code">
+                  Kein Scan? In der App „Code eingeben“: <strong class="mono">{s.qr}</strong>
+                </p>
+                <p class="pub-sign-brand">Lykora</p>
+              </div>
             </article>
           ))}
         </div>

@@ -50,7 +50,10 @@
         { "type": "manual", "code": "1000" }
       ],
       "scene": {
-        "arrival": [{ "kind": "radio", "speaker": "zentrale", "text": { "de": "Hier spricht die Zentrale. Schön, dass ihr da seid. Seid ihr bereit?" } }]
+        "arrival": [
+          { "kind": "narration", "text": { "de": "Ihr steht am Start. Gleich beginnt euer Abenteuer." } },
+          { "kind": "radio", "speaker": "zentrale", "text": { "de": "Hier spricht die Zentrale. Schön, dass ihr da seid. Seid ihr bereit?" } }
+        ]
       },
       "task": {
         "type": "choice",

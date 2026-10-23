@@ -1,12 +1,12 @@
 /**
  * Paket C: Rätselblock einer Station – Art mit Klartext (Wechsel über switchTaskType, die Frage bleibt),
  * darunter nur die Felder dieser Art; beim Finale die Kopplung an den Finalcode. „Ohne Rätsel“ sagt
- * offen, dass die Station dann nie als gelöst gilt.
+ * offen, dass die Station dann nie als gelöst gilt, und bietet eine Bereit-Frage als einfachen Abschluss an.
  */
 
 import { useState } from "preact/hooks";
 import { coupleFinal, finalCode, isCoupled } from "../../../../lib/editor/fragments.ts";
-import { switchTaskType, TASK_DEFAULTS, TASK_TYPE_LABELS, TASK_TYPES, type Task, type TaskType } from "../../../../lib/editor/stations.ts";
+import { newReadyTask, switchTaskType, TASK_DEFAULTS, TASK_TYPE_LABELS, TASK_TYPES, type Task, type TaskType } from "../../../../lib/editor/stations.ts";
 import { useEditorSelect, useIssuesAt } from "../../../../lib/editor/store.ts";
 import type { Station } from "../../../../lib/editor/types.ts";
 import { Icon } from "../../../../ui/icons.tsx";
@@ -36,6 +36,11 @@ export function TaskEditor({ station, index }: { station: Station; index: number
       else s.task = switchTaskType(s.task, next, lang, s.location);
     });
 
+  const readyQuestion = () =>
+    store().update("Bereit-Frage als Abschluss angelegt", (g) => {
+      g.stations[index]!.task = newReadyTask(lang);
+    });
+
   return (
     <div class="st-task stack" data-feld="task" data-block="task">
       <div class="row between">
@@ -57,9 +62,14 @@ export function TaskEditor({ station, index }: { station: Station; index: number
         <div class="notice stack tight">
           <p>Ohne Rätsel – Teams erleben nur die Szene.</p>
           <p class="small">Eine Station ohne Rätsel gilt in der App nie als gelöst: Es gibt keine Belohnung, und „Station gelöst“ in Regeln greift nicht. Nur die Spielleitung kann sie werten.</p>
-          <button type="button" class="btn small st-self-start" onClick={() => switchTo("text")}>
-            <Icon name="plus" /> Rätsel hinzufügen
-          </button>
+          <div class="row wrap">
+            <button type="button" class="btn small" onClick={() => switchTo("text")}>
+              <Icon name="plus" /> Rätsel hinzufügen
+            </button>
+            <button type="button" class="btn small" onClick={readyQuestion}>
+              „Seid ihr bereit?“ als Abschluss
+            </button>
+          </div>
         </div>
       )}
       {task?.type === "text" && <TextTask p={p} index={index} task={task} />}

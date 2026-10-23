@@ -258,7 +258,7 @@ describe("Übersicht", () => {
     expect(facts.walkM).toBeGreaterThan(400);
     expect(facts.estimateMin).toBe(Math.round(facts.walkM / overview.WALK_M_PER_MIN + 5 * overview.MIN_PER_STATION));
     expect(overview.distanceM({ lat: 50, lon: 7 }, { lat: 51, lon: 7 })).toBeCloseTo(111195, -1);
-    expect(overview.worldLine(load())).toBe("Rettung · Nacht · Grusel 1 · 10–13 J., Erwachsene");
+    expect(overview.worldLine(load())).toBe("Rettungseinsatz · Nacht · Grusel 1 · 10–13 J., Erwachsene");
     expect(overview.gameFacts({ stations: [] } as unknown as Game)).toMatchObject({ stations: 0, walkM: 0, estimateMin: 0, offPlan: false });
   });
 });
