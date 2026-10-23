@@ -8,6 +8,7 @@ import type { ComponentChildren, ComponentType } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { base, mediaUrl } from "../../../../lib/base.ts";
 import { newId, takenIds } from "../../../../lib/editor/ids.ts";
+import { moveKeys, printOf, reconcileKeys, type ListKeys } from "../../../../lib/editor/listkeys.ts";
 import { parseCoordinates } from "../../../../lib/editor/stations.ts";
 import { editor, shallowArray, useEditorSelect, useFieldValue, useIssuesAt } from "../../../../lib/editor/store.ts";
 import { readText } from "../../../../lib/editor/text.ts";
@@ -305,21 +306,16 @@ export function excerpt(value: string, max = 60): string {
   return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
 }
 
-let keySeq = 0;
-
 /**
  * Stabile Schlüssel für Listen ohne Kennung (Takte, Tipps): sie wandern beim Sortieren mit, damit
- * Fokus und „aufgenommen“ am selben Eintrag bleiben. Neue Einträge hinten bekommen neue Schlüssel.
+ * Fokus und „aufgenommen“ am selben Eintrag bleiben, und bleiben beim Löschen in der Mitte bei ihren
+ * Einträgen (siehe listkeys.ts). Neue Einträge bekommen neue Schlüssel.
  */
-export function useListKeys(length: number): [string[], (from: number, to: number) => void] {
-  const keys = useRef<string[]>([]);
-  while (keys.current.length < length) keys.current.push(`k${++keySeq}`);
-  if (keys.current.length > length) keys.current = keys.current.slice(0, length);
+export function useListKeys(items: readonly unknown[]): [string[], (from: number, to: number) => void] {
+  const state = useRef<ListKeys>({ keys: [], prints: [] });
+  state.current = reconcileKeys(state.current, items.map(printOf));
   const move = (from: number, to: number) => {
-    const next = [...keys.current];
-    const [k] = next.splice(from, 1);
-    next.splice(to, 0, k!);
-    keys.current = next;
+    state.current = moveKeys(state.current, from, to);
   };
-  return [keys.current, move];
+  return [state.current.keys, move];
 }

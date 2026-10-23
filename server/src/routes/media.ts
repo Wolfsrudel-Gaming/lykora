@@ -130,7 +130,7 @@ export default async function mediaRoutes(app: FastifyInstance) {
       schema: {
         tags: ["media"],
         summary: "Medium aus einem Spiel entfernen",
-        description: "Die Datei selbst bleibt, solange ein anderer Eintrag sie nutzt. Nutzt ein noch nicht beendetes Event sie, gibt es 409.",
+        description: "Die Datei selbst bleibt, solange ein anderer Eintrag sie nutzt. Nutzt ein noch nicht beendetes Event oder der Entwurf sie, gibt es 409.",
         security: staff,
         params: {
           type: "object",
@@ -155,6 +155,14 @@ export default async function mediaRoutes(app: FastifyInstance) {
           [row.game_id, `media/${file}`, `${config.publicUrl}/media/${file}`],
         );
         if (inUse) throw conflict("media_in_use", `Das Event „${inUse.name}“ nutzt diese Datei noch`);
+        // Der Entwurf des Baukastens darf nicht auf eine fehlende Datei zeigen; erst dort entfernen, dann löschen.
+        const inDraft = await tx.one(
+          `select 1 from game_drafts d
+           where d.game_id = $1 and jsonb_typeof(d.content->'media') = 'array'
+             and exists (select 1 from jsonb_array_elements(d.content->'media') m where m->>'src' in ($2, $3))`,
+          [row.game_id, `media/${file}`, `${config.publicUrl}/media/${file}`],
+        );
+        if (inDraft) throw conflict("media_in_use", "Der Entwurf des Spiels nutzt diese Datei noch; entferne sie zuerst dort");
         await tx.query("delete from game_media where id = $1", [row.id]);
         const others = await tx.query<{ content_type: string }>("select content_type from game_media where sha256 = $1", [row.sha256]);
         if (!others.some((o) => mediaFile(row.sha256, o.content_type) === file)) await removeMediaFile(config.dataDir, file);

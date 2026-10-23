@@ -10,7 +10,7 @@ import { ApiError } from "../../../../lib/api.ts";
 import { setMediaSizes } from "../../../../lib/editor/checks.ts";
 import { diffSummary } from "../../../../lib/editor/diff.ts";
 import { jumpTo } from "../../../../lib/editor/jump.ts";
-import { editor, useEditorSelect } from "../../../../lib/editor/store.ts";
+import { editor, saveForAction, useEditorSelect } from "../../../../lib/editor/store.ts";
 import { readText } from "../../../../lib/editor/text.ts";
 import type { EditorIssue, Game, PublishResult } from "../../../../lib/editor/types.ts";
 import { setQuery, useLocation } from "../../../../lib/router.ts";
@@ -84,9 +84,13 @@ function PublishView({ gameId }: { gameId: string }) {
     }
     setBusy(true);
     try {
-      await store.saveNow();
-      if (store.get().save.status === "conflict") {
+      const saved = await saveForAction(store);
+      if (saved === "conflict") {
         notify("Jemand hat den Entwurf auch geändert. Bitte zuerst den Konflikt lösen.", "warn");
+        return;
+      }
+      if (saved === "unsaved") {
+        notify("Dein neuester Stand ist noch nicht gespeichert. Bitte kurz warten oder das Netz prüfen und noch einmal versuchen.", "warn");
         return;
       }
       const r = await api.publishDraft(gameId, { revision: store.get().revision, comment: comment.trim() || undefined });

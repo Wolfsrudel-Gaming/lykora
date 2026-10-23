@@ -254,6 +254,38 @@ describe("Medien hochladen", () => {
   });
 });
 
+describe("Medien und Entwurf", () => {
+  it("löscht kein Medium, das der Entwurf noch nutzt", async () => {
+    const orga = client(ctx);
+    const gameId = await createGame();
+    const data = randomBytes(200);
+    const up = await upload(gameId, data, "audio/mpeg", { filename: "entwurf.mp3" });
+    const draft = exampleGame();
+    draft.media = [...(draft.media ?? []), { id: "ruf", type: "audio", src: up.json().src }];
+    const put = await orga.put(`/games/${gameId}/draft`, { content: draft, meta: {}, revision: 0 });
+    expect(put.status).toBe(200);
+
+    const blocked = await orga.del(`/games/${gameId}/media/${up.json().id}`);
+    expect(blocked.status).toBe(409);
+    expect(blocked.body).toMatchObject({ error: "media_in_use" });
+    expect(blocked.body.message).toContain("Entwurf");
+    expect(existsSync(join(mediaDir(), `${sha(data)}.mp3`))).toBe(true);
+
+    // Erst im Entwurf entfernen, dann geht das Löschen.
+    expect((await orga.put(`/games/${gameId}/draft`, { content: exampleGame(), meta: {}, revision: 1 })).status).toBe(200);
+    expect((await orga.del(`/games/${gameId}/media/${up.json().id}`)).status).toBe(204);
+  });
+
+  it("verträgt einen Entwurf mit kaputter Medienliste", async () => {
+    const orga = client(ctx);
+    const gameId = await createGame();
+    const up = await upload(gameId, randomBytes(100), "audio/mpeg", { filename: "kaputt.mp3" });
+    const content = { ...exampleGame(), media: "kaputt" };
+    expect((await orga.put(`/games/${gameId}/draft`, { content, meta: {}, revision: 0 })).status).toBe(200);
+    expect((await orga.del(`/games/${gameId}/media/${up.json().id}`)).status).toBe(204);
+  });
+});
+
 describe("Medien ausliefern", () => {
   it("liefert hochgeladene Dateien ohne Anmeldung, mit Range-Anfragen und Cache-Headern", async () => {
     const gameId = await createGame();

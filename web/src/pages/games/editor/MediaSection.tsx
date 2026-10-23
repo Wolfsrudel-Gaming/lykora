@@ -22,6 +22,7 @@ import { Icon } from "../../../ui/icons.tsx";
 import { deleteWithReferences, usageLines } from "./DeleteWithReferencesDialog.tsx";
 import type { SectionProps } from "./sections.ts";
 import { JumpBar, store } from "./story/shared.tsx";
+import { durationLabel } from "./ui/DurationInput.tsx";
 import { acceptedMimes, MAX_BYTES } from "./ui/MediaPicker.tsx";
 import { TextField } from "./ui/TextField.tsx";
 
@@ -411,7 +412,7 @@ function LibraryRow({ sound }: { sound: LibrarySound }) {
       <div class="min0">
         <strong>{sound.title}</strong>
         <div class="small muted">
-          {Math.round(sound.duration)} s{sound.loop ? " · Schleife" : ""} · {sound.license}
+          {durationLabel(sound.duration)}{sound.loop ? " · Schleife" : ""} · {sound.license}
         </div>
       </div>
       <div class="actions">

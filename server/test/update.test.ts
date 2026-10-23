@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.ts";
 import { inWindow, isNewer, nextWindowStart, parseImageRef, type UpdateStatus } from "../src/services/update.ts";
 import { REPOSITORY, startFakeRegistry, type FakeRegistry } from "./fake-registry.ts";
-import { client, createEvent, member, setup, tempDir, testConfig, type TestContext } from "./helpers.ts";
+import { client, createEvent, exampleGame, member, setup, tempDir, testConfig, type TestContext } from "./helpers.ts";
 
 const OLD = "0123456789abcdef0123456789abcdef01234567";
 const NEW = "fedcba9876543210fedcba9876543210fedcba98";
@@ -452,6 +452,24 @@ describe("Entscheidung für den Updater", () => {
     await client(ctx).post(`/events/${event.id}/end`);
     expect((await u.plan()).action).toBe("update");
     expect((await u.status()).blockedBy).toBeNull();
+  });
+
+  it("ignoriert Probeläufe aus dem Baukasten", async () => {
+    const u = await ready({ auto: true });
+    const orga = client(ctx);
+    const game = await orga.post(`/orgs/${ctx.orgId}/games/drafts`, { content: exampleGame() });
+    const probe = await orga.post(`/games/${game.body.id}/test-events`, { revision: 1 });
+    expect(probe.body).toMatchObject({ test: true, status: "running" });
+
+    expect((await u.status()).blockedBy).toBeNull();
+    expect((await u.plan()).action).toBe("update");
+    const apply = await u.admin.post("/system/update/apply");
+    expect(apply.status).toBe(202);
+
+    // Ein echtes Event hält weiter auf, auch neben dem Probelauf.
+    const { event } = await createEvent(ctx);
+    await client(ctx).post(`/events/${event.id}/start`);
+    expect((await u.status()).blockedBy).toEqual({ reason: "event_running", events: [{ id: event.id, name: "Testlauf", status: "running" }] });
   });
 
   it("hält sich an das Zeitfenster", async () => {

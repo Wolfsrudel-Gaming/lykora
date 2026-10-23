@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "preact/hooks";
 import { ApiError } from "../../../../lib/api.ts";
-import { editor, useEditorSelect } from "../../../../lib/editor/store.ts";
+import { editor, saveForAction, useEditorSelect } from "../../../../lib/editor/store.ts";
 import { readText } from "../../../../lib/editor/text.ts";
 import { formatClock } from "../../../../lib/format.ts";
 import { can } from "../../../../lib/roles.ts";
@@ -30,8 +30,9 @@ type View = { kind: "blocked" } | { kind: "intro" } | { kind: "starting" } | { k
 export async function startTestRun(gameId: string): Promise<EventDto> {
   const store = editor.get().current;
   if (!store) throw new Error("Kein Spiel im Baukasten geöffnet");
-  await store.saveNow();
-  if (store.get().save.status === "conflict") throw new Error("Jemand hat den Entwurf auch geändert. Bitte zuerst den Konflikt lösen.");
+  const saved = await saveForAction(store);
+  if (saved === "conflict") throw new Error("Jemand hat den Entwurf auch geändert. Bitte zuerst den Konflikt lösen.");
+  if (saved === "unsaved") throw new Error("Dein neuester Stand ist noch nicht gespeichert. Bitte kurz warten oder das Netz prüfen und noch einmal versuchen.");
   const event = await api.createTestEvent(gameId, { revision: store.get().revision });
   known.set(gameId, event);
   store.update("Probelauf gestartet", (_game, meta) => void (meta.lastTestRun = { eventId: event.id, at: new Date().toISOString() }), { metaOnly: true });

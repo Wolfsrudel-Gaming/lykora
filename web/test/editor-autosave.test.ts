@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../src/lib/api.ts";
-import { RETRY_MS, SAVE_DEBOUNCE_MS, SAVE_MAX_MS, type DraftClient, type SaveBody } from "../src/lib/editor/autosave.ts";
+import { RETRY_MS, SAVE_DEBOUNCE_MS, SAVE_MAX_MS, isDirty, type DraftClient, type SaveBody } from "../src/lib/editor/autosave.ts";
 import { backupDiffers, readBackup, writeBackup } from "../src/lib/editor/local.ts";
 import { createEditorStore, type EditorInit } from "../src/lib/editor/store.ts";
 import type { DraftDto, Game } from "../src/lib/editor/types.ts";
@@ -86,25 +86,30 @@ describe("Automatisches Speichern", () => {
     store.close();
   });
 
-  it("saveNow speichert sofort; eine Änderung währenddessen wird nachgespeichert", async () => {
-    let release: (() => void) | null = null;
-    const { client, calls } = fakeClient((c) => new Promise((resolve) => (release = () => resolve({ revision: c.body.revision + 1, updated_at: "t" }))));
+  it("saveNow speichert sofort; eine Änderung währenddessen wird nachgespeichert, und saveNow wartet darauf", async () => {
+    const releases: (() => void)[] = [];
+    const { client, calls } = fakeClient((c) => new Promise((resolve) => releases.push(() => resolve({ revision: c.body.revision + 1, updated_at: "t" }))));
     const store = make(client);
     store.update("A", (g) => void (g.meta.title = { de: "A" }));
     const p = store.saveNow();
     expect(store.get().save.status).toBe("saving");
     expect(calls).toHaveLength(1);
     store.update("B", (g) => void (g.meta.title = { de: "B" }));
-    void store.saveNow();
-    release!();
-    await p;
-    await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS);
+    let done = false;
+    void store.saveNow().then(() => (done = true));
+    releases[0]!();
+    await vi.advanceTimersByTimeAsync(0);
+    // sofort, ohne die Wartezeit des Zeitplans
     expect(calls).toHaveLength(2);
     expect(calls[1]!.body.content.meta.title).toEqual({ de: "B" });
-    release!();
+    expect(done).toBe(false);
+    releases[1]!();
+    await p;
     await vi.advanceTimersByTimeAsync(0);
+    expect(done).toBe(true);
     expect(store.get().save.status).toBe("saved");
     expect(store.get().revision).toBe(5);
+    expect(isDirty(store.get())).toBe(false);
     store.close();
   });
 

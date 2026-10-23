@@ -567,8 +567,9 @@ export class UpdateService {
 
   // ----- Entscheidung -----
 
+  /** Probeläufe aus dem Baukasten zählen nicht: Autoren können sie nicht beenden, und sie spielen nur ein Testhandy. */
   private activeEvents(): Promise<ActiveEvent[]> {
-    return this.db.query<ActiveEvent>("select id, name, status from events where status = any($1) order by name", [ACTIVE_STATUSES]);
+    return this.db.query<ActiveEvent>("select id, name, status from events where status = any($1) and not test order by name", [ACTIVE_STATUSES]);
   }
 
   private updaterConnected(now: Date): boolean {

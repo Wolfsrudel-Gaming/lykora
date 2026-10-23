@@ -44,7 +44,7 @@ export function Flow({ gameId, station, index }: { gameId: string; station: Stat
 
 function Lane({ station, index, part }: { station: Station; index: number; part: ScenePart }) {
   const beats = (station.scene?.[part] ?? []).filter((b): b is Beat => !!b && typeof b === "object");
-  const [keys, moveKey] = useListKeys(beats.length);
+  const [keys, moveKey] = useListKeys(beats);
   const lang = useEditorSelect((s) => s.lang);
   const names = useEditorSelect(
     (s) => Object.fromEntries((s.game.characters ?? []).filter((c) => c?.id).map((c) => [c.id, readText(c.name as never, s.lang) || c.id])),

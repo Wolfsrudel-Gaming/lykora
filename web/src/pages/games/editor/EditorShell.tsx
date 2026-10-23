@@ -13,7 +13,7 @@ import { isDirty } from "../../../lib/editor/autosave.ts";
 import { focusField } from "../../../lib/editor/jump.ts";
 import { editor, openEditor, shallowArray, useEditorSelect, type EditorStore } from "../../../lib/editor/store.ts";
 import { readText } from "../../../lib/editor/text.ts";
-import { SECTIONS, type FieldAddress, type Section } from "../../../lib/editor/types.ts";
+import { SECTIONS, type EditorState, type FieldAddress, type Section } from "../../../lib/editor/types.ts";
 import { countsBySection } from "../../../lib/editor/validation.ts";
 import { formatAgo } from "../../../lib/format.ts";
 import { can } from "../../../lib/roles.ts";
@@ -48,6 +48,8 @@ export type Shortcut = "undo" | "redo" | "save" | "prevStation" | "nextStation";
 /** Tastenkürzel des Baukastens (Mac: ⌘ statt Strg); null für alle anderen Tasten. */
 export function shortcutOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">): Shortcut | null {
   const mod = e.ctrlKey || e.metaKey;
+  // Autofill löst Tastenereignisse ohne key aus.
+  if (typeof e.key !== "string") return null;
   const key = e.key.toLowerCase();
   if (mod && !e.altKey) {
     if (key === "z") return e.shiftKey ? "redo" : "undo";
@@ -59,6 +61,17 @@ export function shortcutOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" 
     if (e.key === "PageDown") return "nextStation";
   }
   return null;
+}
+
+/**
+ * Geht beim Schließen etwas verloren? Ja, wenn ungespeicherte Änderungen weder lokal gesichert sind
+ * noch eine Sicherung sie retten kann: bei Konflikt, ohne Netz, abgelaufener Anmeldung oder Fehler
+ * ersetzt eine Sicherung den Server nicht (beim nächsten Öffnen ist der Server weiter).
+ */
+export function leaveWarning(s: Pick<EditorState, "game" | "meta" | "saved" | "save" | "backup">): boolean {
+  if (!isDirty(s)) return false;
+  if (s.backup !== "ok") return true;
+  return s.save.status === "conflict" || s.save.status === "unauthorized" || s.save.status === "error" || s.save.status === "offline";
 }
 
 /** Nachbarstation in Spielreihenfolge; null am Rand. */
@@ -252,11 +265,14 @@ function EditorFrame({ store, gameId, section, stationId, onReload }: { store: E
   // Konflikt: der Dialog öffnet sich von selbst, „Ansehen“ im Kopf öffnet ihn wieder.
   useEffect(() => setConflictOpen(status === "conflict"), [status]);
 
-  // Tab schließen: nur warnen, wenn der Stand nicht einmal lokal gesichert ist.
+  // Tab schließen: letzten Stand lokal sichern; warnen, wenn er weder gesichert noch auf dem Server ist.
   useEffect(() => {
     const onUnload = (e: BeforeUnloadEvent) => {
-      const s = store.get();
-      if (isDirty(s) && s.backup !== "ok") e.preventDefault();
+      store.flushBackup();
+      if (leaveWarning(store.get())) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
     };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);

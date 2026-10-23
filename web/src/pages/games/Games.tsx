@@ -4,7 +4,7 @@
  * Fehlerzahl des Entwurfs) und ein Menü ⋯. Ohne Spiele stehen die Vorlagen sofort da.
  */
 
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditorMeta, Game } from "../../lib/editor/types.ts";
 import { TEMPLATES } from "../../lib/editor/templates/index.ts";
 import { AGE_LABELS, copyTitle, duplicateGame, GENRE_LABELS } from "../../lib/editor/templates/wizard.ts";
@@ -42,37 +42,64 @@ export function factsLine(game: Game): string {
     .join(" · ");
 }
 
-/** Inhalt und Fehlerzahl je Spiel nachladen, eins nach dem anderen (die Liste selbst kennt sie nicht). */
-function useDetails(games: GameSummary[]): Map<string, Details> {
-  const [details, setDetails] = useState(new Map<string, Details>());
-  const key = games.map((g) => `${g.id}:${g.draft?.revision ?? ""}:${g.latest_version ?? ""}`).join(",");
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      for (const g of games) {
-        try {
-          if (g.draft) {
-            const d = await api.draft(g.id);
-            const content = d.content as Game;
-            const { validateDraft } = await import("../../lib/editor/validation.ts");
-            const hidden = new Set((d.meta as EditorMeta).dismissed ?? []);
-            const issues = validateDraft(content, d.meta as EditorMeta).filter((i) => !hidden.has(i.id));
-            const entry = { facts: factsLine(content), errors: issues.filter((i) => i.severity === "error").length, warnings: issues.filter((i) => i.severity === "warning").length };
-            if (alive) setDetails((m) => new Map(m).set(g.id, entry));
-          } else if (g.latest_version !== null) {
-            const detail = await api.game(g.id);
-            if (alive && detail.content) setDetails((m) => new Map(m).set(g.id, { facts: factsLine(detail.content!) }));
-          }
-        } catch {
-          // Ohne Details bleibt die Zeile kürzer; die Liste selbst ist da.
-        }
-        if (!alive) return;
+/** Bereits geladene Einzelheiten je Spiel und Stand (Revision bzw. Version); gilt für die ganze Sitzung. */
+const detailsCache = new Map<string, Details>();
+/** Die Abrufe laufen nacheinander, damit eine lange Liste das Netz nicht flutet. */
+let detailsQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Inhalt (und mit Schreibrecht die Fehlerzahl des Entwurfs) eines Spiels. Ohne Schreibrecht zeigt die
+ * Zeile die veröffentlichte Fassung; geprüft wird nur, wer den Entwurf bearbeiten darf.
+ */
+export function loadDetails(g: GameSummary, write: boolean): Promise<Details | null> {
+  const key = `${g.id}:${write ? "w" : "r"}:${g.draft?.revision ?? ""}:${g.latest_version ?? ""}`;
+  const cached = detailsCache.get(key);
+  if (cached) return Promise.resolve(cached);
+  const job = detailsQueue.then(async (): Promise<Details | null> => {
+    try {
+      let entry: Details | null = null;
+      if (write && g.draft) {
+        const d = await api.draft(g.id);
+        const content = d.content as Game;
+        const { validateDraft } = await import("../../lib/editor/validation.ts");
+        const hidden = new Set((d.meta as EditorMeta).dismissed ?? []);
+        const issues = validateDraft(content, d.meta as EditorMeta).filter((i) => !hidden.has(i.id));
+        entry = { facts: factsLine(content), errors: issues.filter((i) => i.severity === "error").length, warnings: issues.filter((i) => i.severity === "warning").length };
+      } else if (g.latest_version !== null) {
+        const detail = await api.game(g.id);
+        if (detail.content) entry = { facts: factsLine(detail.content) };
       }
-    })();
+      if (entry) detailsCache.set(key, entry);
+      return entry;
+    } catch {
+      // Ohne Details bleibt die Zeile kürzer; die Liste selbst ist da.
+      return null;
+    }
+  });
+  detailsQueue = job;
+  return job;
+}
+
+/** Einzelheiten erst laden, wenn die Zeile in den sichtbaren Bereich kommt. */
+function useRowDetails(g: GameSummary, write: boolean, row: { current: HTMLElement | null }): Details | undefined {
+  const [details, setDetails] = useState<Details | undefined>();
+  const [seen, setSeen] = useState(typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const el = row.current;
+    if (seen || !el) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setSeen(true), { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  const key = `${g.id}:${write}:${g.draft?.revision ?? ""}:${g.latest_version ?? ""}`;
+  useEffect(() => {
+    if (!seen) return;
+    let alive = true;
+    void loadDetails(g, write).then((d) => alive && setDetails(d ?? undefined));
     return () => {
       alive = false;
     };
-  }, [key]);
+  }, [seen, key]);
   return details;
 }
 
@@ -87,7 +114,6 @@ export function GamesPage() {
   const [exporting, setExporting] = useState<GameSummary | null>(null);
   const games = (data ?? []).filter((g) => archived || !g.archived);
   const archivedCount = (data ?? []).filter((g) => g.archived).length;
-  const details = useDetails(games);
 
   const imported = (g: GameSummary, how: string) => {
     notify(`„${g.title}“ ${how}`, "ok");
@@ -137,7 +163,7 @@ export function GamesPage() {
       ) : (
         <ul class="list card games-list">
           {games.map((g) => (
-            <GameRow key={g.id} game={g} details={details.get(g.id)} role={role} onExport={() => setExporting(g)} onChanged={reload} />
+            <GameRow key={g.id} game={g} role={role} onExport={() => setExporting(g)} onChanged={reload} />
           ))}
         </ul>
       )}
@@ -184,8 +210,10 @@ function Welcome() {
   );
 }
 
-function GameRow({ game: g, details, role, onExport, onChanged }: { game: GameSummary; details?: Details; role: Parameters<typeof can>[0]; onExport: () => void; onChanged: () => void }) {
+function GameRow({ game: g, role, onExport, onChanged }: { game: GameSummary; role: Parameters<typeof can>[0]; onExport: () => void; onChanged: () => void }) {
   const write = can(role, "game.write");
+  const rowRef = useRef<HTMLLIElement>(null);
+  const details = useRowDetails(g, write, rowRef);
   const editorHref = href("editor", { gameId: g.id });
   const overview = href("game", { gameId: g.id });
   const released = g.latest_version !== null;
@@ -239,7 +267,7 @@ function GameRow({ game: g, details, role, onExport, onChanged }: { game: GameSu
 
   const who = g.draft ? [g.draft.updated_by, formatAgo(g.draft.updated_at)].filter(Boolean).join(", ") : "";
   return (
-    <li class="list-item games-row">
+    <li class="list-item games-row" ref={rowRef}>
       <div class="grow min0 stack tight">
         <Link to={write ? editorHref : overview} class="strong">
           {g.title}

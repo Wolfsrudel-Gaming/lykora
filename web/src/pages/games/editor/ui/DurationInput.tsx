@@ -26,6 +26,12 @@ export function minutesLabel(seconds: number): string {
   return `${String(m).replace(".", ",")} Min`;
 }
 
+/** Dauer eines Klangs oder Videos: bis 2 Minuten in Sekunden („45 s“), darüber in Minuten („2,5 Min“). */
+export function durationLabel(seconds: number): string {
+  const whole = Math.max(0, Math.round(seconds));
+  return whole < 120 ? `${whole} s` : minutesLabel(whole);
+}
+
 export function DurationInput({
   path,
   label,

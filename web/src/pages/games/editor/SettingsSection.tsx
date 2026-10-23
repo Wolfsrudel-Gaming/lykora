@@ -363,7 +363,7 @@ function Details() {
       <h3 id="einstellungen-angaben" tabIndex={-1}>
         Angaben
       </h3>
-      <Chips path="/meta/authors" label="Autorinnen und Autoren" placeholder="Name" />
+      <Chips path="/meta/authors" label="Autorinnen und Autoren" placeholder="Name" commaSeparates />
       {me && !authors.split("\n").includes(me) && (
         <p>
           <button type="button" class="btn small" onClick={addMe}>

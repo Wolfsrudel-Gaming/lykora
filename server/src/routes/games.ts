@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { validateGame, type Game, type Text } from "@lykora/spec";
 import type { Tx } from "../db.ts";
@@ -132,37 +134,72 @@ function asDraft(content: unknown): Record<string, unknown> {
 
 const titleOf = (game: Game) => resolveText(game.meta.title, game.meta.languages[0] ?? "de");
 
-/** Titel eines Entwurfs, der unvollständig sein darf. */
+/** Titel eines Entwurfs, der unvollständig sein darf; leer, wenn der Entwurf keinen nennt. */
 function draftTitle(content: Record<string, unknown>): string {
   const meta = isObject(content.meta) ? content.meta : {};
   const lang = Array.isArray(meta.languages) && typeof meta.languages[0] === "string" ? meta.languages[0] : "de";
   const title = typeof meta.title === "string" || isObject(meta.title) ? resolveText(meta.title as Text, lang) : "";
-  return title.trim() || "Neues Spiel";
+  return typeof title === "string" ? title.trim() : "";
 }
 
-/** Materialliste aus den Requisiten aller Stationen; Entwürfe dürfen unvollständig sein, daher die Rückfälle. */
+const DEFAULT_TITLE = "Neues Spiel";
+
+/** Postgres lehnt \u0000 in jsonb ab (sonst 500); der Client soll eine klare Meldung bekommen. Iterativ, damit tiefe Verschachtelung nicht den Stapel sprengt. */
+function rejectNul(...values: unknown[]): void {
+  const stack: unknown[] = values;
+  while (stack.length) {
+    const v = stack.pop();
+    if (typeof v === "string") {
+      if (v.includes("\u0000")) throw badRequest("invalid_request", "Texte dürfen kein Nullzeichen (\\u0000) enthalten");
+    } else if (Array.isArray(v)) {
+      stack.push(...v);
+    } else if (isObject(v)) {
+      for (const [k, x] of Object.entries(v)) {
+        if (k.includes("\u0000")) throw badRequest("invalid_request", "Texte dürfen kein Nullzeichen (\\u0000) enthalten");
+        stack.push(x);
+      }
+    }
+  }
+}
+
+/** Nur Objekte aus einer Liste; Entwürfe dürfen strukturell kaputt sein. */
+const objects = (v: unknown): Record<string, any>[] => (Array.isArray(v) ? v.filter(isObject) : []);
+
+/** Text für die Liste, auch bei unpassenden Werten im Entwurf. */
+function textOf(v: unknown, lang: string): string {
+  if (typeof v === "string") return v;
+  if (!isObject(v)) return "";
+  const t = v[lang] ?? Object.values(v)[0];
+  return typeof t === "string" ? t : "";
+}
+
+/** Materialliste aus den Requisiten aller Stationen; Entwürfe dürfen unvollständig oder kaputt sein, daher die Rückfälle. */
 function materialsOf(game: Game) {
-  const lang = game.meta?.languages?.[0] ?? "de";
-  const stations = game.stations ?? [];
+  const root = (isObject(game) ? game : {}) as Record<string, any>;
+  const meta: Record<string, any> = isObject(root.meta) ? root.meta : {};
+  const lang = typeof meta.languages?.[0] === "string" ? meta.languages[0] : "de";
+  const stations = objects(root.stations);
   const items = stations.flatMap((s) =>
-    (s.props ?? []).map((p) => ({ station: s.id, stationName: resolveText(s.name, lang), ...p, quantity: p.quantity ?? 1 })),
+    objects(s.props).map((p) => ({ station: s.id, stationName: textOf(s.name, lang), ...p, quantity: p.quantity ?? 1 })),
   );
   const markers = stations
     .filter((s) => s.offPath)
-    .map((s) => ({ station: s.id, stationName: resolveText(s.name, lang), name: "Knicklicht oder Reflektor", kind: "marker", quantity: 1 }));
+    .map((s) => ({ station: s.id, stationName: textOf(s.name, lang), name: "Knicklicht oder Reflektor", kind: "marker", quantity: 1 }));
+  const names: Record<string, string> = { qr: "QR-Code", nfc: "NFC-Tag", box: "ESP32-Box", ble: "BLE-Beacon" };
   const triggers = stations.flatMap((s) =>
-    (s.triggers ?? [])
-      .filter((t) => t.type === "qr" || t.type === "nfc" || t.type === "box" || t.type === "ble")
+    objects(s.triggers)
+      .filter((t) => typeof t.type === "string" && Object.hasOwn(names, t.type))
       .map((t) => ({
         station: s.id,
-        stationName: resolveText(s.name, lang),
-        name: { qr: "QR-Code", nfc: "NFC-Tag", box: "ESP32-Box", ble: "BLE-Beacon" }[t.type as "qr" | "nfc" | "box" | "ble"],
+        stationName: textOf(s.name, lang),
+        name: names[t.type],
         kind: "trigger",
         quantity: 1,
         note: "code" in t ? t.code : "tag" in t ? t.tag : "box" in t ? t.box : "uuid" in t ? t.uuid : undefined,
       })),
   );
-  const gear = (game.safety?.requiredGear ?? []).map((g) => ({ name: resolveText(g, lang), kind: "team_gear", perTeam: true }));
+  const safety = isObject(root.safety) ? root.safety : {};
+  const gear = (Array.isArray(safety.requiredGear) ? safety.requiredGear : []).map((g) => ({ name: textOf(g, lang), kind: "team_gear", perTeam: true }));
   return { items: [...items, ...markers, ...triggers], teamGear: gear };
 }
 
@@ -215,6 +252,7 @@ export default async function gameRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const { user } = await authorize(db, req, req.params.orgId, "game.write");
+      rejectNul(req.body.content);
       const game = check(req.body.content);
       const created = await db.tx(async (tx) => {
         const g = await tx.one("insert into games (org_id, title) values ($1, $2) returning *", [req.params.orgId, titleOf(game)]);
@@ -253,8 +291,12 @@ export default async function gameRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { user } = await authorize(db, req, req.params.orgId, "game.write");
       const content = asDraft(req.body.content);
+      rejectNul(content, req.body.meta);
       const gameId = await db.tx(async (tx) => {
-        const g = await tx.one<{ id: string }>("insert into games (org_id, title) values ($1, $2) returning id", [req.params.orgId, draftTitle(content)]);
+        const g = await tx.one<{ id: string }>("insert into games (org_id, title) values ($1, $2) returning id", [
+          req.params.orgId,
+          draftTitle(content) || DEFAULT_TITLE,
+        ]);
         await tx.query("insert into game_drafts (game_id, content, meta, updated_by) values ($1, $2, $3, $4)", [g!.id, content, req.body.meta ?? {}, user.id]);
         return g!.id;
       });
@@ -303,6 +345,7 @@ export default async function gameRoutes(app: FastifyInstance) {
     },
     async (req) => {
       const { user } = await authorizeGame(db, req, req.params.gameId, "game.write");
+      rejectNul(req.body.content);
       const game = check(req.body.content);
       return db.tx(async (tx) => {
         // Sperrt das Spiel, damit zwei gleichzeitige Speicherungen keine doppelte Versionsnummer bekommen.
@@ -371,7 +414,7 @@ export default async function gameRoutes(app: FastifyInstance) {
         tags: ["games"],
         summary: "Entwurf speichern",
         description:
-          "revision muss der gespeicherten entsprechen; ohne Entwurf legt revision 0 einen an. Sonst 409 draft_conflict mit dem fremden Stand als draft. Der Inhalt wird nicht geprüft.",
+          "revision muss der gespeicherten entsprechen; ohne Entwurf legt revision 0 einen an. Sonst 409 draft_conflict mit dem fremden Stand als draft. Der Inhalt wird nur auf das Lykora-Format geprüft (400 not_a_game), Nullzeichen in Texten werden mit 400 invalid_request abgelehnt. Der Spieltitel folgt dem Entwurf nur, solange es keine Version gibt; sonst erst beim Veröffentlichen.",
         security: staff,
         params: idParams,
         body: {
@@ -387,9 +430,10 @@ export default async function gameRoutes(app: FastifyInstance) {
     },
     async (req) => {
       const { user } = await authorizeGame(db, req, req.params.gameId, "game.write");
-      const content = req.body.content as Record<string, unknown>;
+      const content = asDraft(req.body.content);
+      rejectNul(content, req.body.meta);
       return db.tx(async (tx) => {
-        // Sperrt das Spiel, damit Revision prüfen und schreiben zusammen passieren.
+        // Sperrt das Spiel, damit Revision prüfen und schreiben zusammen passieren (auch gegen Verwerfen).
         await tx.query("select id from games where id = $1 for update", [req.params.gameId]);
         const current = await loadDraft(tx, req.params.gameId);
         if ((current?.revision ?? 0) !== req.body.revision) throw draftConflict(current);
@@ -405,8 +449,12 @@ export default async function gameRoutes(app: FastifyInstance) {
                returning revision, updated_at`,
               [req.params.gameId, content, req.body.meta ?? {}, user.id],
             );
-        await tx.query("update games set title = $2, updated_at = now() where id = $1", [req.params.gameId, draftTitle(content)]);
-        return saved!;
+        if (!saved) throw draftConflict(undefined);
+        // Der Titel eines veröffentlichten Spiels ändert sich erst mit der nächsten Version; ein leerer Entwurfstitel lässt den alten stehen.
+        const unpublished = !(await tx.one("select 1 from game_versions where game_id = $1 and kind = 'release'", [req.params.gameId]));
+        const title = unpublished ? draftTitle(content) : "";
+        await tx.query("update games set title = coalesce(nullif($2, ''), title), updated_at = now() where id = $1", [req.params.gameId, title]);
+        return saved;
       });
     },
   );
@@ -424,9 +472,13 @@ export default async function gameRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       await authorizeGame(db, req, req.params.gameId, "game.write");
-      const published = await db.one("select 1 from game_versions where game_id = $1 and kind = 'release'", [req.params.gameId]);
-      if (!published) throw noVersion();
-      await db.query("delete from game_drafts where game_id = $1", [req.params.gameId]);
+      await db.tx(async (tx) => {
+        // Gleiche Sperre wie beim Speichern: ein gleichzeitiges PUT sieht den Entwurf danach als gelöscht.
+        await tx.query("select id from games where id = $1 for update", [req.params.gameId]);
+        const published = await tx.one("select 1 from game_versions where game_id = $1 and kind = 'release'", [req.params.gameId]);
+        if (!published) throw noVersion();
+        await tx.query("delete from game_drafts where game_id = $1", [req.params.gameId]);
+      });
       return reply.status(204).send();
     },
   );
@@ -479,7 +531,7 @@ export default async function gameRoutes(app: FastifyInstance) {
         tags: ["games"],
         summary: "Probelauf: Test-Event mit dem aktuellen Entwurf anlegen",
         description:
-          "Prüft den Entwurf wie beim Veröffentlichen, speichert ihn als Probestand ohne Versionsnummer und startet sofort ein Event mit test = true. Ein laufender Probelauf des Spiels wird beendet. Nach 7 Tagen wird alles gelöscht. Autoren dürfen das, weil der Probelauf zum Spiel gehört.",
+          "Prüft den Entwurf wie beim Veröffentlichen, speichert ihn als Probestand ohne Versionsnummer und startet sofort ein Event mit test = true. Ein laufender Probelauf des Spiels wird beendet, frühere beendete Probeläufe samt Probestand werden gelöscht. Nach 7 Tagen wird alles gelöscht. Autoren dürfen das, weil der Probelauf zum Spiel gehört.",
         security: staff,
         params: idParams,
         body: { type: "object", required: ["revision"], properties: { revision: { type: "integer", minimum: 0 } } },
@@ -487,12 +539,21 @@ export default async function gameRoutes(app: FastifyInstance) {
     },
     async (req, reply) => {
       const { user, orgId } = await authorizeGame(db, req, req.params.gameId, "game.write");
-      const { event, ended } = await db.tx(async (tx) => {
+      const { event, ended, removed } = await db.tx(async (tx) => {
         await tx.query("select id from games where id = $1 for update", [req.params.gameId]);
         const draft = await loadDraft(tx, req.params.gameId);
         if (!draft) throw noDraft();
         if (draft.revision !== req.body.revision) throw draftConflict(draft);
         const game = check(draft.content);
+        // Frühere, schon beendete Probeläufe samt Probestand sind überholt; nur der gerade laufende bleibt noch als letzter Rückblick.
+        const removed = await tx.query<{ id: string }>(
+          `delete from events e using game_versions v where v.id = e.game_version_id and v.game_id = $1 and e.test and e.status = 'ended' returning e.id`,
+          [req.params.gameId],
+        );
+        await tx.query(
+          `delete from game_versions v where v.game_id = $1 and v.kind = 'test' and not exists (select 1 from events e where e.game_version_id = v.id)`,
+          [req.params.gameId],
+        );
         // Ein Probelauf je Spiel: laufende beenden, eine offene Pause schließen wie beim Statuswechsel.
         const running = await tx.query<{ id: string; pauses: EventRow["pauses"] }>(
           `select e.id, e.pauses from events e join game_versions v on v.id = e.game_version_id
@@ -519,8 +580,9 @@ export default async function gameRoutes(app: FastifyInstance) {
         );
         await logEvent(tx, live, row!.id, "event_created", { name, test: true }, { userId: user.id });
         await logEvent(tx, live, row!.id, "event_start", { reason: "Probelauf" }, { userId: user.id });
-        return { event: await loadEvent(tx, row!.id), ended: running.map((e) => e.id) };
+        return { event: await loadEvent(tx, row!.id), ended: running.map((e) => e.id), removed: removed.map((e) => e.id) };
       });
+      for (const id of removed) await rm(join(config.dataDir, "uploads", id), { recursive: true, force: true });
       for (const id of ended) {
         live.publish(id, "status", { status: "ended", reason: null });
         live.poke(id, null, "status");

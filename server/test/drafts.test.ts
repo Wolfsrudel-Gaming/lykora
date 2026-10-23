@@ -167,6 +167,155 @@ describe("Entwurf lesen und speichern", () => {
   });
 });
 
+/** Hält die Spielsperre, bis release() gerufen wird; so lassen sich Anfragen in feste Reihenfolge bringen. */
+async function holdGameLock(gameId: string) {
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  let locked!: () => void;
+  const ready = new Promise<void>((r) => (locked = r));
+  const done = ctx.db.tx(async (tx) => {
+    await tx.query("select id from games where id = $1 for update", [gameId]);
+    locked();
+    await held;
+  });
+  await ready;
+  return async () => {
+    release();
+    await done;
+  };
+}
+const pause = (ms = 150) => new Promise((r) => setTimeout(r, ms));
+
+describe("Entwurf: Sonderfälle", () => {
+  it("speichert und verwirft gleichzeitig der Reihe nach, nie mit leerem 200", async () => {
+    const orga = client(ctx);
+    const gameId = await importGame();
+    expect((await orga.put(`/games/${gameId}/draft`, { content: withTitle("Flüchtig"), meta: {}, revision: 0 })).status).toBe(200);
+    // PUT wartet vor DELETE auf die Sperre: erst gespeichert, dann verworfen.
+    let release = await holdGameLock(gameId);
+    const put = orga.put(`/games/${gameId}/draft`, { content: withTitle("Danach weg"), meta: {}, revision: 1 });
+    await pause();
+    const del = orga.del(`/games/${gameId}/draft`);
+    await pause();
+    await release();
+    const [p, d] = await Promise.all([put, del]);
+    expect(p.status).toBe(200);
+    expect(p.body.revision).toBe(2);
+    expect(d.status).toBe(204);
+    expect((await orga.get(`/games/${gameId}/draft`)).status).toBe(404);
+  });
+
+  it("verwirft den Entwurf unter der Spielsperre; ein späteres Speichern meldet Konflikt", async () => {
+    const orga = client(ctx);
+    const gameId = await importGame();
+    await orga.put(`/games/${gameId}/draft`, { content: withTitle("Weg"), meta: {}, revision: 0 });
+    const release = await holdGameLock(gameId);
+    let finished = false;
+    const del = orga.del(`/games/${gameId}/draft`).then((r) => ((finished = true), r));
+    await pause();
+    const put = orga.put(`/games/${gameId}/draft`, { content: withTitle("Spät"), meta: {}, revision: 1 });
+    await pause(300);
+    expect(finished).toBe(false);
+    await release();
+    expect((await del).status).toBe(204);
+    const late = await put;
+    expect(late.status).toBe(409);
+    expect(late.body).toMatchObject({ error: "draft_conflict", draft: null });
+  });
+
+  it("liefert die Materialliste auch bei strukturell kaputtem Entwurf", async () => {
+    const orga = client(ctx);
+    const created = await draftGame();
+    const broken: Record<string, unknown>[] = [
+      { stations: "x" },
+      { stations: [null, 3, "x"] },
+      { stations: [{ id: "a", name: null, props: "x" }] },
+      { stations: [{ id: "a", props: [null, 7] }] },
+      { stations: [{ id: "a", triggers: [null, { type: 5 }, { type: "qr", code: "A1" }] }] },
+      { stations: [{ id: "a", name: 42, offPath: true }] },
+      { props: "x" },
+      { props: [null] },
+      { triggers: [null] },
+      { safety: { requiredGear: "x" } },
+      { safety: { requiredGear: [null, 5, "Lampe"] } },
+      { safety: "x" },
+      { meta: "x" },
+      { meta: { languages: 5, title: [] } },
+    ];
+    let revision = 1;
+    for (const patch of broken) {
+      const content = { format: { name: "lykora-game", version: "0.1" }, ...patch };
+      const put = await orga.put(`/games/${created.id}/draft`, { content, meta: {}, revision });
+      expect(put.status, JSON.stringify(patch)).toBe(200);
+      revision = put.body.revision;
+      const res = await orga.get(`/games/${created.id}/materials?source=draft`);
+      expect(res.status, JSON.stringify(patch)).toBe(200);
+      expect(Array.isArray(res.body.items)).toBe(true);
+      expect(Array.isArray(res.body.teamGear)).toBe(true);
+    }
+    // Das Brauchbare daneben bleibt erhalten.
+    const mixed = { format: { name: "lykora-game", version: "0.1" }, stations: [null, { id: "a", name: "Brunnen", triggers: [{ type: "qr", code: "A1" }] }] };
+    await orga.put(`/games/${created.id}/draft`, { content: mixed, meta: {}, revision });
+    expect((await orga.get(`/games/${created.id}/materials?source=draft`)).body.items).toEqual([
+      { station: "a", stationName: "Brunnen", name: "QR-Code", kind: "trigger", quantity: 1, note: "A1" },
+    ]);
+  });
+
+  it("prüft das Format beim Speichern des Entwurfs und lässt den Titel stehen", async () => {
+    const orga = client(ctx);
+    const gameId = await importGame(withTitle("Veröffentlicht"));
+    const bad = await orga.put(`/games/${gameId}/draft`, { content: {}, meta: {}, revision: 0 });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toBe("not_a_game");
+    expect((await orga.get(`/games/${gameId}/draft`)).status).toBe(404);
+
+    // Veröffentlichtes Spiel: der Titel ändert sich erst mit der nächsten Version.
+    const put = await orga.put(`/games/${gameId}/draft`, { content: withTitle("Neuer Titel"), meta: {}, revision: 0 });
+    expect(put.status).toBe(200);
+    expect((await orga.get(`/games/${gameId}`)).body.title).toBe("Veröffentlicht");
+    expect((await orga.get(`/orgs/${ctx.orgId}/games`)).body.find((g: any) => g.id === gameId).title).toBe("Veröffentlicht");
+    expect((await orga.post(`/games/${gameId}/draft/publish`, { revision: 1 })).status).toBe(200);
+    expect((await orga.get(`/games/${gameId}`)).body.title).toBe("Neuer Titel");
+
+    // Spiel ohne Version: der Titel folgt dem Entwurf, ein leerer lässt den alten stehen.
+    const created = await draftGame(incompleteGame("Mein Titel"));
+    const empty = { format: { name: "lykora-game", version: "0.1" } };
+    expect((await orga.put(`/games/${created.id}/draft`, { content: empty, meta: {}, revision: 1 })).status).toBe(200);
+    expect((await orga.get(`/games/${created.id}`)).body.title).toBe("Mein Titel");
+    expect((await orga.put(`/games/${created.id}/draft`, { content: incompleteGame("Anders"), meta: {}, revision: 2 })).status).toBe(200);
+    expect((await orga.get(`/games/${created.id}`)).body.title).toBe("Anders");
+    const spaces = { ...empty, meta: { title: "   " } };
+    await orga.put(`/games/${created.id}/draft`, { content: spaces, meta: {}, revision: 3 });
+    expect((await orga.get(`/games/${created.id}`)).body.title).toBe("Anders");
+    // Ein neues Spiel ohne Titel heißt „Neues Spiel“.
+    expect((await draftGame(empty)).title).toBe("Neues Spiel");
+  });
+
+  it("lehnt Nullzeichen mit 400 ab statt mit 500", async () => {
+    const orga = client(ctx);
+    const created = await draftGame();
+    const nul = { ...incompleteGame(), notes: { tief: ["a\u0000b"] } };
+    const put = await orga.put(`/games/${created.id}/draft`, { content: nul, meta: {}, revision: 1 });
+    expect(put.status).toBe(400);
+    expect(put.body.error).toBe("invalid_request");
+    const key = await orga.put(`/games/${created.id}/draft`, { content: { ...incompleteGame(), ["a\u0000b"]: 1 }, meta: {}, revision: 1 });
+    expect(key.status).toBe(400);
+    const meta = await orga.put(`/games/${created.id}/draft`, { content: incompleteGame(), meta: { x: "a\u0000" }, revision: 1 });
+    expect(meta.status).toBe(400);
+    // Ein ausgeschriebenes Backslash-u0000 ist ein gewöhnlicher Text.
+    const text = await orga.put(`/games/${created.id}/draft`, { content: { ...incompleteGame(), notes: "\\u0000" }, meta: {}, revision: 1 });
+    expect(text.status).toBe(200);
+    expect(text.body.revision).toBe(2);
+
+    expect((await orga.post(`/orgs/${ctx.orgId}/games/drafts`, { content: nul })).status).toBe(400);
+    const full = exampleGame();
+    full.meta.title = "A\u0000B";
+    expect((await orga.post(`/orgs/${ctx.orgId}/games`, { content: full })).status).toBe(400);
+    const gameId = await importGame();
+    expect((await orga.put(`/games/${gameId}`, { content: full })).status).toBe(400);
+  });
+});
+
 describe("Veröffentlichen", () => {
   it("prüft den Entwurf und legt Versionen an", async () => {
     const orga = client(ctx);
@@ -273,8 +422,15 @@ describe("Probelauf", () => {
     expect(second.body.name).toBe("Probelauf: Probe zwei");
     expect((await orga.get(`/events/${first.body.id}`)).body).toMatchObject({ status: "ended", test: true });
     expect((await orga.get(`/events/${second.body.id}`)).body.status).toBe("running");
+    // Der Probelauf davor bleibt als Rückblick, der übernächste räumt ihn samt Probestand weg.
+    await orga.put(`/games/${gameId}/draft`, { content: withTitle("Probe drei"), meta: {}, revision: 2 });
+    const third = await orga.post(`/games/${gameId}/test-events`, { revision: 3 });
+    expect(third.status).toBe(201);
+    expect((await orga.get(`/events/${first.body.id}`)).status).toBe(404);
+    expect((await orga.get(`/events/${second.body.id}`)).body).toMatchObject({ status: "ended", test: true });
+    expect(await ctx.db.query("select id from game_versions where game_id = $1 and kind = 'test'", [gameId])).toHaveLength(2);
     // Auf Probeläufe lässt sich keine Version umstellen.
-    expect((await orga.patch(`/events/${second.body.id}`, { version: 1 })).body.error).toBe("event_started");
+    expect((await orga.patch(`/events/${third.body.id}`, { version: 1 })).body.error).toBe("event_started");
   });
 
   it("zeigt den Probestand nie als Version und wählt ihn nie für Events", async () => {

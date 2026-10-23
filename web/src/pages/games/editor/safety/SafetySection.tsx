@@ -352,7 +352,7 @@ function GearAndTime() {
   return (
     <section class="card stack" aria-labelledby="sicherheit-ausruestung">
       <h3 id="sicherheit-ausruestung">Ausrüstung und Zeit</h3>
-      <Chips path="/safety/requiredGear" label="Pflicht-Ausrüstung" text placeholder="z. B. Lampe" hint="Teams haken alles in der App ab, bevor sie starten. Enter oder Komma trennt." />
+      <Chips path="/safety/requiredGear" label="Pflicht-Ausrüstung" text commaSeparates placeholder="z. B. Lampe" hint="Teams haken alles in der App ab, bevor sie starten. Enter oder Komma trennt." />
       {missing.length > 0 && (
         <p class="row ed-gear-suggest">
           <span class="small muted">Vorschläge:</span>

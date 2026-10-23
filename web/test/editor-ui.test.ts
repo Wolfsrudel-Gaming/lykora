@@ -115,6 +115,8 @@ describe("Rahmen: Bereich, Tastenkürzel, Hinweise", () => {
   });
 
   it("kennt Strg und ⌘ für Rückgängig, Wiederholen und Speichern", () => {
+    // Autofill meldet Tastenereignisse ohne key
+    expect(shell.shortcutOf({ key: undefined as never, ctrlKey: true, metaKey: false, shiftKey: false, altKey: false })).toBeNull();
     const key = (k: string, mods: Partial<KeyboardEvent> = {}) => shell.shortcutOf({ key: k, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...mods });
     expect(key("z", { ctrlKey: true })).toBe("undo");
     expect(key("z", { metaKey: true })).toBe("undo");
@@ -345,7 +347,10 @@ describe("Bausteine", () => {
   });
 
   it("Chips, Zahlen, Dauer und Strafe", () => {
-    expect(chips.splitChips("a, b,,a\nc", ["c"])).toEqual(["a", "b"]);
+    expect(chips.splitChips("a, b,,a\nc", ["c"], true)).toEqual(["a", "b"]);
+    // Antworten: das Komma gehört dazu, nur der Zeilenumbruch trennt.
+    expect(chips.splitChips("2,5")).toEqual(["2,5"]);
+    expect(chips.splitChips("Berlin, Hauptstadt\r\nBonn")).toEqual(["Berlin, Hauptstadt", "Bonn"]);
     expect(number.parseNumber("1,5")).toBe(1.5);
     expect(number.parseNumber(" ")).toBeNull();
     expect(number.parseNumber("abc")).toBeNull();

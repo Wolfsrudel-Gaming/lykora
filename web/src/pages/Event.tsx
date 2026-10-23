@@ -126,7 +126,7 @@ export function EventPage({ eventId }: { eventId: string }) {
         <dl class="kv">
           <dt>Spiel</dt>
           <dd>
-            {can(role, "game.read") ? <Link to={href("game", { gameId: event.gameId })}>{text(event.gameTitle)}</Link> : text(event.gameTitle)} · Version {event.gameVersion}
+            {can(role, "game.read") ? <Link to={href("game", { gameId: event.gameId })}>{text(event.gameTitle)}</Link> : text(event.gameTitle)} · {event.gameVersion === null ? "Probestand" : `Version ${event.gameVersion}`}
           </dd>
           <dt>Termin</dt>
           <dd>{formatDateTime(event.scheduledAt)}</dd>

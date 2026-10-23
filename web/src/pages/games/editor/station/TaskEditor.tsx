@@ -98,7 +98,7 @@ function TextTask({ p, index, task }: { p: string; index: number; task: Extract<
   return (
     <>
       <TextField path={`${p}/task/question`} label="Frage" required multiline rows={2} />
-      <Chips path={`${p}/task/answers`} label="Richtige Antworten" required placeholder="z. B. Eule" hint="Enter fügt eine Antwort hinzu. Jede Antwort zählt als richtig." />
+      <Chips path={`${p}/task/answers`} label="Richtige Antworten" required placeholder="z. B. Eule" hint="Enter fügt eine Antwort hinzu. Jede Antwort zählt als richtig. Ein Komma gehört zur Antwort, zum Beispiel „2,5“." />
       {digits && (
         <p class="small row">
           Alle Antworten sind Ziffern.

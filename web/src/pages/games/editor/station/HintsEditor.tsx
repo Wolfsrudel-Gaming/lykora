@@ -26,7 +26,7 @@ export function HintsEditor({ gameId, station, index }: { gameId: string; statio
   const enabled = useEditorSelect((s) => s.game.settings?.hints?.enabled !== false);
   const defaults = useEditorSelect((s) => s.game.settings?.hints?.defaultCost ?? [], (a, b) => JSON.stringify(a) === JSON.stringify(b));
   const lang = useEditorSelect((s) => s.lang);
-  const [keys, moveKey] = useListKeys(hints.length);
+  const [keys, moveKey] = useListKeys(hints);
   const listIssues = useIssuesAt(`${p}/hints`).filter((i) => i.at.path === `${p}/hints`);
 
   const mutate = (undo: string, fn: (list: Hint[]) => void) =>

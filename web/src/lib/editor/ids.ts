@@ -110,6 +110,10 @@ export function allCodes(game: Game): string[] {
   return out;
 }
 
+/** Adressen unter /spiele/…, die für etwas anderes gebraucht werden (/spiele/neu öffnet den Assistenten). */
+export const RESERVED_GAME_IDS: readonly string[] = ["neu"];
+
 export function newGameId(title: string): string {
-  return slugId(title, "spiel");
+  const id = slugId(title, "spiel");
+  return RESERVED_GAME_IDS.includes(id) ? `${id}-spiel` : id;
 }

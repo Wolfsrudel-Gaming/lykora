@@ -1,7 +1,8 @@
 /**
- * Paket A: Liste kurzer Werte als Chips (Antworten, Pflicht-Ausrüstung). Enter oder Komma legt
- * einen Chip an, Rücktaste im leeren Feld entfernt den letzten; mit `text` sind die Werte
- * Sprachtexte, sonst reine Zeichenketten (Antworten gehen nicht durch writeText).
+ * Paket A: Liste kurzer Werte als Chips (Antworten, Pflicht-Ausrüstung). Enter legt einen Chip an,
+ * Rücktaste im leeren Feld entfernt den letzten; mit `text` sind die Werte Sprachtexte, sonst reine
+ * Zeichenketten (Antworten gehen nicht durch writeText). Das Komma trennt nur mit `commaSeparates`
+ * (Namen, Ausrüstung): in Antworten gehört es dazu („2,5“, „Berlin, Hauptstadt“).
  */
 
 import { useId, useState } from "preact/hooks";
@@ -12,11 +13,11 @@ import type { JsonPointer } from "../../../../lib/editor/types.ts";
 import { Icon } from "../../../../ui/icons.tsx";
 import { FieldFrame, describedBy, hasError, useFeld } from "./FieldFrame.tsx";
 
-/** Eingabe in Werte: getrennt an Komma und Zeilenumbruch, ohne Leere und Dubletten. */
-export function splitChips(raw: string, existing: readonly string[] = []): string[] {
+/** Eingabe in Werte: getrennt an Zeilenumbruch (und mit comma auch an Komma), ohne Leere und Dubletten. */
+export function splitChips(raw: string, existing: readonly string[] = [], comma = false): string[] {
   const seen = new Set(existing);
   const out: string[] = [];
-  for (const part of raw.split(/[,\n]/)) {
+  for (const part of raw.split(comma ? /[,\n]/ : /\r?\n/)) {
     const v = part.trim();
     if (!v || seen.has(v)) continue;
     seen.add(v);
@@ -32,6 +33,7 @@ export function Chips({
   placeholder,
   required,
   text,
+  commaSeparates,
 }: {
   path: JsonPointer;
   label: string;
@@ -40,6 +42,8 @@ export function Chips({
   required?: boolean;
   /** Werte sind Sprachtexte ({ de: "…" }) statt Zeichenketten */
   text?: boolean;
+  /** ein Komma legt ebenfalls einen Eintrag an (Namen, Ausrüstung); bei Antworten nicht */
+  commaSeparates?: boolean;
 }) {
   const id = useId();
   const feld = useFeld(path);
@@ -56,7 +60,7 @@ export function Chips({
   const [draft, setDraft] = useState("");
 
   const add = (raw: string) => {
-    const next = splitChips(raw, values);
+    const next = splitChips(raw, values, commaSeparates);
     setDraft("");
     if (!next.length) return;
     store?.update(`${label} ergänzt`, (g) => {
@@ -77,7 +81,7 @@ export function Chips({
   };
 
   return (
-    <FieldFrame id={id} label={label} hint={hint ?? "Enter oder Komma trennt die Einträge."} required={required} issues={issues} feld={feld}>
+    <FieldFrame id={id} label={label} hint={hint ?? (commaSeparates ? "Enter oder Komma trennt die Einträge." : "Enter trennt die Einträge.")} required={required} issues={issues} feld={feld}>
       <div class={`chips-input${hasError(issues) ? " invalid" : ""}`}>
         {values.map((v, i) => (
           <span key={`${i}-${v}`} class="chip">
@@ -95,7 +99,7 @@ export function Chips({
           aria-describedby={describedBy(id, true, issues.length > 0)}
           onInput={(e) => setDraft(e.currentTarget.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
+            if (e.key === "Enter" || (commaSeparates && e.key === ",")) {
               e.preventDefault();
               add(draft);
             } else if (e.key === "Backspace" && !draft && values.length) {

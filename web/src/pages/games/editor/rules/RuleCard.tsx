@@ -110,7 +110,7 @@ function AddCondition({ index }: { index: number }) {
 const LINE_LABELS: Record<ActionList, string> = { then: "Dann", else: "Sonst" };
 
 function Actions({ index, list, actions, canAdd = true }: { index: number; list: ActionList; actions: Rule["then"]; canAdd?: boolean }) {
-  const [keys, moveKeys] = useListKeys(actions.length);
+  const [keys, moveKeys] = useListKeys(actions);
   const lang = useEditorSelect((s) => s.lang);
   const add = () => editRule(index, `${LINE_LABELS[list]}-Aktion ergänzt`, (r) => void (r[list] = [...(r[list] ?? []), newAction("message", lang)]));
   const items = actions.map((a, i) => ({ a, key: keys[i]! }));

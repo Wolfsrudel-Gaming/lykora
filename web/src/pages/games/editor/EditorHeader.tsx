@@ -115,6 +115,8 @@ export function EditorHeader({
     if (!answer.ok) return;
     try {
       await api.discardDraft(gameId);
+      // Nichts mehr speichern und keine lokale Sicherung zurücklassen, sonst lebt der Entwurf wieder auf.
+      store?.abandon();
       notify(`Entwurf verworfen. Version ${s.latestVersion} ist jetzt dein Entwurf.`, "ok");
       onReload();
     } catch (err) {

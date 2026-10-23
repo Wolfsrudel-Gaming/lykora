@@ -24,6 +24,8 @@ export function PlaceMap({ place, radius, stations, onPlace }: PlaceMapProps) {
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const live = useRef({ onPlace, place });
+  /** woran der Ausschnitt zuletzt angepasst wurde: nur bei Radius- oder Stationswechsel neu einpassen */
+  const fitted = useRef<{ radius: number; key: string } | null>(null);
   live.current = { onPlace, place };
   const helpId = useId();
 
@@ -47,7 +49,10 @@ export function PlaceMap({ place, radius, stations, onPlace }: PlaceMapProps) {
     if (!m || !g) return;
     const focused = !!(document.activeElement as HTMLElement | null)?.closest?.(".mk-assembly");
     g.clearLayers();
-    if (!place) return;
+    if (!place) {
+      fitted.current = null;
+      return;
+    }
     const circle = L.circle(ll(place), { radius, className: "lf-boundary", fill: false, interactive: false }).addTo(g);
     for (const s of stations) {
       L.marker(ll(s.point), {
@@ -66,7 +71,14 @@ export function PlaceMap({ place, radius, stations, onPlace }: PlaceMapProps) {
     }).addTo(g);
     marker.on("dragend", () => live.current.onPlace(pt(marker.getLatLng())));
     if (focused) marker.getElement()?.focus({ preventScroll: true });
-    m.fitBounds(circle.getBounds(), { padding: [16, 16], animate: false });
+    // Wer hineingezoomt hat, um den Sammelpunkt genau zu setzen, bleibt dort: einpassen nur beim ersten Mal,
+    // bei neuem Radius oder Stationen und wenn der Punkt aus dem Ausschnitt gesprungen ist.
+    const last = fitted.current;
+    const same = !!last && last.radius === radius && last.key === key;
+    if (!same || !m.getBounds().contains(ll(place))) {
+      m.fitBounds(circle.getBounds(), { padding: [16, 16], animate: false });
+      fitted.current = { radius, key };
+    }
   }, [place?.lat, place?.lon, radius, key]);
 
   const onKeyDown = (e: KeyboardEvent) => {

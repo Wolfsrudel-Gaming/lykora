@@ -5,7 +5,7 @@
  * media-Eintrag im Entwurf (ein Schritt im Verlauf). MediaPickerHost steht einmal im EditorShell.
  */
 
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { mediaContentType } from "../../../../lib/api.ts";
 import { base, mediaUrl } from "../../../../lib/base.ts";
 import { editor, useEditorSelect } from "../../../../lib/editor/store.ts";
@@ -18,6 +18,7 @@ import { createStore, useStore } from "../../../../lib/store.ts";
 import type { LibrarySound, MediaFile, MediaType } from "../../../../lib/types.ts";
 import { Dialog, Empty, ErrorNotice, Field, Loading, PreviewButton, Tabs, useLoad } from "../../../../ui/components.tsx";
 import { Icon } from "../../../../ui/icons.tsx";
+import { durationLabel } from "./DurationInput.tsx";
 
 export type Accept = "image" | "audio" | "any";
 type Media = NonNullable<Game["media"]>[number];
@@ -62,6 +63,9 @@ export function pickMedia(opts: { accept: Accept; title: string }): Promise<stri
 function adopt(entry: Media, label: string): string | null {
   const store = editor.get().current;
   if (!store) return null;
+  // Schon im Spiel: kein neuer Verlaufsschritt.
+  const existing = mediaBySrc(store.get().game, entry.src);
+  if (existing) return existing.id;
   let id: string | null = null;
   store.update(label, (g) => {
     const r = addMedia(g, entry);
@@ -157,6 +161,9 @@ function Upload({ gameId, accept, onPick }: { gameId: string; accept: Accept; on
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const mimes = acceptedMimes(accept);
+  // Wurde der Dialog währenddessen geschlossen, bleibt die Datei auf dem Server (steht unter „Schon hochgeladen, noch nicht im Spiel“), das Spiel bleibt unberührt.
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
 
   const choose = (list: FileList | File[] | null | undefined) => {
     const f = Array.from(list ?? [])[0];
@@ -175,12 +182,14 @@ function Upload({ gameId, accept, onPick }: { gameId: string; accept: Accept; on
     setProgress(0);
     setError(null);
     try {
-      const created = await api.uploadMedia(gameId, file, setProgress);
+      const created = await api.uploadMedia(gameId, file, (share) => mounted.current && setProgress(share));
+      if (!mounted.current) return;
       const entry = uploadedMedia(created, id || suggestMediaId(game, file.name), credit.trim() || undefined);
       if (alt.trim()) entry.alt = { [lang]: alt.trim() };
       const picked = adopt(entry, `${ACCEPT_LABELS[accept]} „${alt.trim() || file.name}“ hochgeladen`);
       if (picked) onPick(picked);
     } catch (err) {
+      if (!mounted.current) return;
       setError(errorText(err));
       setProgress(null);
     }
@@ -313,7 +322,7 @@ function Library({ onPick }: { onPick: (id: string) => void }) {
                   <div class="min0">
                     <strong>{s.title}</strong>
                     <div class="small muted">
-                      {Math.round(s.duration)} s{s.loop ? " · Schleife" : ""}
+                      {durationLabel(s.duration)}{s.loop ? " · Schleife" : ""}
                     </div>
                   </div>
                   <div class="actions">

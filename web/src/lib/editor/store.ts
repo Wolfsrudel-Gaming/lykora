@@ -10,7 +10,7 @@ import { useEffect, useReducer, useRef } from "preact/hooks";
 import { ApiError } from "../api.ts";
 import { saveJson } from "../download.ts";
 import { createStore, useStore, type Store } from "../store.ts";
-import { createAutosave, draftClient, type Autosave, type DraftClient } from "./autosave.ts";
+import { createAutosave, draftClient, isDirty, type Autosave, type DraftClient } from "./autosave.ts";
 import { backupDiffers, clearBackup, keepOnlyBackup, readBackup, writeBackup } from "./local.ts";
 import { getAt, lastKey, parentPointer, prune, removeAt, setAt } from "./paths.ts";
 import { renumberFragments } from "./references.ts";
@@ -35,7 +35,11 @@ export interface EditorStore extends Store<EditorState> {
   saveNow(): Promise<void>;
   /** Nach Fehler oder offline noch einmal speichern. */
   retrySave(): Promise<void>;
-  /** Konflikt auflösen: theirs = Server-Stand laden (eigener Stand vorher als Datei), mine = überschreiben. */
+  /**
+   * Konflikt auflösen: theirs = Server-Stand laden (eigener Stand vorher als Datei), mine = überschreiben.
+   * Ist der Entwurf auf dem Server gelöscht worden (kein fremder Stand), legt mine ihn neu an; theirs gibt es dann nicht.
+   * Ob das Speichern geklappt hat, steht danach in save.status.
+   */
   resolveConflict(choice: "theirs" | "mine"): Promise<void>;
   /** Entwurf durch anderen Inhalt ersetzen (Version wiederherstellen, Datei importieren, Entwurf verwerfen). */
   replace(game: Game, meta: EditorMeta, label: string): void;
@@ -48,6 +52,10 @@ export interface EditorStore extends Store<EditorState> {
   /** Lokale Sicherung vom Öffnen übernehmen bzw. verwerfen. */
   applyBackup(): Promise<void>;
   discardBackup(): void;
+  /** Lokale Sicherung sofort schreiben (Seite wird verlassen); ohne ungespeicherte Änderung wird sie gelöscht. */
+  flushBackup(): void;
+  /** Der Entwurf wurde auf dem Server verworfen: nichts mehr speichern, keine Sicherung zurücklassen. */
+  abandon(): void;
   close(): void;
 }
 
@@ -76,6 +84,20 @@ export interface EditorInit {
  * rund dreimal schneller als structuredClone (270 KB: 3,7 ms statt 10,8 ms) – das hält eine
  * Änderung an 200 Stationen unter 10 ms.
  */
+/**
+ * Merker, die nicht zur Änderung am Spiel gehören (ausgeblendete Hinweise, Probelauf, Vor-Ort-Werte):
+ * Rückgängig und Wiederholen lassen sie, wie sie sind – sonst tauchen „Passt so“-Hinweise nach
+ * einem fremden Strg+Z wieder auf.
+ */
+export function keepMarkers(current: EditorMeta, target: EditorMeta): EditorMeta {
+  const next: EditorMeta = { ...target };
+  for (const key of ["dismissed", "lastTestRun", "onSite"] as const) {
+    if (current[key] === undefined) delete next[key];
+    else (next as Record<string, unknown>)[key] = current[key];
+  }
+  return next;
+}
+
 export function cloneGame<T>(value: T): T {
   try {
     return JSON.parse(JSON.stringify(value)) as T;
@@ -142,8 +164,10 @@ export function createEditorStore(init: EditorInit): EditorStore {
 
   let validateTimer: ReturnType<typeof setTimeout> | null = null;
 
+  let abandoned = false;
+
   const backup = (): void => {
-    if (init.localBackup === false) return;
+    if (init.localBackup === false || abandoned) return;
     const s = base.get();
     base.set({ backup: writeBackup(s.gameId, { revision: s.revision, game: s.game, meta: s.meta, at: new Date(now()).toISOString() }) });
   };
@@ -157,6 +181,11 @@ export function createEditorStore(init: EditorInit): EditorStore {
     return issues;
   };
 
+  const flushBackup = (): void => {
+    if (init.localBackup === false || abandoned) return;
+    if (isDirty(base.get())) backup();
+  };
+
   const autosave: Autosave | null = init.client
     ? createAutosave({
         gameId: init.gameId,
@@ -168,12 +197,14 @@ export function createEditorStore(init: EditorInit): EditorStore {
           if (s.game === s.saved.game && s.meta === s.saved.meta) clearBackup(s.gameId);
           else backup();
         },
+        onLeave: () => flushBackup(),
         now,
       })
     : null;
 
   /** Nach jeder Änderung: Prüfung und Sicherung nach 300 ms, Speichern nach Zeitplan. */
   const afterChange = (): void => {
+    if (abandoned) return;
     if (validateTimer) clearTimeout(validateTimer);
     validateTimer = setTimeout(() => {
       validateNow();
@@ -231,7 +262,7 @@ export function createEditorStore(init: EditorInit): EditorStore {
       const entry = s.undo[s.undo.length - 1];
       if (!entry) return null;
       const redo: HistoryEntry = { label: entry.label, game: s.game, meta: s.meta, at: now(), focus: entry.focus };
-      apply(entry.game, entry.meta, { undo: s.undo.slice(0, -1), redo: [...s.redo, redo] });
+      apply(entry.game, keepMarkers(s.meta, entry.meta), { undo: s.undo.slice(0, -1), redo: [...s.redo, redo] });
       return entry;
     },
 
@@ -240,7 +271,7 @@ export function createEditorStore(init: EditorInit): EditorStore {
       const entry = s.redo[s.redo.length - 1];
       if (!entry) return null;
       const undo: HistoryEntry = { label: entry.label, game: s.game, meta: s.meta, at: now(), focus: entry.focus };
-      apply(entry.game, entry.meta, { redo: s.redo.slice(0, -1), undo: [...s.undo, undo].slice(-HISTORY_LIMIT) });
+      apply(entry.game, keepMarkers(s.meta, entry.meta), { redo: s.redo.slice(0, -1), undo: [...s.undo, undo].slice(-HISTORY_LIMIT) });
       return entry;
     },
 
@@ -250,13 +281,21 @@ export function createEditorStore(init: EditorInit): EditorStore {
       base.set({ touched: new Set([...s.touched, path]) });
     },
 
-    saveNow: () => autosave?.saveNow() ?? Promise.resolve(),
-    retrySave: () => autosave?.retry() ?? Promise.resolve(),
+    saveNow: () => (abandoned ? Promise.resolve() : (autosave?.saveNow() ?? Promise.resolve())),
+    retrySave: () => (abandoned ? Promise.resolve() : (autosave?.retry() ?? Promise.resolve())),
 
     async resolveConflict(choice) {
       const s = base.get();
       const theirs = s.save.conflict;
-      if (!theirs) return;
+      if (s.save.status !== "conflict") return;
+      if (!theirs) {
+        // Entwurf auf dem Server gelöscht: der eigene Stand legt ihn neu an (Revision 0).
+        if (choice === "mine") {
+          base.set({ revision: 0, save: { ...s.save, status: "pending", conflict: null } });
+          await store.saveNow();
+        }
+        return;
+      }
       if (choice === "theirs") {
         (init.exportFile ?? saveJson)(s.game, `${s.gameId}-entwurf-${stamp(new Date(now()))}.json`);
         const game = theirs.content as Game;
@@ -312,6 +351,17 @@ export function createEditorStore(init: EditorInit): EditorStore {
       clearBackup(s.gameId);
     },
 
+    flushBackup,
+
+    abandon() {
+      abandoned = true;
+      if (validateTimer) clearTimeout(validateTimer);
+      validateTimer = null;
+      autosave?.dispose();
+      if (init.localBackup !== false) clearBackup(init.gameId);
+      base.set({ pendingBackup: null, backup: null });
+    },
+
     close() {
       if (validateTimer) clearTimeout(validateTimer);
       validateTimer = null;
@@ -326,8 +376,39 @@ export function createEditorStore(init: EditorInit): EditorStore {
 
 export const editor: Store<{ current: EditorStore | null }> = createStore<{ current: EditorStore | null }>({ current: null });
 
-export function closeEditor(): void {
-  editor.get().current?.close();
+/**
+ * Schließt den geöffneten Store, nachdem er zu Ende gespeichert hat (höchstens 8 s). Wer den
+ * nächsten Entwurf öffnet, wartet darauf – sonst liest er einen älteren Stand und löst beim
+ * ersten Tippen einen Konflikt mit sich selbst aus.
+ */
+export async function closeEditor(): Promise<void> {
+  const current = editor.get().current;
+  if (!current) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([current.saveNow().catch(() => undefined), new Promise<void>((resolve) => (timer = setTimeout(resolve, CLOSE_WAIT_MS)))]);
+  } finally {
+    clearTimeout(timer);
+    current.close();
+  }
+}
+
+export const CLOSE_WAIT_MS = 8000;
+
+/** Der Zähler macht ältere, noch laufende openEditor-Aufrufe wirkungslos. */
+let openSeq = 0;
+
+export type SaveCheck = "ok" | "conflict" | "unsaved";
+
+/**
+ * Vor Veröffentlichen und Probelauf: speichern und prüfen, dass wirklich nichts offen ist. Ein
+ * Stand, der noch unterwegs ist (Netz weg, weitergetippt), würde sonst den alten Serverstand veröffentlichen.
+ */
+export async function saveForAction(store: Pick<EditorStore, "saveNow" | "get">): Promise<SaveCheck> {
+  await store.saveNow();
+  const s = store.get();
+  if (s.save.status === "conflict") return "conflict";
+  return s.save.status === "saved" && !isDirty(s) ? "ok" : "unsaved";
 }
 
 /**
@@ -335,7 +416,9 @@ export function closeEditor(): void {
  * Danach: Felder aus einer Vorlage gelten als berührt, eine jüngere lokale Sicherung wird angeboten.
  */
 export async function openEditor(gameId: string, opts: { client?: DraftClient } = {}): Promise<EditorStore> {
-  closeEditor();
+  const seq = ++openSeq;
+  await closeEditor();
+  if (seq !== openSeq) throw new Error("abgelöst");
   // session.ts liest beim Laden document.baseURI; der Store selbst bleibt ohne Browser nutzbar.
   const { api } = await import("../session.ts");
   const client = opts.client ?? draftClient(api);
@@ -361,12 +444,17 @@ export async function openEditor(gameId: string, opts: { client?: DraftClient } 
     lastEditor: draft.updated_by ? { ...draft.updated_by, at: draft.updated_at } : null,
     client,
   });
+  if (seq !== openSeq) {
+    store.close();
+    throw new Error("abgelöst");
+  }
   if (store.get().meta.template) store.set({ touched: new Set(store.get().issues.map((i) => i.at.path)) });
   keepOnlyBackup(gameId);
   const backup = readBackup(gameId);
   if (backup) {
     const s = store.get();
-    if (backup.revision >= draft.revision && backupDiffers(backup, s.game, s.meta)) store.set({ pendingBackup: backup });
+    // Auch eine Sicherung von einem älteren Stand bleibt liegen: der Dialog fragt, statt sie still zu löschen.
+    if (backupDiffers(backup, s.game, s.meta)) store.set({ pendingBackup: backup });
     else clearBackup(gameId);
   }
   editor.set({ current: store });
@@ -393,14 +481,16 @@ export function useEditorSelect<T>(select: (s: EditorState) => T, equal: (a: T, 
   const value = select(store.get());
   const latest = useRef({ select, equal, value });
   latest.current = { select, equal, value };
-  useEffect(
-    () =>
-      store.subscribe((s) => {
-        const l = latest.current;
-        if (!l.equal(l.value, l.select(s))) bump(0);
-      }),
-    [store],
-  );
+  useEffect(() => {
+    const check = (s: EditorState) => {
+      const l = latest.current;
+      if (!l.equal(l.value, l.select(s))) bump(0);
+    };
+    const off = store.subscribe(check);
+    // Zwischen Rendern und Abonnieren kann sich der Zustand geändert haben.
+    check(store.get());
+    return off;
+  }, [store]);
   return value;
 }
 

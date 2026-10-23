@@ -71,6 +71,11 @@ function canonical(value: unknown): string {
   );
 }
 
+/** Gleicher Inhalt, ohne Rücksicht auf die Reihenfolge der Schlüssel. */
+export function sameContent(a: unknown, b: unknown): boolean {
+  return canonical(a) === canonical(b);
+}
+
 /** Unterscheidet sich die Sicherung vom gegebenen Stand? Die Reihenfolge der Schlüssel zählt nicht. */
 export function backupDiffers(backup: LocalBackup, game: Game, meta: EditorMeta): boolean {
   return canonical(backup.game) !== canonical(game) || canonical(backup.meta ?? {}) !== canonical(meta ?? {});
