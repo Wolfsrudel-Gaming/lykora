@@ -200,18 +200,23 @@ class Api {
   }
 
   /// Lädt eine Mediendatei nach [file]; false, wenn das nicht geklappt hat.
+  Future<bool> download(String src, File file) async => await fetchFile(src, file) == FetchResult.saved;
+
+  /// Lädt [src] nach [file] und sagt, wie es ausging: gespeichert, dem Server unbekannt (404) oder gescheitert.
   ///
-  /// Erst in eine Hilfsdatei, damit ein Abbruch keine halbe Datei hinterlässt. Medien sind
+  /// Erst in eine Hilfsdatei, damit ein Abbruch keine halbe Datei hinterlässt. Medien und Kacheln sind
   /// öffentlich; der Gerätetoken geht deshalb nicht mit, auch nicht an fremde Adressen.
-  Future<bool> download(String src, File file) async {
+  Future<FetchResult> fetchFile(String src, File file) async {
     final part = File('${file.path}.part');
     final abort = Completer<void>();
     try {
       final res = await _client.send(http.AbortableRequest('GET', mediaUri(src), abortTrigger: abort.future)).timeout(connectTimeout);
       // Eine Anmeldeseite im WLAN (Captive Portal) antwortet mit 200 und HTML; die wäre sonst als Klang gespeichert.
-      if (res.statusCode != 200 || (res.headers['content-type'] ?? '').startsWith('text/html')) {
+      final html = (res.headers['content-type'] ?? '').startsWith('text/html');
+      if (res.statusCode != 200 || html) {
         await res.stream.drain<void>();
-        return false;
+        // Eine HTML-Seite mit 404 kann ein Proxy sein; nur die Antwort des Servers gilt als „gibt es nicht“.
+        return res.statusCode == 404 && !html ? FetchResult.notFound : FetchResult.failed;
       }
       final sink = part.openWrite();
       try {
@@ -221,15 +226,27 @@ class Api {
         await sink.close();
       }
       await part.rename(file.path);
-      return true;
+      return FetchResult.saved;
     } catch (_) {
       if (!abort.isCompleted) abort.complete();
       try {
         if (await part.exists()) await part.delete();
       } catch (_) {}
-      return false;
+      return FetchResult.failed;
     }
   }
+}
+
+/// Ausgang von [Api.fetchFile].
+enum FetchResult {
+  /// Die Datei liegt jetzt auf dem Gerät.
+  saved,
+
+  /// Der Server kennt sie nicht (404).
+  notFound,
+
+  /// Kein Netz, Zeitüberschreitung, Fehler des Servers oder eine Anmeldeseite.
+  failed,
 }
 
 /// Liest den Inhalt eines Einstiegs-QR: lykora://join?server=…&code=… oder ein reiner Event-Code.

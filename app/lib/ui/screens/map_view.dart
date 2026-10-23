@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
+import '../../data/tiles.dart';
 import '../../model/game.dart';
 import '../design/components.dart';
 import '../design/pictograms.dart';
@@ -17,14 +19,20 @@ LatLng _ll(GeoPoint p) => LatLng(p.lat, p.lon);
 
 /// Nachtkarte: Spielfeld als Lichtkegel, außen ein Schleier. Sperrzonen mit Absperrband-Schraffur.
 ///
-/// Kartenkacheln werden beim Ansehen zwischengespeichert. Ohne Netz und ohne Kacheln
-/// sieht die Karte trotzdem gewollt aus: Nachtgrund, Spielfeld, Zonen und Stationen bleiben.
+/// Kartenkacheln kommen aus dem Spiel (`settings.map.tiles`), sonst von OpenStreetMap. Kacheln des eigenen Servers
+/// lädt die App beim Packen vorab und liest sie vom Gerät; andere werden beim Ansehen zwischengespeichert.
+/// Ohne Netz und ohne Kacheln sieht die Karte trotzdem gewollt aus: Nachtgrund, Spielfeld, Zonen und Stationen bleiben.
 class GameMap extends StatefulWidget {
   const GameMap({super.key, this.focusAssembly = false});
   final bool focusAssembly;
 
   /// In Widget-Tests aus, weil dort kein Netz für Kartenkacheln da ist.
   static bool showTiles = true;
+
+  /// Zwischenspeicher der Karte für Kacheln, die nicht vorab geladen wurden; null heißt der eingebaute.
+  /// Tests setzen einen ohne Plugin für den App-Ordner.
+  @visibleForTesting
+  static MapCachingProvider? cachingProvider;
 
   @override
   State<GameMap> createState() => _GameMapState();
@@ -34,6 +42,7 @@ class _GameMapState extends State<GameMap> {
   final _map = MapController();
   bool _follow = true;
   bool _ready = false;
+  double _minZoom = _defaultMinZoom;
 
   List<LatLng> _areaPoints(Area a) {
     if (!a.isCircle) return a.polygon.map(_ll).toList();
@@ -68,7 +77,9 @@ class _GameMapState extends State<GameMap> {
         final center = widget.focusAssembly
             ? assembly
             : (pos ?? field.start ?? (field.boundary.isCircle ? field.boundary.center : field.boundary.polygon.first));
-        final tiles = game.settings.tiles ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        final source = c.tileSource;
+        // Ein Kartenpaket hat eine kleinste Stufe; darunter wäre die Karte leer.
+        _minZoom = math.max(_defaultMinZoom, c.tileMinZoom?.toDouble() ?? 0);
         final boundary = _areaPoints(field.boundary);
         final showTiles = GameMap.showTiles && t.mode != LightMode.red;
         final next = c.nextTarget;
@@ -82,7 +93,7 @@ class _GameMapState extends State<GameMap> {
                 initialCenter: _ll(center),
                 initialZoom: 16.5,
                 maxZoom: 19,
-                minZoom: 13,
+                minZoom: _minZoom,
                 backgroundColor: p.ground,
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
                 onMapReady: () => _ready = true,
@@ -92,7 +103,19 @@ class _GameMapState extends State<GameMap> {
               ),
               children: [
                 if (!showTiles) const Positioned.fill(child: NightGround()),
-                if (showTiles) _tinted(t.mode, TileLayer(urlTemplate: tiles, userAgentPackageName: 'io.github.wolfsrudelgaming.lykora', maxNativeZoom: 19)),
+                if (showTiles)
+                  _tinted(
+                    t.mode,
+                    source.own
+                        ? OwnTileLayers(key: ValueKey(source.url), source: source, store: c.tileStore)
+                        : TileLayer(
+                            urlTemplate: source.url,
+                            userAgentPackageName: userAgent,
+                            maxNativeZoom: 19,
+                            tileProvider: GameMap.cachingProvider == null ? null : NetworkTileProvider(cachingProvider: GameMap.cachingProvider),
+                          ),
+                    nightTiles: source.night,
+                  ),
                 PolygonLayer(
                   polygons: [
                     // Schleier außerhalb des Spielfelds
@@ -216,16 +239,7 @@ class _GameMapState extends State<GameMap> {
                 ),
               ],
             ),
-            if (showTiles)
-              Positioned(
-                left: 8,
-                bottom: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: p.ground.withValues(alpha: 0.7),
-                  child: Text('© OpenStreetMap-Mitwirkende', style: t.small.copyWith(fontSize: 12)),
-                ),
-              ),
+            if (showTiles) const Positioned(left: 8, bottom: 6, child: MapAttribution()),
             if (stale)
               Positioned(
                 top: 12,
@@ -268,7 +282,7 @@ class _GameMapState extends State<GameMap> {
                 children: [
                   _MapKey(icon: Icons.add_rounded, label: 'Näher', onTap: () => _move(_map.camera.center, math.min(19, _map.camera.zoom + 1))),
                   const SizedBox(height: 8),
-                  _MapKey(icon: Icons.remove_rounded, label: 'Weiter weg', onTap: () => _move(_map.camera.center, math.max(13, _map.camera.zoom - 1))),
+                  _MapKey(icon: Icons.remove_rounded, label: 'Weiter weg', onTap: () => _move(_map.camera.center, math.max(_minZoom, _map.camera.zoom - 1))),
                   const SizedBox(height: 16),
                   _MapKey(
                     icon: _follow ? Icons.my_location_rounded : Icons.location_searching_rounded,
@@ -291,21 +305,9 @@ class _GameMapState extends State<GameMap> {
     );
   }
 
-  Widget _tinted(LightMode m, Widget tiles) => m == LightMode.day ? tiles : ColorFiltered(colorFilter: _tileFilter(m), child: tiles);
-
-  ColorFilter _tileFilter(LightMode m) {
-    // Kacheln invertiert und stark gedimmt, damit die Karte nachts nicht blendet.
-    const l = [0.3, 0.59, 0.11];
-    if (m == LightMode.amber) {
-      return ColorFilter.matrix([
-        for (final k in [0.5, 0.33, 0.0]) ...[-l[0] * k, -l[1] * k, -l[2] * k, 0, 255 * k],
-        0, 0, 0, 1, 0, //
-      ]);
-    }
-    return ColorFilter.matrix([
-      for (final (k, add) in [(0.3, 8.0), (0.29, 6.0), (0.27, 4.0)]) ...[-l[0] * k, -l[1] * k, -l[2] * k, 0, 255 * k + add],
-      0, 0, 0, 1, 0, //
-    ]);
+  Widget _tinted(LightMode m, Widget tiles, {bool nightTiles = false}) {
+    final filter = tileFilterFor(m, nightTiles: nightTiles);
+    return filter == null ? tiles : ColorFiltered(colorFilter: filter, child: tiles);
   }
 
   List<LatLng> _world(List<LatLng> hole) {
@@ -319,6 +321,104 @@ class _GameMapState extends State<GameMap> {
     final lat = pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
     final lon = pts.map((p) => p.longitude).reduce((a, b) => a + b) / pts.length;
     return LatLng(lat, lon);
+  }
+}
+
+const _defaultMinZoom = 13.0;
+
+/// Kennung der App gegenüber Kartenservern (User-Agent)
+const userAgent = 'io.github.wolfsrudelgaming.lykora';
+
+/// Filter für die Kacheln im Lichtmodus [m]; null heißt: Kacheln unverändert.
+///
+/// Tageskacheln werden nachts invertiert und stark gedimmt, damit die Karte nicht blendet. Ein Nachtpaket
+/// ([nightTiles], Adresse mit `-nacht`) ist schon dunkel: Es wird nicht invertiert, nur in Bernstein getönt.
+ColorFilter? tileFilterFor(LightMode m, {bool nightTiles = false}) {
+  if (m == LightMode.day) return null;
+  const l = [0.3, 0.59, 0.11];
+  if (nightTiles) {
+    if (m != LightMode.amber) return null;
+    return ColorFilter.matrix([
+      for (final k in [0.6, 0.4, 0.0]) ...[l[0] * k, l[1] * k, l[2] * k, 0, 0],
+      0, 0, 0, 1, 0, //
+    ]);
+  }
+  if (m == LightMode.amber) {
+    return ColorFilter.matrix([
+      for (final k in [0.5, 0.33, 0.0]) ...[-l[0] * k, -l[1] * k, -l[2] * k, 0, 255 * k],
+      0, 0, 0, 1, 0, //
+    ]);
+  }
+  return ColorFilter.matrix([
+    for (final (k, add) in [(0.3, 8.0), (0.29, 6.0), (0.27, 4.0)]) ...[-l[0] * k, -l[1] * k, -l[2] * k, 0, 255 * k + add],
+    0, 0, 0, 1, 0, //
+  ]);
+}
+
+/// Karte des eigenen Servers: unten Stufe 17 für den Rand, darüber die feinste Stufe 18, wo das Paket sie hat.
+///
+/// Fehlt eine Kachel (404) oder fehlt das Netz, bleibt die obere Kachel durchsichtig und die Stufe 17 darunter
+/// zeigt sich hochgezogen. Geladene Kacheln liegen im Ordner auf dem Gerät und gehen ohne Netz.
+class OwnTileLayers extends StatefulWidget {
+  const OwnTileLayers({super.key, required this.source, required this.store});
+  final TileSource source;
+  final TileStore store;
+
+  @override
+  State<OwnTileLayers> createState() => _OwnTileLayersState();
+}
+
+class _OwnTileLayersState extends State<OwnTileLayers> {
+  // Jede Ebene gibt ihren Anbieter beim Abbau selbst frei; deshalb zwei eigene und neue bei jedem Aufbau.
+  late final _under = OwnTileProvider(store: widget.store, pack: widget.source.pack!, cachingProvider: GameMap.cachingProvider);
+  late final _over = OwnTileProvider(store: widget.store, pack: widget.source.pack!, cachingProvider: GameMap.cachingProvider);
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.source.url;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        TileLayer(urlTemplate: url, userAgentPackageName: userAgent, maxNativeZoom: 17, tileProvider: _under, errorTileCallback: _silent),
+        TileLayer(urlTemplate: url, userAgentPackageName: userAgent, maxNativeZoom: 18, tileProvider: _over, errorTileCallback: _silent),
+      ],
+    );
+  }
+
+  static void _silent(TileImage tile, Object error, StackTrace? stackTrace) {}
+}
+
+/// Zuschreibung der Kartendaten (ODbL): bleibt sichtbar, solange Kacheln da sind; Tippen öffnet die Lizenzseite.
+class MapAttribution extends StatelessWidget {
+  const MapAttribution({super.key});
+
+  static const text = '© OpenStreetMap-Mitwirkende';
+
+  /// Öffnet die Lizenzseite im Browser; Tests setzen eine eigene Funktion ein.
+  static Future<void> Function(Uri uri) open = (uri) async {
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final p = t.p;
+    return Semantics(
+      link: true,
+      label: 'Kartendaten OpenStreetMap-Mitwirkende, Lizenz öffnen',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => open(Uri.parse(osmCopyrightUrl)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(color: p.ground.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
+          child: Text(text, style: t.small.copyWith(fontSize: 12, color: p.text, decoration: TextDecoration.underline, decorationColor: p.text)),
+        ),
+      ),
+    );
   }
 }
 

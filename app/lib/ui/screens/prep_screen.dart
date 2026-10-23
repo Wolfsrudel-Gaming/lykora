@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart' show Position;
 import '../../app.dart';
 import '../../data/api.dart';
 import '../../data/controller.dart';
+import '../../data/tiles.dart';
 import '../../services/fx.dart';
 import '../../services/location.dart';
 import '../../services/nfc.dart';
@@ -20,6 +21,12 @@ import 'tutorial_screen.dart';
 
 /// Ab so vielen fehlenden Dateien weist die App auf das Datenvolumen hin.
 const largeDownloadFiles = 8;
+
+/// Ab so vielen fehlenden Kacheln weist die App auf das Datenvolumen hin (eine Kachel hat rund 13 KB).
+const largeTileDownload = 100;
+
+/// „Karte 12 von 80“: Stand beim Laden der Kacheln.
+String tileProgressText(TileProgress p) => 'Karte ${p.done} von ${p.total}';
 
 /// Dateigröße für Menschen: „18 MB“, „640 KB“.
 String formatBytes(int bytes) {
@@ -356,7 +363,7 @@ class _PrepScreenState extends State<PrepScreen> with WidgetsBindingObserver {
         final s = c.session;
         if (game == null || s == null) return const SizedBox.shrink();
         // Gepackt wird, bis die Animation durch ist und kein Download mehr läuft; Tippen überspringt.
-        if (!_skipPacking && (_packed < 5 || c.mediaProgress.value.running)) {
+        if (!_skipPacking && (_packed < 5 || c.downloading)) {
           return _Packing(step: _packed, onSkip: () => setState(() => _skipPacking = true));
         }
         final t = context.tok;
@@ -389,6 +396,7 @@ class _PrepScreenState extends State<PrepScreen> with WidgetsBindingObserver {
               const SizedBox(height: 8),
               const _Check(ok: true, icon: Icons.backpack_rounded, title: 'Spiel eingepackt', subtitle: 'Läuft jetzt auch ohne Netz.'),
               _MediaCheck(controller: c),
+              _TilesCheck(controller: c),
               const SizedBox(height: 12),
               const Caps('Erlaubnisse'),
               const SizedBox(height: 4),
@@ -686,6 +694,51 @@ class _MediaCheck extends StatelessWidget {
   }
 }
 
+/// Zeile „Karte“ in Startklar: Kacheln der eigenen Karte, die vorab auf das Handy kommen. Fehlende Kacheln sperren den Start nie.
+class _TilesCheck extends StatelessWidget {
+  const _TilesCheck({required this.controller});
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    return ValueListenableBuilder<TileProgress>(
+      valueListenable: controller.tileProgress,
+      builder: (context, p, _) {
+        if (p.total == 0) return const SizedBox.shrink();
+        if (p.complete) {
+          return _Check(ok: true, icon: Icons.map_rounded, title: 'Karte', subtitle: 'Spielgebiet geladen, ${formatBytes(p.bytes)}. Die Karte läuft ohne Netz.');
+        }
+        final bar = Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Semantics(
+            label: '${tileProgressText(p)} geladen',
+            child: LinearProgressIndicator(value: p.fraction, minHeight: 6, backgroundColor: t.p.line, color: t.p.accent),
+          ),
+        );
+        if (p.running) {
+          return _Check(
+            ok: false,
+            icon: Icons.downloading_rounded,
+            title: 'Karte wird geladen',
+            subtitle: '${tileProgressText(p)}, ${formatBytes(p.bytes)}.${p.missing >= largeTileDownload ? ' Das verbraucht Datenvolumen, am besten im WLAN.' : ''}',
+            child: bar,
+          );
+        }
+        return _Check(
+          ok: false,
+          warn: true,
+          icon: Icons.map_rounded,
+          title: 'Karte nicht ganz geladen',
+          subtitle: '${tileProgressText(p)}. Ohne Netz fehlt dann ein Teil der Karte. Ihr könnt trotzdem starten; der Rest lädt nach, sobald Netz da ist.',
+          action: ('Nochmal laden', controller.retryMedia),
+          child: bar,
+        );
+      },
+    );
+  }
+}
+
 /// Packen: Was im Rucksack ist, geht auch ohne Netz.
 class _Packing extends StatelessWidget {
   const _Packing({required this.step, required this.onSkip});
@@ -697,9 +750,10 @@ class _Packing extends StatelessWidget {
     final c = Lykora.game(context);
     final t = context.tok;
     final game = c.game!;
-    return ValueListenableBuilder<MediaProgress>(
-      valueListenable: c.mediaProgress,
-      builder: (context, p, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([c.mediaProgress, c.tileProgress]),
+      builder: (context, _) {
+        final p = c.mediaProgress.value, tp = c.tileProgress.value;
         // Gezählt wird, was wirklich auf dem Handy liegt.
         String count(String type, String one, String many, String fewer) {
           final all = game.mediaList.where((m) => m.type == type).toList();
@@ -709,12 +763,16 @@ class _Packing extends StatelessWidget {
         }
 
         final packed = [count('audio', 'Klang', 'Klänge', 'Klängen'), count('image', 'Bild', 'Bilder', 'Bildern')].where((x) => x.isNotEmpty);
-        final loading = p.running && p.total > 0;
-        final failed = !p.running && p.missing > 0;
+        final mediaLoading = p.running && p.total > 0;
+        final mediaFailed = !p.running && p.missing > 0;
+        final tilesLoading = tp.running && tp.total > 0;
+        final tilesFailed = !tp.running && tp.missing > 0;
+        final loading = mediaLoading || tilesLoading;
+        final failed = mediaFailed || tilesFailed;
         final items = [
           ('Geschichte', '${game.stations.length} Stationen, ${game.chapters.length} Kapitel'),
           ('Klänge und Bilder', packed.isEmpty ? 'Vorlesestimme an Bord' : packed.join(', ')),
-          ('Karte', 'Spielfeld, Sammelpunkt, Sperrzonen'),
+          ('Karte', tp.total > 0 ? 'Spielfeld, Sammelpunkt, Sperrzonen, Kacheln des Spielgebiets' : 'Spielfeld, Sammelpunkt, Sperrzonen'),
           ('Notfallinfos', 'Funktionieren immer offline'),
         ];
         return StageScaffold(
@@ -737,7 +795,7 @@ class _Packing extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _Tick(ok: i < step && !(i == 1 && (loading || failed))),
+                          _Tick(ok: i < step && !(i == 1 && (mediaLoading || mediaFailed)) && !(i == 2 && (tilesLoading || tilesFailed))),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -745,7 +803,22 @@ class _Packing extends StatelessWidget {
                               children: [
                                 Text(title, style: t.body.copyWith(fontWeight: FontWeight.w700)),
                                 Text(sub, style: t.small),
-                                if (i == 1 && (loading || failed)) ...[
+                                if (i == 2 && (tilesLoading || tilesFailed)) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Semantics(
+                                      label: '${tileProgressText(tp)} geladen',
+                                      child: LinearProgressIndicator(value: tp.fraction, minHeight: 6, backgroundColor: t.p.line, color: t.p.accent),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    tilesLoading ? '${tileProgressText(tp)}, ${formatBytes(tp.bytes)}' : '${tileProgressText(tp)}. Ihr könnt trotzdem weiter, der Rest lädt nach.',
+                                    style: t.small,
+                                  ),
+                                  if (tilesLoading && tp.missing >= largeTileDownload) Text('Das verbraucht Datenvolumen, am besten im WLAN.', style: t.small),
+                                ],
+                                if (i == 1 && (mediaLoading || mediaFailed)) ...[
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8),
                                     child: Semantics(
@@ -755,10 +828,10 @@ class _Packing extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    loading ? '${p.done} von ${p.total} Dateien, ${formatBytes(p.bytes)}' : 'Es fehlen ${missingMediaText(c)}. Ihr könnt trotzdem weiter.',
+                                    mediaLoading ? '${p.done} von ${p.total} Dateien, ${formatBytes(p.bytes)}' : 'Es fehlen ${missingMediaText(c)}. Ihr könnt trotzdem weiter.',
                                     style: t.small,
                                   ),
-                                  if (loading && p.missing >= largeDownloadFiles) Text('Das verbraucht Datenvolumen, am besten im WLAN.', style: t.small),
+                                  if (mediaLoading && p.missing >= largeDownloadFiles) Text('Das verbraucht Datenvolumen, am besten im WLAN.', style: t.small),
                                 ],
                               ],
                             ),

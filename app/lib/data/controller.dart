@@ -11,6 +11,7 @@ import '../engine/zones.dart';
 import '../model/game.dart';
 import 'api.dart';
 import 'session.dart';
+import 'tiles.dart';
 import '../services/live.dart';
 import '../services/nfc.dart' show normalizeTagId;
 
@@ -208,6 +209,11 @@ class GameController extends ChangeNotifier {
   final mediaProgress = ValueNotifier<MediaProgress>(const MediaProgress());
   Future<void>? _mediaTask;
 
+  /// Stand der Kacheln der eigenen Karte auf dem Gerät und, solange [ensureMedia] läuft, der Fortschritt.
+  /// Ohne Kartenpaket des Servers im Spiel bleibt er leer (total 0).
+  final tileProgress = ValueNotifier<TileProgress>(const TileProgress());
+  TileMeta? _tileMeta;
+
   /// Gelaufener Weg der letzten 30 Minuten für die Fußspur auf der Karte
   final List<(GeoPoint, int)> trail = [];
 
@@ -250,6 +256,7 @@ class GameController extends ChangeNotifier {
     _api = _apiFactory(s.server, s.token);
     _zones.reset();
     _refreshMedia();
+    _refreshTiles();
   }
 
   /// Das Team steht auf dem Server, aber das Spielpaket fehlt noch (Beitritt abgebrochen): [downloadGame] holt es nach.
@@ -266,7 +273,7 @@ class GameController extends ChangeNotifier {
     if (s != null && _live == null) {
       _live = LiveLink(uri: liveUri(s.server, s.token), onPoke: _onPoke, connect: connectLive)..start();
     }
-    if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
+    if (_needsDownload) unawaited(ensureMedia());
   }
 
   void stopLoops() {
@@ -282,7 +289,7 @@ class GameController extends ChangeNotifier {
     if (session == null) return;
     _scheduleSync(const Duration(milliseconds: 300));
     unawaited(flushSos(force: true));
-    if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
+    if (_needsDownload) unawaited(ensureMedia());
   }
 
   /// Ein Takt der Uhr: aktualisiert [clock] und meldet sich nur, wenn sich etwas Zeitabhängiges geändert hat
@@ -306,6 +313,7 @@ class GameController extends ChangeNotifier {
     stopLoops();
     gameId.dispose();
     mediaProgress.dispose();
+    tileProgress.dispose();
     _clock.dispose();
     _incoming.close();
     super.dispose();
@@ -378,6 +386,7 @@ class GameController extends ChangeNotifier {
     game = Game(s.gameJson!);
     gameId.value = game!.id;
     _refreshMedia();
+    _refreshTiles();
     _recompute();
     // Das Paket steht, bevor die Medien kommen: Ein Abbruch beim Laden der Klänge kostet das Spiel nichts.
     await _save();
@@ -405,10 +414,13 @@ class GameController extends ChangeNotifier {
     mediaProgress.value = MediaProgress(total: list.length, done: done, bytes: bytes, running: running);
   }
 
-  /// Lädt die Medien nach, die noch fehlen. Mehrfaches Aufrufen startet keinen zweiten Lauf; fehlende Dateien
-  /// verhindern das Spiel nicht. Wird beim Beitritt, beim Start der Schleifen, bei Rückkehr in die App,
-  /// bei zurückgekehrtem Netz und per [retryMedia] aufgerufen.
-  Future<void> ensureMedia() => _mediaTask ??= _downloadMedia().whenComplete(() => _mediaTask = null);
+  /// Fehlt noch etwas, Medien oder Kacheln der eigenen Karte?
+  bool get _needsDownload => hasGame && (!mediaProgress.value.complete || !tileProgress.value.complete);
+
+  /// Lädt die Medien und danach die Kacheln der eigenen Karte nach, die noch fehlen. Mehrfaches Aufrufen startet
+  /// keinen zweiten Lauf; fehlende Dateien verhindern das Spiel nicht. Wird beim Beitritt, beim Start der Schleifen,
+  /// bei Rückkehr in die App, bei zurückgekehrtem Netz und per [retryMedia] aufgerufen.
+  Future<void> ensureMedia() => _mediaTask ??= _downloadAll().whenComplete(() => _mediaTask = null);
 
   /// Noch einmal versuchen, was fehlt (Knopf „Nochmal laden“).
   Future<void> retryMedia() => ensureMedia();
@@ -416,8 +428,16 @@ class GameController extends ChangeNotifier {
   /// Wartet auf den laufenden Medien-Lauf, falls einer läuft.
   Future<void> waitForMedia() => _mediaTask ?? Future.value();
 
+  /// Läuft gerade das Laden von Medien oder Kacheln?
+  bool get downloading => mediaProgress.value.running || tileProgress.value.running;
+
   /// Anzahl der Medien, die auf dem Gerät noch fehlen.
   int get missingMedia => mediaProgress.value.missing;
+
+  Future<void> _downloadAll() async {
+    await _downloadMedia();
+    await _downloadTiles();
+  }
 
   Future<void> _downloadMedia() async {
     final s = session;
@@ -443,6 +463,54 @@ class GameController extends ChangeNotifier {
     }
     if (session != s || _disposed) return;
     _refreshMedia();
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Karte
+
+  /// Woher die Kacheln der Karte kommen: Adresse aus dem Spiel, aufgelöst gegen den Server, sonst OpenStreetMap.
+  TileSource get tileSource => resolveTiles(game?.settings.tiles, session?.server ?? '');
+
+  /// Kacheln der eigenen Karte auf dem Gerät
+  TileStore get tileStore => TileStore(store.tilesDir);
+
+  /// Kleinste Zoomstufe des Kartenpakets, sobald die App sie kennt (nach dem Laden der Kacheln); sonst null.
+  int? get tileMinZoom => tileSource.own ? _tileMeta?.minZoom : null;
+
+  /// Zählt, welche Kacheln des Spielgebiets schon auf dem Gerät liegen.
+  void _refreshTiles({bool running = false}) {
+    if (_disposed) return;
+    final g = game;
+    final src = tileSource;
+    final pack = src.pack;
+    if (g == null || !src.own || pack == null) {
+      _tileMeta = null;
+      tileProgress.value = const TileProgress();
+      return;
+    }
+    _tileMeta = tileStore.meta(pack);
+    tileProgress.value = countTiles(tileStore, pack, planTiles(g, meta: _tileMeta), running: running);
+  }
+
+  Future<void> _downloadTiles() async {
+    final s = session;
+    final api = _api;
+    final g = game;
+    final src = tileSource;
+    if (s == null || api == null || g == null || !src.own) return;
+    await prefetchTiles(
+      api: api,
+      store: tileStore,
+      source: src,
+      game: g,
+      cancelled: () => session != s || _disposed,
+      onProgress: (p) {
+        if (session == s && !_disposed) tileProgress.value = p;
+      },
+    );
+    if (session != s || _disposed) return;
+    _refreshTiles();
     notifyListeners();
   }
 
@@ -486,6 +554,8 @@ class GameController extends ChangeNotifier {
     zoneAlert = null;
     _zones.reset();
     mediaProgress.value = const MediaProgress();
+    tileProgress.value = const TileProgress();
+    _tileMeta = null;
     // Ein Abgleich, der gerade speichert, darf die gelöschten Daten nicht wieder anlegen.
     await _saving;
     await store.clear();
@@ -1122,7 +1192,7 @@ class GameController extends ChangeNotifier {
       if (!wasOnline && online) {
         // Netz wieder da: Die Verbindung zum Anstupsen muss nicht erst ihre Pause abwarten, fehlende Medien kommen nach.
         _live?.wake();
-        if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
+        if (_needsDownload) unawaited(ensureMedia());
       }
     } on ApiException catch (e) {
       online = e.reachable;

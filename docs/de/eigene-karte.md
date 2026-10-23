@@ -30,6 +30,15 @@ Im Baukasten steht das Feld in der Expertenansicht unter „Felder ohne Wirkung 
 
 Welche Pakete der Server hat, zeigt `GET /lykora/api/tiles` (ohne Anmeldung).
 
+## In der App
+
+- **Vorab laden.** Verweist das Spiel auf den eigenen Server (relative Adresse oder derselbe Server), lädt die App beim Beitritt zusammen mit den Klängen die Kacheln des Spielgebiets auf das Handy: Grenze, Start und Sammelpunkt plus 100 m Rand, Zoom 14 bis 18, Zoom 18 nur im inneren Umkreis von 450 m. Ist ein Paket kleiner, folgt die App den Stufen aus der `pack.json`. Höchstens 400 Kacheln; wird es mehr, entfallen die feinsten Stufen. Was das Paket nicht hat (404), ist kein Fehler und wird nicht noch einmal erfragt.
+- **Größe.** Das Testspiel „Nachtigall“ (Sieglar) braucht 82 Kacheln, davon liegen 80 im Paket: rund 1,1 MB für die Tageskarte, rund 0,9 MB für die Nachtvariante. Im Schnitt sind das etwa 11 bis 13 KB je Kachel.
+- **Vorbereitung.** Auf der Seite „Startklar“ steht „Karte n von m“. Fehlt etwas, startet das Spiel trotzdem; „Nochmal laden“ und die Rückkehr in die App holen den Rest nach. Ohne Netz zeigt die Karte, was schon da ist, darunter gröbere Stufen, und sonst nur Spielfeld, Zonen und Stationen. Beim Verlassen des Teams werden die Kacheln gelöscht.
+- **Nachtkarte.** Enthält die Adresse ein Paket mit der Endung `-nacht` (etwa `tiles/sieglar-nacht/…`), ist die Karte schon dunkel: Die App invertiert sie dann nicht, nur Bernstein tönt sie. Tageskacheln bleiben im Nachtmodus wie bisher invertiert und gedimmt.
+- **Zuschreibung.** „© OpenStreetMap-Mitwirkende“ steht immer in der Karte; ein Tipp öffnet openstreetmap.org/copyright.
+- **Regeln von OpenStreetMap.** Die App lädt **nie** Kacheln auf Vorrat von `tile.openstreetmap.org` oder einem fremden Server. Ohne eigenes Paket im Spiel gilt OpenStreetMap wie bisher, und die Karte holt nur, was gerade zu sehen ist ([Nutzungsbedingungen](https://operations.osmfoundation.org/policies/tiles/)). Für den Einsatz im Feld gehört deshalb ein Kartenpaket auf den Server.
+
 ## Neues Gebiet
 
 Auf einem Rechner mit Internet und Python 3 mit Pillow, im Repo:

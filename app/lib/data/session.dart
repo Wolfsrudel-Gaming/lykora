@@ -256,6 +256,7 @@ class SessionStore {
   File get _session => File('${dir.path}/session.json');
   File get _settings => File('${dir.path}/settings.json');
   Directory get mediaDir => Directory('${dir.path}/media');
+  Directory get tilesDir => Directory('${dir.path}/tiles');
   Directory get uploadsDir => Directory('${dir.path}/uploads');
 
   Future<Session?> load() async {
@@ -275,6 +276,7 @@ class SessionStore {
   Future<void> clear() async {
     if (await _session.exists()) await _session.delete();
     if (await mediaDir.exists()) await mediaDir.delete(recursive: true);
+    if (await tilesDir.exists()) await tilesDir.delete(recursive: true);
     if (await uploadsDir.exists()) await uploadsDir.delete(recursive: true);
   }
 

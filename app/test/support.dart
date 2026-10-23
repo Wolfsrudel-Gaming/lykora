@@ -44,6 +44,15 @@ class FakeServer {
   /// Mediendateien, die der Server nicht kennt (404)
   final missingMedia = <String>{};
 
+  /// Abgerufene Kacheln, z. B. /lykora/tiles/sieglar/16/34066/21995.png
+  final tileRequests = <String>[];
+
+  /// Welche Kacheln der Server hat; ohne Angabe jede. Alle anderen antworten mit 404.
+  bool Function(String pack, int z, int x, int y)? hasTile;
+
+  /// Antwort auf GET /api/tiles; null heißt: Der Server kennt die Route nicht (404).
+  List<Map<String, dynamic>>? tilePacks;
+
   /// WLAN mit Anmeldeseite: Jede Adresse liefert 200 und HTML.
   bool captivePortal = false;
 
@@ -106,6 +115,9 @@ class FakeServer {
   /// Hält den Abgleich an, bis der Test ihn freigibt, z. B. um mitten hinein anzustupsen.
   Completer<void>? holdSync;
 
+  /// Inhalt jeder Kachel: ein durchsichtiges PNG von 1 × 1 Pixel
+  static final tileBytes = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+
   /// Inhalt jeder Mediendatei: ein paar Bytes reichen, abgespielt wird im Test nichts.
   static final mediaBytes = utf8.encode('OggS-test');
   String status = 'running';
@@ -119,7 +131,8 @@ class FakeServer {
 
   http.Client client() => MockClient((req) async {
     if (!online) throw const SocketException('offline');
-    final isMedia = req.method == 'GET' && req.url.path.startsWith('/lykora/media/');
+    final isTile = req.method == 'GET' && req.url.path.startsWith('/lykora/tiles/');
+    final isMedia = isTile || (req.method == 'GET' && req.url.path.startsWith('/lykora/media/'));
     final path = isMedia ? req.url.path : req.url.path.replaceFirst('/lykora/api', '');
     calls.add('${req.method} $path');
     final delay = delayFor[path];
@@ -127,6 +140,14 @@ class FakeServer {
     if (captivePortal) return _html(200);
     if (htmlFor.containsKey(path) && _failing(path)) return _html(htmlFor[path]!);
     if (statusFor.containsKey(path) && _failing(path)) return http.Response('{"error":"x","message":"Server kaputt"}', statusFor[path]!);
+    if (isTile) {
+      tileRequests.add(req.url.path);
+      final m = RegExp(r'^/lykora/tiles/([^/]+)/(\d+)/(\d+)/(\d+)\.png$').firstMatch(req.url.path);
+      if (m == null || !(hasTile?.call(m[1]!, int.parse(m[2]!), int.parse(m[3]!), int.parse(m[4]!)) ?? true)) {
+        return http.Response('{"error":"not_found"}', 404, headers: {'content-type': 'application/json'});
+      }
+      return http.Response.bytes(tileBytes, 200, headers: {'content-type': 'image/png'});
+    }
     if (isMedia) {
       mediaRequests.add(req.url.path);
       if (missingMedia.contains(req.url.path)) return http.Response('{"error":"not_found"}', 404);
@@ -135,6 +156,9 @@ class FakeServer {
     if (path == '/play/uploads') {
       uploads.add({'id': req.url.queryParameters['id'], 'contentType': req.headers['content-type'], 'length': req.bodyBytes.length});
       return http.Response('{"received":true}', 201, headers: {'content-type': 'application/json'});
+    }
+    if (path == '/tiles' && req.method == 'GET' && tilePacks != null) {
+      return http.Response(jsonEncode(tilePacks), 200, headers: {'content-type': 'application/json'});
     }
     final body = req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
     Map<String, dynamic> res;
