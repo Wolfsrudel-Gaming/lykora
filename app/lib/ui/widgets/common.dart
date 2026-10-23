@@ -21,12 +21,15 @@ String coarseTime(double seconds) {
 }
 
 /// Kurzer Hinweis unten. Fehler sind nie rot: Rot gehört der Sicherheit.
+/// Mit Screenreader bleibt er länger stehen, damit er zu Ende vorgelesen wird.
 void showMessage(BuildContext context, String text, {bool error = false}) {
   final t = context.tok;
+  final slow = MediaQuery.accessibleNavigationOf(context);
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
+        duration: slow ? const Duration(seconds: 10) : const Duration(seconds: 4),
         content: Row(
           children: [
             Icon(error ? Icons.info_outline_rounded : Icons.check_rounded, color: error ? t.p.text : t.p.accent),
@@ -44,17 +47,17 @@ String reasonText(String? reason) => switch (reason) {
   'paused' => 'Das Spiel ist gerade pausiert.',
   'ended' => 'Das Spiel ist vorbei.',
   'time_up' => 'Die Zeit ist abgelaufen.',
-  'supervisor_required' => 'Ohne Betreuer geht es nicht los. Betreuer-PIN eingeben.',
+  'supervisor_required' => 'Ohne Betreuer geht es nicht los. Gebt die Betreuer-PIN ein.',
   'hidden' => 'Diese Station ist noch nicht freigeschaltet.',
   'locked' => 'Diese Station ist gesperrt.',
-  'fragments_missing' => 'Erst alle Teile des Codes sammeln.',
-  'not_triggered' => 'Erst die Station finden.',
-  'locked_out' => 'Das Schloss klemmt kurz. Gleich nochmal versuchen.',
+  'fragments_missing' => 'Sammelt erst alle Teile des Codes.',
+  'not_triggered' => 'Findet erst die Station.',
+  'locked_out' => 'Das Schloss klemmt kurz. Versucht es gleich nochmal.',
   'already_solved' => 'Schon gelöst.',
   'already_triggered' => 'Station ist schon offen.',
   'review_pending' => 'Wartet auf Prüfung durch die Spielleitung.',
   'finished' => 'Ihr seid schon im Ziel.',
   'hints_disabled' => 'Tipps sind in diesem Spiel aus.',
   'invalid_level' => 'Keine weiteren Tipps.',
-  _ => 'Das hat nicht geklappt.',
+  _ => 'Das hat nicht geklappt. Versucht es gleich nochmal.',
 };

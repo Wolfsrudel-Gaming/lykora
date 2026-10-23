@@ -7,13 +7,29 @@ import 'package:uuid/uuid.dart';
 
 import '../engine/geo.dart';
 import '../engine/team_state.dart';
+import '../engine/zones.dart';
 import '../model/game.dart';
 import 'api.dart';
 import 'session.dart';
 import '../services/live.dart';
 import '../services/nfc.dart' show normalizeTagId;
 
+export '../engine/zones.dart' show ZoneAlert;
+
 const _uuid = Uuid();
+
+/// Eine Position, die älter ist, gilt nicht mehr als aktuell (Ortung aus, Tunnel, dichter Wald).
+const positionStaleAfter = Duration(seconds: 20);
+
+/// Wartezeit zwischen den Versuchen, einen SOS zu senden: verdoppelt sich, bleibt aber knapp.
+const sosRetryFirst = Duration(seconds: 3);
+const sosRetryMax = Duration(seconds: 30);
+
+/// So viele Positionen gehen höchstens in einen Abgleich, damit er im schwachen Netz durchkommt.
+const maxPositionsPerSync = 500;
+
+/// Antworten, die länger brauchen, sagen nichts Genaues über die Uhr des Servers.
+const maxClockRoundTrip = Duration(seconds: 3);
 
 /// Name im Medienordner für einen nachgeladenen Cue, z. B. media/lib/eule.ogg → cue-lib-eule.ogg.
 /// Der ganze Pfad (bei URLs mit Host) geht ein, damit zwei Dateien gleichen Namens sich nicht überschreiben.
@@ -30,21 +46,6 @@ String cueFileName(String src) {
   return 'cue-${name.length > 120 ? name.substring(name.length - 120) : name}';
 }
 
-/// Warnung zu einer Sperrzone oder zur Spielfeldgrenze.
-class ZoneAlert {
-  ZoneAlert(this.message, {required this.inside, this.zone, this.distance = 0});
-  final String message;
-  final bool inside;
-
-  /// Die Sperrzone; null heißt Spielfeldgrenze
-  final RestrictedZone? zone;
-
-  /// Abstand zur Zone in Metern, 0 wenn drin
-  final double distance;
-
-  bool get boundary => zone == null;
-}
-
 /// Ergebnis einer Aktion für die Oberfläche.
 class ActionResult {
   ActionResult(this.outcome, this.state);
@@ -53,11 +54,82 @@ class ActionResult {
   bool get ok => outcome?.ok ?? false;
 }
 
+/// Wie ein SOS ausgegangen ist.
+enum SosOutcome {
+  /// Der Server hat den Alarm bestätigt.
+  delivered,
+
+  /// Noch nicht beim Server, aber gespeichert: Die App versucht es weiter (3 s, 6 s … höchstens alle 30 s).
+  queued,
+
+  /// Der Server hat den Alarm geprüft und abgelehnt. Er geht nicht mehr raus; Anruf und SMS bleiben der Weg.
+  rejected,
+
+  /// Nichts gesendet und nichts gespeichert, z. B. ohne Sitzung. Anruf und SMS bleiben der Weg.
+  failed,
+}
+
+/// Ergebnis von [GameController.sos] für die Oberfläche.
+class SosResult {
+  const SosResult(this.outcome, {this.id, this.reason, this.failure});
+  final SosOutcome outcome;
+
+  /// Kennung des Alarms, auch für [GameController.sosStatus] und [GameController.sosInfo]
+  final String? id;
+
+  /// Satz für die Oberfläche, warum es nicht geklappt hat; null bei [SosOutcome.delivered]
+  final String? reason;
+  final ApiFailureKind? failure;
+
+  bool get delivered => outcome == SosOutcome.delivered;
+
+  /// Nur dann darf die Seite „wird nachgeholt“ sagen.
+  bool get queued => outcome == SosOutcome.queued;
+  bool get rejected => outcome == SosOutcome.rejected;
+
+  /// Der Alarm ist nicht beim Server: Anruf und SMS sofort anbieten.
+  bool get needsFallback => !delivered;
+}
+
+enum SosPhase { queued, rejected, delivered }
+
+/// Stand eines SOS auf diesem Handy.
+class SosInfo {
+  const SosInfo(this.phase, {this.attempts = 0, this.lastAttemptAt, this.nextAttemptAt, this.reason});
+  final SosPhase phase;
+  final int attempts;
+  final DateTime? lastAttemptAt;
+
+  /// Nächster geplanter Versuch; null, wenn nichts mehr geplant ist
+  final DateTime? nextAttemptAt;
+  final String? reason;
+}
+
+/// Fortschritt beim Laden der Medien des Spiels (Klänge, Bilder).
+class MediaProgress {
+  const MediaProgress({this.total = 0, this.done = 0, this.bytes = 0, this.running = false});
+  final int total;
+
+  /// Dateien, die auf dem Gerät liegen
+  final int done;
+
+  /// Größe der Dateien auf dem Gerät in Byte
+  final int bytes;
+  final bool running;
+
+  int get missing => total - done;
+  bool get complete => missing <= 0;
+
+  /// 0 bis 1; ohne Medien 1
+  double get fraction => total == 0 ? 1 : done / total;
+}
+
 /// Hält die Sitzung, rechnet den Spielstand lokal und gleicht mit dem Server ab.
 ///
 /// Jede Handlung des Teams wird sofort lokal ausgewertet und gespeichert. Der Abgleich
 /// läuft im Hintergrund, sobald Netz da ist; der Server entscheidet am Ende.
 class GameController extends ChangeNotifier {
+  /// [clock] liefert die Uhrzeit des Handys in ms seit Epoche; alle Zeitentscheidungen laufen darüber, Tests stellen sie selbst.
   GameController({
     required this.store,
     Api Function(String server, String? token)? apiFactory,
@@ -65,7 +137,9 @@ class GameController extends ChangeNotifier {
     this.backgroundLoops = true,
     this.connectLive,
   }) : _apiFactory = apiFactory ?? ((s, t) => Api(s, token: t)),
-       _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
+       _deviceClock = clock ?? (() => DateTime.now().millisecondsSinceEpoch) {
+    _clock = ValueNotifier(_deviceClock());
+  }
 
   /// Abgleich, Sekundentakt und Anstupsen im Hintergrund; in Widget-Tests aus, weil dort die Zeit simuliert ist.
   final bool backgroundLoops;
@@ -85,6 +159,7 @@ class GameController extends ChangeNotifier {
   Api? _api;
   TeamState _state = TeamState();
   Timer? _syncTimer;
+  Timer? _sosTimer;
   Timer? _tick;
   LiveLink? _live;
   bool syncing = false;
@@ -92,21 +167,46 @@ class GameController extends ChangeNotifier {
   /// Während eines Abgleichs angestupst: direkt danach noch einmal abgleichen.
   bool _syncAgain = false;
   bool online = false;
+
+  /// Letzter Fehler beim Abgleich, auch wenn nur Nachrichten oder Fotos nicht durchkamen. Bleibt stehen, bis es wieder klappt.
   String? lastError;
+
+  /// Art des letzten Fehlers beim Abgleich; [ApiFailureKind.unauthorized] heißt: Dieses Handy ist nicht mehr angemeldet.
+  ApiFailureKind? lastFailure;
   int _failures = 0;
+
+  /// Was in diesem Abgleich bei Nachrichten oder Fotos schiefging
+  String? _flushError;
   Future<void> _saving = Future.value();
+
+  late final ValueNotifier<int> _clock;
+
+  /// Uhrzeit des Spiels in ms (Handy-Uhr plus Abweichung zum Server), jede Sekunde neu. Wer nur die Uhr anzeigt,
+  /// hört hier zu; der Controller selbst meldet sich nur bei echten Änderungen.
+  ValueListenable<int> get clock => _clock;
+  int _timeSignature = 0;
 
   GeoPoint? position;
   double? accuracy;
+
+  /// Zeitpunkt des Fixes laut Ortungsdienst
   DateTime? positionAt;
   GeoPoint? _lastRecorded;
   int _lastRecordedAt = 0;
   double? battery;
   ZoneAlert? zoneAlert;
+  final _zones = ZoneTracker();
+
+  /// Fehler des Ortungsstroms, sonst null. Verschwindet mit dem nächsten Fix.
+  String? locationError;
   final Map<String, int> _triggerAttempts = {};
 
   /// Laufende Downloads für Cues, damit zwei gleiche Cues die Datei nicht doppelt laden
   final _fetching = <String, Future<bool>>{};
+
+  /// Stand der Medien des Spiels auf dem Gerät und, solange [ensureMedia] läuft, der Fortschritt.
+  final mediaProgress = ValueNotifier<MediaProgress>(const MediaProgress());
+  Future<void>? _mediaTask;
 
   /// Gelaufener Weg der letzten 30 Minuten für die Fußspur auf der Karte
   final List<(GeoPoint, int)> trail = [];
@@ -129,6 +229,9 @@ class GameController extends ChangeNotifier {
   /// Uhrzeit, korrigiert um die Abweichung zur Server-Uhr.
   int now() => _deviceClock() + (session?.clockOffsetMs ?? 0);
 
+  /// Uhrzeit des Handys als Datum, für Zeitstempel, die nicht an den Server gehen.
+  DateTime _wallNow() => DateTime.fromMillisecondsSinceEpoch(_deviceClock());
+
   // ---------------------------------------------------------------------------
   // Start und Beitritt
 
@@ -145,36 +248,75 @@ class GameController extends ChangeNotifier {
     game = s.gameJson == null ? null : Game(s.gameJson!);
     gameId.value = game?.id;
     _api = _apiFactory(s.server, s.token);
+    _zones.reset();
+    _refreshMedia();
   }
+
+  /// Das Team steht auf dem Server, aber das Spielpaket fehlt noch (Beitritt abgebrochen): [downloadGame] holt es nach.
+  bool get needsPackage => hasSession && !hasGame;
 
   /// Startet den regelmäßigen Abgleich, die Zeitprüfung und die Verbindung, über die der Server anstupst.
   void startLoops() {
     if (!backgroundLoops) return;
     _tick?.cancel();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) => notifyListeners());
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => tick());
     _scheduleSync(const Duration(seconds: 1));
+    _scheduleSosRetry();
     final s = session;
     if (s != null && _live == null) {
       _live = LiveLink(uri: liveUri(s.server, s.token), onPoke: _onPoke, connect: connectLive)..start();
     }
+    if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
   }
 
   void stopLoops() {
     _tick?.cancel();
     _syncTimer?.cancel();
+    _sosTimer?.cancel();
     _live?.stop();
     _live = null;
   }
 
+  /// Die App kommt in den Vordergrund (oder das Netz ist zurück): gleich abgleichen, wartende SOS senden, Medien nachladen.
+  void onAppResumed() {
+    if (session == null) return;
+    _scheduleSync(const Duration(milliseconds: 300));
+    unawaited(flushSos(force: true));
+    if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
+  }
+
+  /// Ein Takt der Uhr: aktualisiert [clock] und meldet sich nur, wenn sich etwas Zeitabhängiges geändert hat
+  /// (Lebenszeichen fällig, Position veraltet, Zeit abgelaufen). Läuft sekündlich, in Tests von Hand.
+  void tick() {
+    _clock.value = now();
+    if (session == null || game == null) return;
+    final rest = remaining;
+    final signature = (heartbeatDue ? 1 : 0) | (positionFresh ? 2 : 0) | (rest != null && rest <= 0 ? 4 : 0);
+    if (signature != _timeSignature) {
+      _timeSignature = signature;
+      notifyListeners();
+    }
+  }
+
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     stopLoops();
     gameId.dispose();
+    mediaProgress.dispose();
+    _clock.dispose();
     _incoming.close();
     super.dispose();
   }
 
   /// Neues Team anlegen oder mit [deviceCode] einem bestehenden Team beitreten.
+  ///
+  /// Die Sitzung wird gespeichert, sobald der Server das Team angelegt hat, noch vor dem Spielpaket. Bricht der
+  /// Beitritt danach ab, setzt ein zweiter Aufruf mit demselben Server und Code die gespeicherte Sitzung fort,
+  /// statt ein zweites Team anzulegen. Mit [awaitMedia] false kehrt der Aufruf nach dem Spielpaket zurück;
+  /// die Medien laden dann im Hintergrund weiter (siehe [mediaProgress]).
   Future<void> join({
     required String server,
     required String code,
@@ -184,59 +326,124 @@ class GameController extends ChangeNotifier {
     List<String> members = const [],
     String? emergencyPhone,
     String? supervisorPin,
+    bool awaitMedia = true,
   }) async {
-    final api = _apiFactory(server, null);
-    final res = await api.join({
-      'code': code,
-      'deviceCode': ?deviceCode,
-      'device': Platform.operatingSystem,
-      if (deviceCode == null)
-        'team': {
-          'name': teamName,
-          'color': ?color,
-          'members': members,
-          if (emergencyPhone != null && emergencyPhone.isNotEmpty) 'emergencyPhone': emergencyPhone,
-          if (supervisorPin != null && supervisorPin.isNotEmpty) 'supervisorPin': supervisorPin,
-        },
-    });
-    final s = Session(
-      server: server,
-      token: res['token'] as String,
-      eventId: res['eventId'] as String,
-      eventCode: code,
-      team: (res['team'] as Map).cast<String, dynamic>(),
-    );
-    _attach(s);
-    await downloadGame();
+    final open = session;
+    final resume = open != null && open.gameJson == null && open.server == server && open.eventCode == code;
+    if (!resume) {
+      final api = _apiFactory(server, null);
+      final res = await api.join({
+        'code': code,
+        'deviceCode': ?deviceCode,
+        'device': Platform.operatingSystem,
+        if (deviceCode == null)
+          'team': {
+            'name': teamName,
+            'color': ?color,
+            'members': members,
+            if (emergencyPhone != null && emergencyPhone.isNotEmpty) 'emergencyPhone': emergencyPhone,
+            if (supervisorPin != null && supervisorPin.isNotEmpty) 'supervisorPin': supervisorPin,
+          },
+      });
+      if (res['token'] is! String || res['eventId'] is! String || res['team'] is! Map) {
+        throw ApiException(200, 'not_lykora', 'Hier antwortet kein Lykora-Server. Prüft die Adresse.', kind: ApiFailureKind.notLykora);
+      }
+      _attach(
+        Session(
+          server: server,
+          token: res['token'] as String,
+          eventId: res['eventId'] as String,
+          eventCode: code,
+          team: (res['team'] as Map).cast<String, dynamic>(),
+        ),
+      );
+      await _save();
+    }
+    await downloadGame(awaitMedia: awaitMedia);
   }
 
-  /// Lädt Spielpaket und Medien, damit das Spiel offline läuft.
-  Future<void> downloadGame() async {
+  /// Lädt das Spielpaket und danach die Medien, damit das Spiel offline läuft.
+  Future<void> downloadGame({bool awaitMedia = true}) async {
     final s = session!;
+    final sent = _deviceClock();
     final pkg = await _api!.game();
+    if (pkg['game'] is! Map || pkg['event'] is! Map || pkg['team'] is! Map) {
+      throw ApiException(200, 'not_lykora', 'Hier antwortet kein Lykora-Server. Prüft die Adresse.', kind: ApiFailureKind.notLykora);
+    }
     s.gameJson = (pkg['game'] as Map).cast<String, dynamic>();
     s.event = (pkg['event'] as Map).cast<String, dynamic>();
     s.team = (pkg['team'] as Map).cast<String, dynamic>();
     s.supervisorRequired = pkg['supervisorRequired'] as bool? ?? false;
-    _updateClock(pkg['serverTime'] as String?);
+    _updateClock(pkg['serverTime'] as String?, sent, _deviceClock());
     game = Game(s.gameJson!);
     gameId.value = game!.id;
-    await _downloadMedia();
+    _refreshMedia();
     _recompute();
+    // Das Paket steht, bevor die Medien kommen: Ein Abbruch beim Laden der Klänge kostet das Spiel nichts.
     await _save();
     notifyListeners();
+    final media = ensureMedia();
+    if (awaitMedia) await media;
   }
 
+  // ---------------------------------------------------------------------------
+  // Medien
+
+  /// Zählt, welche Medien des Spiels auf dem Gerät liegen.
+  void _refreshMedia({bool running = false}) {
+    if (_disposed) return;
+    final list = game?.mediaList ?? const [];
+    var done = 0;
+    var bytes = 0;
+    for (final m in list) {
+      final f = File('${store.mediaDir.path}/${m.id}');
+      if (f.existsSync()) {
+        done++;
+        bytes += f.lengthSync();
+      }
+    }
+    mediaProgress.value = MediaProgress(total: list.length, done: done, bytes: bytes, running: running);
+  }
+
+  /// Lädt die Medien nach, die noch fehlen. Mehrfaches Aufrufen startet keinen zweiten Lauf; fehlende Dateien
+  /// verhindern das Spiel nicht. Wird beim Beitritt, beim Start der Schleifen, bei Rückkehr in die App,
+  /// bei zurückgekehrtem Netz und per [retryMedia] aufgerufen.
+  Future<void> ensureMedia() => _mediaTask ??= _downloadMedia().whenComplete(() => _mediaTask = null);
+
+  /// Noch einmal versuchen, was fehlt (Knopf „Nochmal laden“).
+  Future<void> retryMedia() => ensureMedia();
+
+  /// Wartet auf den laufenden Medien-Lauf, falls einer läuft.
+  Future<void> waitForMedia() => _mediaTask ?? Future.value();
+
+  /// Anzahl der Medien, die auf dem Gerät noch fehlen.
+  int get missingMedia => mediaProgress.value.missing;
+
   Future<void> _downloadMedia() async {
-    final media = game!.mediaList;
-    if (media.isEmpty) return;
+    final s = session;
+    final api = _api;
+    final media = game?.mediaList ?? const [];
+    if (s == null || api == null || media.isEmpty) return;
+    _refreshMedia(running: true);
     final dir = store.mediaDir;
     await dir.create(recursive: true);
+    var failedInRow = 0;
     for (final m in media) {
+      // Nach leave() nichts mehr ablegen.
+      if (session != s) return;
       final file = File('${dir.path}/${m.id}');
-      // Fehlende Medien verhindern das Spiel nicht.
-      if (!await file.exists()) await _api!.download(m.src, file);
+      if (await file.exists()) continue;
+      if (await api.download(m.src, file)) {
+        failedInRow = 0;
+      } else if (++failedInRow >= 3) {
+        // Drei Fehlschläge hintereinander: wohl kein Netz. Der nächste Lauf versucht es wieder.
+        break;
+      }
+      if (session == s) _refreshMedia(running: true);
     }
+    if (session != s || _disposed) return;
+    _refreshMedia();
+    notifyListeners();
   }
 
   /// Datei einer Medien-ID aus dem Spielpaket, falls sie auf dem Gerät liegt.
@@ -263,6 +470,7 @@ class GameController extends ChangeNotifier {
     final ok = await (_fetching[file.path] ??= api.download(src, file).whenComplete(() {
       _fetching.remove(file.path);
     }));
+    if (ok && inGame) _refreshMedia(running: mediaProgress.value.running);
     return ok ? file : null;
   }
 
@@ -275,6 +483,9 @@ class GameController extends ChangeNotifier {
     _state = TeamState();
     trail.clear();
     peilTarget = null;
+    zoneAlert = null;
+    _zones.reset();
+    mediaProgress.value = const MediaProgress();
     // Ein Abgleich, der gerade speichert, darf die gelöschten Daten nicht wieder anlegen.
     await _saving;
     await store.clear();
@@ -345,7 +556,8 @@ class GameController extends ChangeNotifier {
   Future<ActionResult> record(String type, Json payload) async {
     final s = session!;
     final p = {...payload};
-    if (position != null && !p.containsKey('location')) {
+    // Ein veralteter Standort gehört nicht in eine Aktion: Der Server hielte ihn für den jetzigen.
+    if (position != null && positionFresh && !p.containsKey('location')) {
       p['location'] = {...position!.toJson(), if (accuracy != null) 'accuracy': accuracy};
     }
     final action = LocalAction(id: _uuid.v4(), type: type, payload: p, time: now());
@@ -380,12 +592,15 @@ class GameController extends ChangeNotifier {
         final match =
             (type == 'qr' && t.type == 'qr' && t.code == value) ||
             (type == 'nfc' && t.type == 'nfc' && normalizeTagId(t.tag ?? '') == normalizeTagId(value) && value.isNotEmpty) ||
-            (type == 'manual' && t.type == 'manual' && t.code == value);
+            (type == 'manual' && t.type == 'manual' && _sameCode(t.code, value));
         if (match) return trigger(s.id, type);
       }
     }
     return null;
   }
+
+  /// Manuell eingetippte Codes: Groß- und Kleinschreibung und Leerzeichen am Rand zählen nicht.
+  bool _sameCode(String? expected, String typed) => expected != null && expected.trim().toUpperCase() == typed.trim().toUpperCase();
 
   /// Betreuer mit der Betreuer-PIN bestätigen. Braucht Netz, weil nur der Server die PIN kennt.
   Future<void> confirmSupervisor(String pin) async {
@@ -443,8 +658,11 @@ class GameController extends ChangeNotifier {
     if (g == null) return null;
     final chosen = peilTarget == null ? null : g.station(peilTarget!);
     if (chosen != null && visibleStations.contains(chosen) && !_state.solved.containsKey(chosen.id)) return chosen;
-    final open = visibleStations.where((s) => !_state.solved.containsKey(s.id) && (!s.isFinal || fragmentsComplete())).toList();
+    var open = visibleStations.where((s) => !_state.solved.containsKey(s.id) && (!s.isFinal || fragmentsComplete())).toList();
     if (open.isEmpty) return null;
+    // Eine Station, die auf die Prüfung der Spielleitung wartet, hält den Peiler nicht fest. Bleibt nur sie übrig, zeigt er weiter dorthin.
+    final unreviewed = open.where((s) => !_state.pendingReviews.contains(s.id)).toList();
+    if (unreviewed.isNotEmpty) open = unreviewed;
     // Schon ausgelöst und ungelöst geht vor: dort wartet das Rätsel.
     final waiting = open.where((s) => _state.triggered.contains(s.id)).toList();
     if (waiting.isNotEmpty) return waiting.first;
@@ -464,7 +682,7 @@ class GameController extends ChangeNotifier {
 
   /// Funkspruch der Zentrale nur auf diesem Handy, z. B. die Beruhigung bei „Uns ist mulmig“.
   Future<void> addLocalRadio(String text, {String kind = 'story'}) async {
-    session!.messages.add(ChatMessage(direction: 'to_team', kind: kind, sender: 'hq', body: text, at: DateTime.now()));
+    session!.messages.add(ChatMessage(direction: 'to_team', kind: kind, sender: 'hq', body: text, at: _wallNow()));
     await _save();
     notifyListeners();
   }
@@ -507,14 +725,37 @@ class GameController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Position
 
+  /// Wie alt der letzte Fix ist; null, solange noch keiner kam.
+  Duration? get positionAge {
+    final at = positionAt;
+    if (at == null) return null;
+    final ms = _deviceClock() - at.millisecondsSinceEpoch;
+    return Duration(milliseconds: ms < 0 ? 0 : ms);
+  }
+
+  /// Es gibt einen Fix und er ist nicht älter als [positionStaleAfter]. Nur dann taugt die Position für Entscheidungen.
+  bool get positionFresh {
+    final age = positionAge;
+    return age != null && age <= positionStaleAfter;
+  }
+
+  /// Es gibt eine Position, aber sie ist veraltet („Signal verloren“).
+  bool get positionStale => position != null && !positionFresh;
+
   /// Neue GPS-Position vom Ortungsdienst.
   Future<void> onPosition(double lat, double lon, double acc, {DateTime? at}) async {
     final s = session;
     if (s == null || game == null) return;
+    final fixAt = at ?? _wallNow();
+    final last = positionAt;
+    // Ein Nachzügler, der älter ist als der letzte Fix, sagt nichts Neues.
+    if (last != null && fixAt.isBefore(last)) return;
     position = GeoPoint(lat, lon);
     accuracy = acc;
-    positionAt = at ?? DateTime.now();
-    final t = now();
+    positionAt = fixAt;
+    locationError = null;
+    final fresh = positionFresh;
+    final t = now() - positionAge!.inMilliseconds;
 
     // Laufspur sparsam aufzeichnen: alle 30 s oder nach 15 m.
     final moved = _lastRecorded == null ? double.infinity : distance(_lastRecorded!, position!);
@@ -530,8 +771,17 @@ class GameController extends ChangeNotifier {
       trail.removeAt(0);
     }
 
-    _checkZones();
-    if (eventRunning && started && !finished) await _autoTrigger(t);
+    // Ein alter Fix (zwischengespeichert beim Start der Ortung) löst weder Zonenalarm noch Station aus.
+    if (fresh) {
+      _checkZones();
+      if (eventRunning && started && !finished) await _autoTrigger(t);
+    }
+    notifyListeners();
+  }
+
+  /// Der Ortungsstrom meldet einen Fehler (Ortung ausgeschaltet, Erlaubnis entzogen).
+  void onPositionError(Object error) {
+    locationError = 'Die Ortung meldet einen Fehler. Ist der Standort eingeschaltet?';
     notifyListeners();
   }
 
@@ -550,26 +800,11 @@ class GameController extends ChangeNotifier {
   }
 
   void _checkZones() {
-    final g = game!;
-    ZoneAlert? alert;
-    for (final z in g.field.restrictedZones) {
-      final d = distanceToArea(position!, z.area);
-      final name = z.name.resolve(g.language);
-      if (d == 0) {
-        alert = ZoneAlert('Ihr seid in der Sperrzone „$name“. Geht sofort zurück.', inside: true, zone: z);
-        break;
-      }
-      if (d <= z.warnDistance && (alert == null || d < alert.distance)) {
-        alert = ZoneAlert('Achtung: $name in ${d.round()} m. Umkehren.', inside: false, zone: z, distance: d);
-      }
+    final update = _zones.update(game!, position!, accuracy ?? 0, _deviceClock());
+    zoneAlert = update.alert;
+    for (final kind in update.alarms) {
+      onAlert?.call(kind);
     }
-    final out = distanceToArea(position!, g.field.boundary);
-    if (alert == null && out > 0) {
-      alert = ZoneAlert('Ihr verlasst das Spielfeld. Umkehren.', inside: false, distance: out);
-    }
-    final changed = alert?.inside != zoneAlert?.inside || alert?.zone?.id != zoneAlert?.zone?.id || (alert == null) != (zoneAlert == null);
-    zoneAlert = alert;
-    if (changed && alert != null) onAlert?.call(alert.inside ? 'zone_inside' : 'zone_near');
   }
 
   // ---------------------------------------------------------------------------
@@ -577,58 +812,202 @@ class GameController extends ChangeNotifier {
 
   Future<void> sendMessage(String body, {String kind = 'chat'}) async {
     final s = session!;
-    final msg = ChatMessage(direction: 'from_team', kind: kind, body: body, at: DateTime.now(), clientId: _uuid.v4(), pending: true);
+    final msg = ChatMessage(direction: 'from_team', kind: kind, body: body, at: _wallNow(), clientId: _uuid.v4(), pending: true);
     s.messages.add(msg);
     await _save();
     notifyListeners();
     await _flushMessages();
   }
 
+  /// Schickt wartende Nachrichten. Ein Serverfehler oder fehlendes Netz lässt sie warten (der nächste Abgleich
+  /// versucht es wieder); nur eine Ablehnung des Servers verwirft sie, sichtbar als [ChatMessage.failed].
   Future<void> _flushMessages() async {
-    for (final m in session!.messages.where((m) => m.pending).toList()) {
+    final s = session;
+    if (s == null) return;
+    for (final m in s.messages.where((m) => m.pending && !m.failed).toList()) {
       try {
         await _api!.message({'id': m.clientId, 'body': m.body, 'kind': m.kind});
         m.pending = false;
       } on ApiException catch (e) {
-        if (e.offline) return;
+        _noteFlushFailure(e.retryable ? 'Nachricht noch nicht gesendet' : 'Nachricht nicht angenommen', e);
+        if (e.retryable) break;
         m.pending = false;
+        m.failed = true;
       }
     }
     await _save();
     notifyListeners();
   }
 
+  /// Merkt einen Fehler beim Senden von Nachrichten, Fotos oder SOS. Er bleibt in [lastError] stehen,
+  /// bis ein Abgleich ohne solche Fehler durchläuft.
+  void _noteFlushFailure(String what, ApiException e) {
+    _flushError = '$what: ${e.message}';
+    lastError = _flushError;
+    lastFailure = e.kind;
+    if (!e.reachable) online = false;
+  }
+
   // ---------------------------------------------------------------------------
   // SOS
 
-  /// Löst SOS aus. Gibt true zurück, wenn der Server den Alarm bestätigt hat.
-  /// Ohne Netz wird der Alarm gespeichert und beim nächsten Netzkontakt nachgeholt.
-  Future<bool> sos({String? message}) async {
-    final s = session!;
-    final record = {
+  /// Felder eines wartenden SOS, die nur auf dem Handy stehen und nicht zum Server gehen.
+  static const _sosLocalKeys = {'attempts', 'nextTryAt', 'lastAttemptAt', 'rejected', 'reason'};
+
+  Future<void> _sosLane = Future.value();
+
+  /// Alle Sendeversuche laufen nacheinander, damit derselbe Alarm nie zweimal gleichzeitig unterwegs ist.
+  Future<T> _inSosLane<T>(Future<T> Function() job) {
+    final next = _sosLane.then((_) => job());
+    _sosLane = next.then((_) {}, onError: (_) {});
+    return next;
+  }
+
+  /// Löst SOS aus.
+  ///
+  /// Der Alarm steht gespeichert in der Warteschlange, bevor das erste Mal gesendet wird; er übersteht damit
+  /// auch einen Absturz oder Prozessende mitten im Senden. Bestätigt der Server, ist er [SosOutcome.delivered].
+  /// Bei fehlendem Netz, Fehler 5xx, 401, 429, Zeitüberschreitung oder einer Anmeldeseite im WLAN bleibt er
+  /// [SosOutcome.queued] und wird mit wachsendem Abstand (3 s bis höchstens 30 s) wiederholt. Nur eine
+  /// Ablehnung durch den Server (400/422) ist [SosOutcome.rejected].
+  Future<SosResult> sos({String? message}) async {
+    final s = session;
+    if (s == null || _api == null) return const SosResult(SosOutcome.failed, reason: 'Keine Sitzung auf diesem Handy. Bitte anrufen.');
+    final entry = <String, dynamic>{
       'id': _uuid.v4(),
       'time': DateTime.fromMillisecondsSinceEpoch(now()).toUtc().toIso8601String(),
       if (position != null) 'lat': position!.lat,
       if (position != null) 'lon': position!.lon,
       if (accuracy != null) 'accuracy': accuracy,
       if (message != null && message.isNotEmpty) 'message': message,
+      'attempts': 0,
     };
-    // Damit die SOS-Seite zeigen kann, ob die Spielleitung den Alarm gelesen hat; gespeichert wird mit dem nächsten Abgleich.
-    s.lastSosId = record['id'] as String;
+    // Damit die SOS-Seite zeigen kann, ob die Spielleitung den Alarm gelesen hat.
+    s.lastSosId = entry['id'] as String;
+    s.pendingSos.add(entry);
+    await _save();
+    notifyListeners();
+    final result = await _inSosLane(() => _attemptSos(entry));
+    // Kam der Alarm durch, ist das Netz da: Älteres, das noch wartet, gleich mitschicken.
+    if (result.delivered && sosPending) unawaited(flushSos(force: true));
+    return result;
+  }
+
+  /// Wartende SOS senden. Ohne [force] nur die, deren Wartezeit abgelaufen ist.
+  Future<void> flushSos({bool force = false}) => _inSosLane(() async {
+    final s = session;
+    if (s == null) return;
+    for (final entry in s.pendingSos.toList()) {
+      if (entry['rejected'] == true) continue;
+      if (!force && (entry['nextTryAt'] as int? ?? 0) > _deviceClock()) continue;
+      final result = await _attemptSos(entry);
+      // Gescheitert heißt meist: kein Netz. Die übrigen scheitern genauso.
+      if (result.queued) break;
+    }
+    _scheduleSosRetry();
+  });
+
+  /// Ein Versuch für einen Eintrag der Warteschlange.
+  Future<SosResult> _attemptSos(Json entry) async {
+    final s = session;
+    final api = _api;
+    final id = entry['id'] as String;
+    if (s == null || api == null) return SosResult(SosOutcome.failed, id: id, reason: 'Keine Sitzung auf diesem Handy. Bitte anrufen.');
+    if (entry['rejected'] == true) return SosResult(SosOutcome.rejected, id: id, reason: entry['reason'] as String?);
+    // Ein früherer Durchlauf hat ihn schon zugestellt.
+    if (!s.pendingSos.contains(entry)) return SosResult(SosOutcome.delivered, id: id);
+    final attempts = (entry['attempts'] as int? ?? 0) + 1;
+    entry['attempts'] = attempts;
+    entry['lastAttemptAt'] = _deviceClock();
     try {
-      await _api!.sos(record);
-      return true;
-    } on ApiException catch (e) {
-      if (!e.offline) return false;
-      s.pendingSos.add({...record, 'deferred': true});
+      await api.sos({...entry}..removeWhere((k, _) => _sosLocalKeys.contains(k)));
+      s.pendingSos.remove(entry);
       await _save();
-      notifyListeners();
-      _scheduleSync(const Duration(seconds: 5));
-      return false;
+      if (!_disposed) notifyListeners();
+      return SosResult(SosOutcome.delivered, id: id);
+    } on ApiException catch (e) {
+      if (e.kind == ApiFailureKind.rejected && (e.status == 400 || e.status == 422)) {
+        entry['rejected'] = true;
+        entry['reason'] = e.message;
+        _noteFlushFailure('SOS nicht angenommen', e);
+        await _save();
+        if (!_disposed) notifyListeners();
+        return SosResult(SosOutcome.rejected, id: id, reason: e.message, failure: e.kind);
+      }
+      _noteFlushFailure('SOS noch nicht gesendet', e);
+      return _sosQueued(entry, attempts, e.message, e.kind);
+    } catch (_) {
+      return _sosQueued(entry, attempts, 'Der Alarm konnte nicht gesendet werden.', null);
     }
   }
 
-  bool get sosPending => session?.pendingSos.isNotEmpty ?? false;
+  Future<SosResult> _sosQueued(Json entry, int attempts, String reason, ApiFailureKind? kind) async {
+    // Beim Server heißt ein Alarm, der nicht beim ersten Versuch durchkam, „nachgeholt“.
+    entry['deferred'] = true;
+    entry['reason'] = reason;
+    entry['nextTryAt'] = _deviceClock() + _sosBackoff(attempts).inMilliseconds;
+    await _save();
+    if (!_disposed) notifyListeners();
+    _scheduleSosRetry();
+    return SosResult(SosOutcome.queued, id: entry['id'] as String, reason: reason, failure: kind);
+  }
+
+  /// 3 s, 6 s, 12 s, 24 s, dann alle 30 s.
+  Duration _sosBackoff(int attempts) {
+    final ms = sosRetryFirst.inMilliseconds * (1 << math.min(attempts - 1, 4));
+    return Duration(milliseconds: math.min(ms, sosRetryMax.inMilliseconds));
+  }
+
+  void _scheduleSosRetry() {
+    _sosTimer?.cancel();
+    final s = session;
+    if (!backgroundLoops || s == null || _disposed) return;
+    int? next;
+    for (final entry in s.pendingSos) {
+      if (entry['rejected'] == true) continue;
+      final at = entry['nextTryAt'] as int? ?? 0;
+      if (next == null || at < next) next = at;
+    }
+    if (next == null) return;
+    _sosTimer = Timer(Duration(milliseconds: math.max(next - _deviceClock(), 500)), () => flushSos());
+  }
+
+  /// Es wartet mindestens ein SOS auf Zustellung.
+  bool get sosPending => sosQueueLength > 0;
+
+  /// Anzahl der SOS, die gespeichert sind und noch zum Server müssen.
+  int get sosQueueLength => session?.pendingSos.where((e) => e['rejected'] != true).length ?? 0;
+
+  /// Anzahl der SOS, die der Server abgelehnt hat. Sie gehen nicht mehr raus; Anruf und SMS bleiben der Weg.
+  int get sosRejectedCount => session?.pendingSos.where((e) => e['rejected'] == true).length ?? 0;
+
+  /// Zeitpunkt des letzten Sendeversuchs für ein wartendes SOS; null, wenn keins wartet.
+  DateTime? get sosLastAttemptAt {
+    int? last;
+    for (final e in session?.pendingSos ?? const <Json>[]) {
+      final at = e['lastAttemptAt'] as int?;
+      if (at != null && (last == null || at > last)) last = at;
+    }
+    return last == null ? null : DateTime.fromMillisecondsSinceEpoch(last);
+  }
+
+  /// Stand eines SOS auf diesem Handy: wartet, abgelehnt oder zugestellt. Null ohne Kennung.
+  SosInfo? sosInfo(String? id) {
+    if (id == null || session == null) return null;
+    for (final e in session!.pendingSos) {
+      if (e['id'] != id) continue;
+      final rejected = e['rejected'] == true;
+      DateTime? at(Object? ms) => ms is int ? DateTime.fromMillisecondsSinceEpoch(ms) : null;
+      return SosInfo(
+        rejected ? SosPhase.rejected : SosPhase.queued,
+        attempts: e['attempts'] as int? ?? 0,
+        lastAttemptAt: at(e['lastAttemptAt']),
+        nextAttemptAt: rejected ? null : at(e['nextTryAt']),
+        reason: e['reason'] as String?,
+      );
+    }
+    return const SosInfo(SosPhase.delivered);
+  }
 
   /// Stand eines SOS laut letztem Abgleich (acknowledgedAt, resolvedAt, acknowledgedBy); null, solange der Server nichts meldet.
   Json? sosStatus(String? clientId) {
@@ -661,8 +1040,11 @@ class GameController extends ChangeNotifier {
     return id;
   }
 
+  /// Schickt wartende Fotos. Bei Netz- oder Serverfehler bleibt die Datei liegen und der nächste Abgleich versucht es
+  /// wieder; nur eine Ablehnung (Typ oder Größe) verwirft sie, und das Team erfährt es im Funkprotokoll.
   Future<void> _flushUploads() async {
-    final s = session!;
+    final s = session;
+    if (s == null) return;
     for (final u in s.pendingUploads.toList()) {
       final file = File('${store.uploadsDir.path}/${u['id']}');
       if (!await file.exists()) {
@@ -672,9 +1054,9 @@ class GameController extends ChangeNotifier {
       try {
         await _api!.upload(u['id'] as String, u['contentType'] as String, await file.readAsBytes());
       } on ApiException catch (e) {
-        if (e.offline) rethrow;
-        // Datei passt nicht (Typ oder Größe): verwerfen statt ewig neu zu versuchen.
-        lastError = 'Foto nicht angenommen: ${e.message}';
+        _noteFlushFailure(e.retryable ? 'Foto noch nicht gesendet' : 'Foto nicht angenommen', e);
+        if (e.retryable) break;
+        await addLocalRadio('Ein Foto wurde nicht angenommen: ${e.message}');
       }
       s.pendingUploads.remove(u);
       await file.delete();
@@ -705,20 +1087,15 @@ class GameController extends ChangeNotifier {
     if (s == null || syncing) return;
     syncing = true;
     final wasOnline = online;
+    _flushError = null;
     notifyListeners();
     try {
-      for (final sos in s.pendingSos.toList()) {
-        try {
-          await _api!.sos(sos);
-          s.pendingSos.remove(sos);
-        } on ApiException catch (e) {
-          // Ohne Netz abbrechen; lehnt der Server ab, bleibt der Alarm sichtbar, blockiert aber den Abgleich nicht.
-          if (e.offline) rethrow;
-          lastError = 'SOS abgelehnt: ${e.message}';
-        }
-      }
+      await flushSos(force: true);
       final unsynced = s.actions.where((a) => !a.synced && a.source == 'team').toList();
-      final positions = [...s.pendingPositions];
+      // Große Rückstände gehen in Stücken, damit der Abgleich im schwachen Netz durchkommt.
+      final positions = s.pendingPositions.take(maxPositionsPerSync).toList();
+      final moreToSend = s.pendingPositions.length > positions.length;
+      final sent = _deviceClock();
       final res = await _api!.sync({
         'deviceTime': DateTime.fromMillisecondsSinceEpoch(now()).toUtc().toIso8601String(),
         'actions': [
@@ -730,25 +1107,34 @@ class GameController extends ChangeNotifier {
         'messagesAfter': s.messageCursor,
         'actionsAfter': s.actionCursor,
       });
-      _applySync(res, positions.length);
+      _applySync(res, positions.length, sent, _deviceClock());
+      // Der Rest des Rückstands geht gleich hinterher, aber nur, wenn dieser Teil durchgekommen ist.
+      if (moreToSend) _syncAgain = true;
+      online = true;
+      lastFailure = null;
       await _flushMessages();
       await _flushUploads();
-      online = true;
-      lastError = null;
-      _failures = 0;
-      // Netz wieder da: Die Verbindung zum Anstupsen muss nicht erst ihre Pause abwarten.
-      if (!wasOnline) _live?.wake();
+      // Fehler beim Senden von Nachrichten und Fotos bleiben stehen, bis sie behoben sind.
+      lastError = _flushError;
+      _failures = _flushError == null ? 0 : _failures + 1;
+      if (!wasOnline && online) {
+        // Netz wieder da: Die Verbindung zum Anstupsen muss nicht erst ihre Pause abwarten, fehlende Medien kommen nach.
+        _live?.wake();
+        if (hasGame && !mediaProgress.value.complete) unawaited(ensureMedia());
+      }
     } on ApiException catch (e) {
-      online = !e.offline;
+      online = e.reachable;
       lastError = e.message;
+      lastFailure = e.kind;
       _failures++;
     } catch (e) {
-      lastError = '$e';
+      debugPrint('Abgleich fehlgeschlagen: $e');
+      lastError = 'Der Abgleich ist fehlgeschlagen.';
       _failures++;
     } finally {
       syncing = false;
       await _save();
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       // Mit Netz alle 15 s, ohne Netz seltener, um Akku zu sparen.
       final delay = _failures == 0 ? 15 : math.min(15 * (1 << math.min(_failures, 3)), 120);
       final again = _syncAgain;
@@ -758,9 +1144,9 @@ class GameController extends ChangeNotifier {
     }
   }
 
-  void _applySync(Json res, int sentPositions) {
+  void _applySync(Json res, int sentPositions, int sentAt, int receivedAt) {
     final s = session!;
-    _updateClock(res['serverTime'] as String?);
+    _updateClock(res['serverTime'] as String?, sentAt, receivedAt);
     final previousStatus = s.eventStatus;
     s.event = (res['event'] as Map).cast<String, dynamic>();
     if (res['team'] is Map) {
@@ -820,7 +1206,7 @@ class GameController extends ChangeNotifier {
     s.leaderboard = (res['leaderboard'] as List?)?.cast<Map>().map((m) => m.cast<String, dynamic>()).toList();
     s.serverState = (res['state'] as Map?)?.cast<String, dynamic>();
     s.recall = (res['recall'] as Map?)?.cast<String, dynamic>();
-    s.lastSyncAt = DateTime.now();
+    s.lastSyncAt = _wallNow();
     if (s.eventStatus == 'recalled' && previousStatus != 'recalled') {
       s.recallAcknowledged = false;
       onAlert?.call('recall');
@@ -829,9 +1215,12 @@ class GameController extends ChangeNotifier {
     _recompute();
   }
 
-  void _updateClock(String? serverTime) {
+  /// Setzt die Abweichung zur Server-Uhr aus der Mitte zwischen Senden und Empfang. Antworten, die lange brauchten,
+  /// sagen nichts Genaues und werden übersprungen.
+  void _updateClock(String? serverTime, int sentAt, int receivedAt) {
     if (serverTime == null || session == null) return;
-    session!.clockOffsetMs = DateTime.parse(serverTime).millisecondsSinceEpoch - _deviceClock();
+    if (receivedAt - sentAt > maxClockRoundTrip.inMilliseconds) return;
+    session!.clockOffsetMs = DateTime.parse(serverTime).millisecondsSinceEpoch - (sentAt + receivedAt) ~/ 2;
   }
 
   int get unsyncedCount => session?.actions.where((a) => !a.synced && a.source == 'team').length ?? 0;

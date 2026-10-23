@@ -80,6 +80,12 @@ class Fx extends ChangeNotifier {
 
   bool vibration = true;
 
+  /// Nur für Tests: meldet jede Vibration und jedes Geräusch, das die Schalter durchlässt, auch wenn Plugins fehlen.
+  @visibleForTesting
+  void Function(Buzz b)? onBuzz;
+  @visibleForTesting
+  void Function(Sound s)? onPlay;
+
   /// Spielt eine eigene Aufnahme des Spiels statt des eingebauten Geräuschs und gibt dann true zurück.
   /// Setzt die Klanglandschaft, solange ein Spiel geladen ist.
   bool Function(Sound sound, double volume)? custom;
@@ -123,6 +129,7 @@ class Fx extends ChangeNotifier {
 
   Future<void> play(Sound s, {double volume = 0.8}) async {
     if (!sound || (_safetyActive && s != Sound.safety)) return;
+    onPlay?.call(s);
     if (custom?.call(s, volume) ?? false) return;
     if (!enabled) return;
     try {
@@ -131,8 +138,9 @@ class Fx extends ChangeNotifier {
   }
 
   Future<void> buzz(Buzz b) async {
-    if (!enabled) return;
     if (!vibration && b != Buzz.safety) return;
+    onBuzz?.call(b);
+    if (!enabled) return;
     try {
       switch (b) {
         case Buzz.tick:

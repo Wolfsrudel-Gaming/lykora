@@ -7,70 +7,189 @@ import 'package:http/http.dart' as http;
 
 import '../model/game.dart';
 
+/// Woran eine Anfrage gescheitert ist. Davon hängt ab, ob ein späterer Versuch Sinn hat.
+enum ApiFailureKind {
+  /// Kein Netz oder Server nicht erreichbar
+  offline,
+
+  /// Keine Antwort in der erlaubten Zeit
+  timeout,
+
+  /// Fehler 5xx, z. B. 502/503/504 hinter dem Reverse-Proxy
+  server,
+
+  /// 401: Token ungültig oder abgelaufen
+  unauthorized,
+
+  /// 408/429: später noch einmal
+  rateLimited,
+
+  /// Antwort ist kein Lykora-JSON: Anmeldeseite im WLAN, falsche Adresse, Weiterleitung
+  notLykora,
+
+  /// Die Server-Adresse ist als Adresse unbrauchbar
+  badAddress,
+
+  /// 404 des Lykora-Servers: Event oder Team unbekannt
+  notFound,
+
+  /// Anderer 4xx: Der Server hat die Eingabe geprüft und abgelehnt
+  rejected,
+}
+
 class ApiException implements Exception {
-  ApiException(this.status, this.code, this.message);
+  ApiException(this.status, this.code, this.message, {ApiFailureKind? kind}) : kind = kind ?? (status == 0 ? ApiFailureKind.offline : ApiFailureKind.rejected);
+
+  /// HTTP-Status, 0 ohne Antwort
   final int status;
   final String code;
-  final String message;
 
-  /// Kein Netz oder Server nicht erreichbar.
-  bool get offline => status == 0;
+  /// Satz für die Oberfläche
+  final String message;
+  final ApiFailureKind kind;
+
+  /// Kein Netz oder keine Antwort in der Zeit.
+  bool get offline => kind == ApiFailureKind.offline || kind == ApiFailureKind.timeout;
+
+  /// Ein späterer Versuch kann gelingen. Nur eine Ablehnung des Servers (4xx) und eine unbrauchbare Adresse nicht.
+  bool get retryable => switch (kind) {
+    ApiFailureKind.badAddress || ApiFailureKind.notFound || ApiFailureKind.rejected => false,
+    _ => true,
+  };
+
+  /// Ein Lykora-Server hat geantwortet, auch wenn er die Anfrage ablehnt.
+  bool get reachable => switch (kind) {
+    ApiFailureKind.unauthorized || ApiFailureKind.rateLimited || ApiFailureKind.notFound || ApiFailureKind.rejected => true,
+    _ => false,
+  };
 
   @override
   String toString() => message;
 }
 
+/// Kurzname, unter dem die Fehlerart in der Oberfläche auftaucht.
+typedef ApiFailure = ApiException;
+
 /// Zugriff auf die Spieler-Schnittstelle des Servers (server/src/routes/play.ts).
 class Api {
-  Api(this.server, {this.token, http.Client? client}) : _client = client ?? http.Client();
+  Api(this.server, {this.token, http.Client? client, this.connectTimeout = const Duration(seconds: 15), this.idleTimeout = const Duration(seconds: 20)})
+    : _client = client ?? http.Client();
 
   /// Adresse inklusive Basispfad, z. B. https://riegel-troisdorf.de/lykora
   final String server;
   String? token;
   final http.Client _client;
-  static const timeout = Duration(seconds: 12);
+
+  /// So lange darf es dauern, bis der Server überhaupt antwortet (Verbindung, Anfrage, erste Zeile).
+  final Duration connectTimeout;
+
+  /// So lange darf der Strom der Antwort oder einer Datei stillstehen. Es zählt der Fortschritt, nicht die Gesamtdauer.
+  final Duration idleTimeout;
+
+  /// Mindest-Datenrate in Byte/s, auf die das Zeitlimit beim Hochladen ausgelegt ist (etwa 50 kbit/s).
+  static const uploadRate = 6 * 1024;
+
+  /// Kürzeres Limit für den Notruf: scheitert er, steht er in der Warteschlange und der nächste Versuch kommt bald.
+  static const sosTimeout = Duration(seconds: 10);
+
+  /// Ist [server] eine Adresse, mit der sich Anfragen bauen lassen (http oder https mit Host)?
+  static bool isValidServer(String server) {
+    final uri = Uri.tryParse(server.trim());
+    return uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
+  }
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    final base = server.endsWith('/') ? server.substring(0, server.length - 1) : server;
+    if (!isValidServer(server)) throw ApiException(0, 'bad_address', 'Die Server-Adresse ist ungültig.', kind: ApiFailureKind.badAddress);
+    final trimmed = server.trim();
+    final base = trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
     return Uri.parse('$base/api$path').replace(queryParameters: query);
   }
 
   Map<String, String> get _headers => {'content-type': 'application/json', if (token != null) 'authorization': 'Bearer $token'};
 
-  Future<Json> _send(Future<http.Response> Function() request) async {
-    http.Response res;
+  /// Schickt eine Anfrage und liest die Antwort als JSON-Objekt.
+  ///
+  /// Das Limit bis zur Antwort wächst mit der Größe der Anfrage; die Antwort darf beliebig lange laufen,
+  /// solange sie nicht stillsteht. Bei Zeitüberschreitung wird die Anfrage abgebrochen.
+  Future<Json> _send(String method, String path, {Object? body, Map<String, String>? query, Map<String, String>? headers, Duration? connect}) async {
+    final abort = Completer<void>();
     try {
-      res = await request().timeout(timeout);
+      final request = http.AbortableRequest(method, _uri(path, query), abortTrigger: abort.future)..headers.addAll(headers ?? _headers);
+      if (body is Uint8List) {
+        request.bodyBytes = body;
+      } else if (body != null) {
+        request.body = jsonEncode(body);
+      }
+      final limit = (connect ?? connectTimeout) + Duration(milliseconds: 1000 * request.contentLength ~/ uploadRate);
+      final res = await _client.send(request).timeout(limit);
+      final bytes = await http.ByteStream(res.stream.timeout(idleTimeout)).toBytes();
+      return _parse(res.statusCode, bytes);
+    } on ApiException {
+      rethrow;
     } on TimeoutException {
-      throw ApiException(0, 'offline', 'Server antwortet nicht');
+      if (!abort.isCompleted) abort.complete();
+      throw ApiException(0, 'timeout', 'Der Server antwortet zu langsam.', kind: ApiFailureKind.timeout);
     } catch (_) {
-      throw ApiException(0, 'offline', 'Keine Verbindung zum Server');
+      throw ApiException(0, 'offline', 'Kein Empfang. Eure Eingaben warten und werden nachgeschickt.');
     }
-    final body = res.body.isEmpty ? <String, dynamic>{} : jsonDecode(utf8.decode(res.bodyBytes));
-    if (res.statusCode >= 400) {
-      final map = body is Map ? body : const {};
-      throw ApiException(res.statusCode, map['error'] as String? ?? 'error', map['message'] as String? ?? 'Fehler ${res.statusCode}');
-    }
-    return body is Map<String, dynamic> ? body : {'items': body};
   }
 
-  Future<Json> get(String path) => _send(() => _client.get(_uri(path), headers: _headers));
-  Future<Json> post(String path, Object body) => _send(() => _client.post(_uri(path), headers: _headers, body: jsonEncode(body)));
-  Future<Json> put(String path, Object body) => _send(() => _client.put(_uri(path), headers: _headers, body: jsonEncode(body)));
+  Json _parse(int status, List<int> bytes) {
+    final text = utf8.decode(bytes, allowMalformed: true);
+    Object? body;
+    var json = false;
+    if (text.trim().isNotEmpty) {
+      try {
+        body = jsonDecode(text);
+        json = true;
+      } on FormatException {
+        // Anmeldeseite oder Fehlerseite des Proxys
+      }
+    }
+    final map = body is Map ? body : const {};
+    if (status >= 200 && status < 300) {
+      // Eine Anmeldeseite im WLAN (Captive Portal) antwortet mit 200 und HTML.
+      if (text.trim().isNotEmpty && !json) throw _notLykora(status);
+      return body is Map<String, dynamic> ? body : {'items': ?body};
+    }
+    if (status >= 300 && status < 400) throw _notLykora(status);
+    final code = map['error'] is String ? map['error'] as String : 'error';
+    if (status == 401) throw ApiException(status, code, 'Dieses Handy ist nicht mehr angemeldet.', kind: ApiFailureKind.unauthorized);
+    if (status == 408 || status == 429) throw ApiException(status, code, 'Zu viele Anfragen. Gleich noch einmal.', kind: ApiFailureKind.rateLimited);
+    if (status >= 500) throw ApiException(status, code, 'Der Server hat gerade ein Problem (Fehler $status).', kind: ApiFailureKind.server);
+    if (!json) throw _notLykora(status);
+    throw ApiException(
+      status,
+      code,
+      map['message'] is String ? map['message'] as String : 'Fehler $status',
+      kind: status == 404 ? ApiFailureKind.notFound : ApiFailureKind.rejected,
+    );
+  }
+
+  ApiException _notLykora(int status) => ApiException(
+    status,
+    'not_lykora',
+    'Hier antwortet kein Lykora-Server. Prüft die Adresse und ob das WLAN eine Anmeldeseite hat.',
+    kind: ApiFailureKind.notLykora,
+  );
+
+  Future<Json> get(String path) => _send('GET', path);
+  Future<Json> post(String path, Object body) => _send('POST', path, body: body);
+  Future<Json> put(String path, Object body) => _send('PUT', path, body: body);
 
   Future<Json> join(Json body) => post('/join', body);
   Future<Json> game() => get('/play/game');
   Future<Json> sync(Json body) => post('/play/sync', body);
-  Future<Json> sos(Json body) => post('/play/sos', body);
+  Future<Json> sos(Json body) => _send('POST', '/play/sos', body: body, connect: connectTimeout < sosTimeout ? connectTimeout : sosTimeout);
   Future<Json> message(Json body) => post('/play/messages', body);
   Future<Json> confirmSupervisor(String pin) => post('/play/supervisor', {'pin': pin});
 
   Future<Json> upload(String id, String contentType, Uint8List bytes) => _send(
-    () => _client.post(
-      _uri('/play/uploads', {'id': id}),
-      headers: {'content-type': contentType, if (token != null) 'authorization': 'Bearer $token'},
-      body: bytes,
-    ),
+    'POST',
+    '/play/uploads',
+    query: {'id': id},
+    body: bytes,
+    headers: {'content-type': contentType, if (token != null) 'authorization': 'Bearer $token'},
   );
 
   /// Adresse einer Mediendatei: [src] ist relativ zur Server-Adresse (media/…) oder eine URL.
@@ -86,8 +205,9 @@ class Api {
   /// öffentlich; der Gerätetoken geht deshalb nicht mit, auch nicht an fremde Adressen.
   Future<bool> download(String src, File file) async {
     final part = File('${file.path}.part');
+    final abort = Completer<void>();
     try {
-      final res = await _client.send(http.Request('GET', mediaUri(src))).timeout(timeout);
+      final res = await _client.send(http.AbortableRequest('GET', mediaUri(src), abortTrigger: abort.future)).timeout(connectTimeout);
       // Eine Anmeldeseite im WLAN (Captive Portal) antwortet mit 200 und HTML; die wäre sonst als Klang gespeichert.
       if (res.statusCode != 200 || (res.headers['content-type'] ?? '').startsWith('text/html')) {
         await res.stream.drain<void>();
@@ -95,14 +215,15 @@ class Api {
       }
       final sink = part.openWrite();
       try {
-        // Reißt der Strom ab, nicht ewig warten.
-        await sink.addStream(res.stream.timeout(const Duration(seconds: 30)));
+        // Reißt der Strom ab, nicht ewig warten; eine große Datei darf lange laufen, solange Daten kommen.
+        await sink.addStream(res.stream.timeout(idleTimeout));
       } finally {
         await sink.close();
       }
       await part.rename(file.path);
       return true;
     } catch (_) {
+      if (!abort.isCompleted) abort.complete();
       try {
         if (await part.exists()) await part.delete();
       } catch (_) {}

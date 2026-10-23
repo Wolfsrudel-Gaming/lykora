@@ -29,11 +29,13 @@ class LocationService {
     }
   }
 
-  Future<void> start(void Function(Position p) onPosition) async {
+  /// [onError] bekommt Fehler des Ortungsstroms (Ortung ausgeschaltet, Erlaubnis entzogen), damit sie nicht verschwinden.
+  Future<void> start(void Function(Position p) onPosition, {void Function(Object error)? onError}) async {
     if (running) return;
     final settings = AndroidSettings(
       accuracy: LocationAccuracy.best,
-      distanceFilter: 3,
+      // Ohne Abstandsfilter kommt alle 5 s ein Fix, auch wenn das Team steht; so zeigt das Alter der Position, ob die Ortung lebt.
+      distanceFilter: 0,
       intervalDuration: const Duration(seconds: 5),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'Lykora läuft',
@@ -42,7 +44,7 @@ class LocationService {
         setOngoing: true,
       ),
     );
-    _sub = Geolocator.getPositionStream(locationSettings: settings).listen(onPosition, onError: (_) {});
+    _sub = Geolocator.getPositionStream(locationSettings: settings).listen(onPosition, onError: onError ?? (_) {});
   }
 
   Future<void> stop() async {

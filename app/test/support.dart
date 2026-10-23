@@ -15,7 +15,12 @@ final gameJson = jsonDecode(File('../spec/v0.1/examples/testspiel.json').readAsS
 
 /// Nachgebauter Server mit umschaltbarem Netz.
 class FakeServer {
-  FakeServer({Map<String, dynamic>? game}) : game = game ?? gameJson;
+  /// [now] ist die Uhr des Servers; Tests mit eigener Handy-Uhr geben dieselbe hier an.
+  FakeServer({Map<String, dynamic>? game, DateTime Function()? now}) : game = game ?? gameJson, now = now ?? DateTime.now {
+    startedAt = this.now().toUtc().subtract(const Duration(minutes: 1)).toIso8601String();
+  }
+
+  final DateTime Function() now;
 
   /// Spielpaket, das der Server ausliefert
   final Map<String, dynamic> game;
@@ -42,34 +47,108 @@ class FakeServer {
   /// WLAN mit Anmeldeseite: Jede Adresse liefert 200 und HTML.
   bool captivePortal = false;
 
+  /// Antwortet auf diese Pfade (z. B. /play/sos, /play/messages, /play/uploads, /join, /media/lib/wind.ogg) mit
+  /// einem Fehlerstatus, bis der Eintrag fehlt: 500er, 401, 429, 400. Mit [failTimes] nur die ersten Male.
+  final statusFor = <String, int>{};
+
+  /// Wie oft ein Eintrag in [statusFor] und [htmlFor] noch gilt; ohne Eintrag unbegrenzt.
+  final failTimes = <String, int>{};
+
+  /// Antwortet auf diese Pfade mit HTML und dem Status (200 wie eine Anmeldeseite, 502 wie ein Proxy).
+  final htmlFor = <String, int>{};
+
+  /// Verzögert die Antwort auf diese Pfade, z. B. um ein Zeitlimit zu treffen.
+  final delayFor = <String, Duration>{};
+
+  /// Alle Anfragen in der Reihenfolge, als „METHODE /pfad“ ohne Basispfad.
+  final calls = <String>[];
+
+  /// Hochgeladene Dateien: id, contentType, Länge
+  final uploads = <Map<String, dynamic>>[];
+
+  /// Wie oft /join aufgerufen wurde und wie viele Teams dabei entstanden sind.
+  int joinCalls = 0;
+  final teamNames = <String>[];
+
+  /// Wie der echte Server: Ein zweites Team mit demselben Namen wird mit 409 abgelehnt.
+  bool uniqueTeamNames = false;
+
+  /// Setzt [statusFor] für [path]; mit [times] gilt es nur für die nächsten Anfragen.
+  void fail(String path, int status, {int? times}) {
+    statusFor[path] = status;
+    if (times != null) failTimes[path] = times;
+  }
+
+  /// Nimmt alle Fehler und Verzögerungen zurück.
+  void heal() {
+    statusFor.clear();
+    htmlFor.clear();
+    failTimes.clear();
+    delayFor.clear();
+    captivePortal = false;
+    rejectSos = false;
+    online = true;
+  }
+
+  bool _failing(String path) {
+    final left = failTimes[path];
+    if (left == null) return true;
+    if (left <= 0) {
+      statusFor.remove(path);
+      htmlFor.remove(path);
+      failTimes.remove(path);
+      return false;
+    }
+    failTimes[path] = left - 1;
+    return true;
+  }
+
   /// Hält den Abgleich an, bis der Test ihn freigibt, z. B. um mitten hinein anzustupsen.
   Completer<void>? holdSync;
 
   /// Inhalt jeder Mediendatei: ein paar Bytes reichen, abgespielt wird im Test nichts.
   static final mediaBytes = utf8.encode('OggS-test');
   String status = 'running';
-  final startedAt = DateTime.now().toUtc().subtract(const Duration(minutes: 1)).toIso8601String();
+  late final String startedAt;
   int seq = 0;
 
   Map<String, dynamic> get event => {'id': 'ev1', 'name': 'Test', 'status': status, 'startedAt': startedAt, 'endedAt': null, 'pauses': []};
   Map<String, dynamic> team = {'id': 't1', 'name': 'Füchse', 'deviceCode': 'AB3D', 'supervisorPresent': true, 'members': []};
 
+  http.Response _html(int status) => http.Response('<html>Bitte anmelden</html>', status, headers: {'content-type': 'text/html; charset=utf-8'});
+
   http.Client client() => MockClient((req) async {
     if (!online) throw const SocketException('offline');
-    if (captivePortal) return http.Response('<html>Bitte anmelden</html>', 200, headers: {'content-type': 'text/html; charset=utf-8'});
-    if (req.method == 'GET' && req.url.path.startsWith('/lykora/media/')) {
+    final isMedia = req.method == 'GET' && req.url.path.startsWith('/lykora/media/');
+    final path = isMedia ? req.url.path : req.url.path.replaceFirst('/lykora/api', '');
+    calls.add('${req.method} $path');
+    final delay = delayFor[path];
+    if (delay != null) await Future<void>.delayed(delay);
+    if (captivePortal) return _html(200);
+    if (htmlFor.containsKey(path) && _failing(path)) return _html(htmlFor[path]!);
+    if (statusFor.containsKey(path) && _failing(path)) return http.Response('{"error":"x","message":"Server kaputt"}', statusFor[path]!);
+    if (isMedia) {
       mediaRequests.add(req.url.path);
       if (missingMedia.contains(req.url.path)) return http.Response('{"error":"not_found"}', 404);
       return http.Response.bytes(mediaBytes, 200, headers: {'content-type': 'audio/ogg'});
     }
+    if (path == '/play/uploads') {
+      uploads.add({'id': req.url.queryParameters['id'], 'contentType': req.headers['content-type'], 'length': req.bodyBytes.length});
+      return http.Response('{"received":true}', 201, headers: {'content-type': 'application/json'});
+    }
     final body = req.body.isEmpty ? <String, dynamic>{} : jsonDecode(req.body) as Map<String, dynamic>;
-    final path = req.url.path.replaceFirst('/lykora/api', '');
     Map<String, dynamic> res;
     switch (path) {
       case '/join':
+        joinCalls++;
+        final name = (body['team'] as Map?)?['name'] as String?;
+        if (uniqueTeamNames && name != null && teamNames.contains(name)) {
+          return http.Response('{"error":"team_name_taken","message":"Diesen Teamnamen gibt es schon"}', 409, headers: {'content-type': 'application/json'});
+        }
+        if (name != null) teamNames.add(name);
         res = {'token': 'tok', 'eventId': '00000000-0000-0000-0000-000000000001', 'team': team};
       case '/play/game':
-        res = {'serverTime': DateTime.now().toUtc().toIso8601String(), 'event': event, 'team': team, 'supervisorRequired': true, 'staffTags': [], 'game': game};
+        res = {'serverTime': now().toUtc().toIso8601String(), 'event': event, 'team': team, 'supervisorRequired': true, 'staffTags': [], 'game': game};
       case '/play/supervisor':
         team = {...team, 'supervisorPresent': true};
         res = team;
@@ -77,7 +156,7 @@ class FakeServer {
         syncs.add(body);
         await holdSync?.future;
         final delivered = [
-          for (final m in pendingMessages) {'id': ++_messageId, 'created_at': DateTime.now().toUtc().toIso8601String(), 'sender': 'hq', ...m},
+          for (final m in pendingMessages) {'id': ++_messageId, 'created_at': now().toUtc().toIso8601String(), 'sender': 'hq', ...m},
         ];
         pendingMessages.clear();
         final actions = [
@@ -85,7 +164,7 @@ class FakeServer {
             {'seq': ++seq, 'id': a['id'], 'source': 'team', 'type': a['type'], 'payload': a['payload'], 'time': a['time']},
         ];
         res = {
-          'serverTime': DateTime.now().toUtc().toIso8601String(),
+          'serverTime': now().toUtc().toIso8601String(),
           'event': event,
           'team': team,
           'actions': actions,
@@ -122,16 +201,23 @@ class FakeServer {
   });
 }
 
-Future<GameController> newController(FakeServer server, {bool backgroundLoops = true}) async {
+/// Beigetretener Controller gegen den nachgebauten Server. [clock] ist die Handy-Uhr in ms, [timeout] ersetzt die
+/// Zeitlimits der Verbindung (für Tests mit langsamen Antworten).
+Future<GameController> newController(FakeServer server, {bool backgroundLoops = true, int Function()? clock, Duration? timeout}) async {
   final dir = await Directory.systemTemp.createTemp('lykora-test-');
-  final c = GameController(
-    store: SessionStore(dir),
-    apiFactory: (s, t) => Api(s, token: t, client: server.client()),
-    backgroundLoops: backgroundLoops,
-  );
+  final c = controllerFor(server, dir, backgroundLoops: backgroundLoops, clock: clock, timeout: timeout);
   await c.join(server: 'https://example.org/lykora', code: 'K7M2QX', teamName: 'Füchse');
   return c;
 }
+
+/// Controller ohne Beitritt auf einem Ordner, z. B. um nach einem Abbruch neu zu starten.
+GameController controllerFor(FakeServer server, Directory dir, {bool backgroundLoops = false, int Function()? clock, Duration? timeout}) => GameController(
+  store: SessionStore(dir),
+  apiFactory: (s, t) =>
+      timeout == null ? Api(s, token: t, client: server.client()) : Api(s, token: t, client: server.client(), connectTimeout: timeout, idleTimeout: timeout),
+  backgroundLoops: backgroundLoops,
+  clock: clock,
+);
 
 /// Lädt die Schriften der App aus pubspec.yaml und die Material-Symbole, damit Tests echte Glyphen messen.
 Future<void> loadAppFonts() async {

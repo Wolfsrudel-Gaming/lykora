@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../services/location.dart';
 import '../design/components.dart';
+import '../design/text_scale.dart';
 import '../design/tokens.dart';
 import 'join_screen.dart';
 
@@ -11,11 +12,13 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _leave(BuildContext context) async {
     final t = context.tok;
+    final open = Lykora.game(context).unsyncedCount;
     final ok = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: t.p.surface,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(Space.gutter),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -23,7 +26,12 @@ class SettingsScreen extends StatelessWidget {
             children: [
               Text('Team auf diesem Handy verlassen?', style: t.heading),
               const SizedBox(height: 6),
-              Text('Nicht übertragene Aktionen gehen verloren. Das Team selbst bleibt bestehen.', style: t.muted),
+              Text(
+                open > 0
+                    ? '${open == 1 ? 'Eine Aktion ist' : '$open Aktionen sind'} noch nicht übertragen und ${open == 1 ? 'geht' : 'gehen'} verloren. Das Team selbst bleibt bestehen.'
+                    : 'Das Team selbst bleibt bestehen. Mit dem Gerätecode kommt ihr später wieder hinein.',
+                style: t.muted,
+              ),
               const SizedBox(height: 20),
               LKey(label: 'Verlassen', icon: Icons.logout_rounded, kind: KeyKind.secondary, onPressed: () => Navigator.of(ctx).pop(true)),
               const SizedBox(height: Space.gap),
@@ -49,26 +57,39 @@ class SettingsScreen extends StatelessWidget {
       listenable: Listenable.merge([c, prefs]),
       builder: (context, _) {
         final t = context.tok;
+        // Die ganze Fläche ist ein Schalter; für Screenreader als einer mit Titel und Erklärung.
         Widget toggle(String title, String sub, bool value, ValueChanged<bool> onChanged) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Panel(
+          child: Semantics(
+            container: true,
+            toggled: value,
+            label: '$title. $sub',
             onTap: () => onChanged(!value),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: t.body.copyWith(fontWeight: FontWeight.w700)),
-                      Text(sub, style: t.small),
-                    ],
+            excludeSemantics: true,
+            child: Panel(
+              onTap: () => onChanged(!value),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: t.body.copyWith(fontWeight: FontWeight.w700)),
+                        Text(sub, style: t.small),
+                      ],
+                    ),
                   ),
-                ),
-                Switch(value: value, onChanged: onChanged, activeThumbColor: t.p.onAccent, activeTrackColor: t.p.accent),
-              ],
+                  const SizedBox(width: 12),
+                  Switch(value: value, onChanged: onChanged, activeThumbColor: t.p.onAccent, activeTrackColor: t.p.accent),
+                ],
+              ),
             ),
           ),
         );
+        // Schrift des Systems und Regler der App ergeben zusammen die Größe; mehr als 200 % gibt es nie.
+        final scaler = MediaQuery.textScalerOf(context);
+        final system = scaler is LykoraTextScaler ? effectiveTextScale(scaler.system) : 1.0;
+        final total = effectiveTextScale(scaler);
         return StageScaffold(
           title: 'Einstellungen',
           body: ListView(
@@ -78,7 +99,11 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const LightChooser(),
               const SizedBox(height: 8),
-              Text('Rotlicht und Bernstein schonen die Nachtsicht. Der Lichtschalter oben links wechselt jederzeit.', style: t.small),
+              Text(
+                'Rotlicht und Bernstein schonen die Nachtsicht. Der Lichtschalter oben links wechselt zwischen Nacht, Rotlicht und Bernstein. '
+                'Hell wie am Tag gibt es nur hier oder mit langem Drücken auf den Schalter.',
+                style: t.small,
+              ),
               const SizedBox(height: 24),
               const Caps('Lesen und Hören'),
               const SizedBox(height: 4),
@@ -100,14 +125,26 @@ class SettingsScreen extends StatelessWidget {
               ),
               Text('Wald, Regen oder Funkrauschen im Hintergrund. Spricht jemand, wird sie von selbst leiser.', style: t.small),
               toggle('Vibration', 'Peilpuls und Ankunft spüren. Sicherheitsalarme vibrieren immer.', prefs.vibration, (v) => prefs.update(vibration: v)),
+              toggle(
+                'Bildschirm anlassen',
+                'Im laufenden Spiel geht der Bildschirm nicht aus. Kostet Akku; unter 15 % schaltet sich das von selbst ab.',
+                prefs.keepAwake,
+                (v) => prefs.update(keepAwake: v),
+              ),
               const SizedBox(height: 12),
-              Text('Schriftgröße ${(prefs.textScale * 100).round()} %', style: t.body),
+              Text('Schriftgröße in der App ${(prefs.textScale * 100).round()} %', style: t.body),
               Slider(
                 value: prefs.textScale,
-                min: 0.9,
-                max: 1.6,
-                divisions: 7,
+                min: minTextScale,
+                max: maxTextScale,
+                divisions: 11,
+                label: '${(prefs.textScale * 100).round()} %',
+                semanticFormatterCallback: (v) => 'Schriftgröße ${(v * 100).round()} Prozent',
                 onChanged: (v) => prefs.update(textScale: v),
+              ),
+              Text(
+                'Die Schrift des Handys (${(system * 100).round()} %) kommt dazu. Zusammen ${(total * 100).round()} %, höchstens ${(maxTextScale * 100).round()} %.',
+                style: t.small,
               ),
               const SizedBox(height: 20),
               const Caps('Team'),
@@ -117,7 +154,7 @@ class SettingsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Gerätecode', style: t.small),
-                    Text(s.deviceCode, style: t.number.copyWith(letterSpacing: 4)),
+                    FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(s.deviceCode, style: t.number.copyWith(letterSpacing: 4))),
                     const SizedBox(height: 6),
                     Text('Damit treten weitere Handys dem Team „${s.teamName}“ bei (Event ${s.eventCode}).', style: t.small),
                   ],

@@ -1,10 +1,12 @@
 // Prüft die Kontraste aller Lichtmodi und Spielwelten nach der WCAG-Formel.
 
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lykora/data/peiler.dart';
+import 'package:lykora/ui/design/text_scale.dart';
 import 'package:lykora/ui/design/tokens.dart';
 
 double _lum(Color c) {
@@ -45,6 +47,50 @@ void main() {
     });
   });
 
+  group('Schrift', () {
+    test('keine Schriftstufe liegt unter 12 sp', () {
+      for (final mode in LightMode.values) {
+        for (final young in [false, true]) {
+          final t = LykoraTokens(mode: mode, genre: Genre.other, young: young);
+          final styles = {'body': t.body, 'story': t.story, 'readAloud': t.readAloud, 'muted': t.muted, 'small': t.small, 'label': t.label, 'button': t.button, 'heading': t.heading, 'number': t.number};
+          for (final e in styles.entries) {
+            expect(e.value.fontSize, greaterThanOrEqualTo(Fonts.minSize), reason: '${e.key} in ${mode.name}, young=$young');
+          }
+        }
+      }
+    });
+
+    test('im Quelltext der Bausteine steht keine feste Schrift unter 12', () {
+      final small = RegExp(r'fontSize:\s*(\d+(?:\.\d+)?)\b');
+      for (final f in Directory('lib/ui/design').listSync().whereType<File>().where((f) => f.path.endsWith('.dart'))) {
+        for (final m in small.allMatches(f.readAsStringSync())) {
+          expect(double.parse(m.group(1)!), greaterThanOrEqualTo(Fonts.minSize), reason: '${f.path}: ${m.group(0)}');
+        }
+      }
+    });
+
+    test('System mal Regler, nach oben auf 200 % begrenzt', () {
+      expect(const LykoraTextScaler(system: TextScaler.linear(1.0)).scale(10), closeTo(10, 1e-9));
+      expect(const LykoraTextScaler(system: TextScaler.linear(1.5), factor: 1.2).scale(10), closeTo(18, 1e-9));
+      expect(const LykoraTextScaler(system: TextScaler.linear(2.0), factor: 1.6).scale(10), closeTo(20, 1e-9), reason: 'Obergrenze 200 %');
+      expect(const LykoraTextScaler(system: TextScaler.linear(0.5)).scale(10), closeTo(9, 1e-9), reason: 'Untergrenze 90 %');
+    });
+
+    test('folgt auch einem nichtlinearen System-Maßstab', () {
+      // Ab Android 14 wächst kleine Schrift stärker als große.
+      const system = _Stepped();
+      final scaler = LykoraTextScaler(system: system, factor: 1.0);
+      expect(scaler.scale(10), 15);
+      expect(scaler.scale(40), 48);
+      expect(effectiveTextScale(scaler), closeTo(scaler.scale(14) / 14, 1e-9));
+    });
+
+    test('gleiche Einstellung ist gleich, damit nichts unnötig neu gebaut wird', () {
+      expect(const LykoraTextScaler(system: TextScaler.linear(1.3), factor: 1.1), const LykoraTextScaler(system: TextScaler.linear(1.3), factor: 1.1));
+      expect(const LykoraTextScaler(system: TextScaler.linear(1.3)), isNot(const LykoraTextScaler(system: TextScaler.linear(1.4))));
+    });
+  });
+
   group('Peiler', () {
     test('Stufen mit Hysterese', () {
       final p = Peiler();
@@ -74,4 +120,16 @@ void main() {
       expect(clockDirection(-90), 'auf 9 Uhr');
     });
   });
+}
+
+/// Nichtlinearer Maßstab: kleine Schrift +50 %, große +20 %.
+class _Stepped extends TextScaler {
+  const _Stepped();
+
+  @override
+  double scale(double fontSize) => fontSize <= 20 ? fontSize * 1.5 : fontSize * 1.2;
+
+  @override
+  // ignore: deprecated_member_use
+  double get textScaleFactor => 1.5;
 }

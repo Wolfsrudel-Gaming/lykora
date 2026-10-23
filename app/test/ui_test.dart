@@ -75,6 +75,14 @@ Future<void> act(WidgetTester tester, Future<void> Function() f) async {
   await settle(tester);
 }
 
+/// Abgleich nach einem SOS aus der Seite: Der Alarm hängt an Futures der simulierten Zeit, die nur beim Pumpen weiterlaufen;
+/// ein Abgleich allein in runAsync würde auf sie warten.
+Future<void> syncInGame(WidgetTester tester, GameController c) async {
+  final sync = c.sync();
+  await settle(tester, 30);
+  await tester.runAsync(() => sync.timeout(const Duration(seconds: 10)));
+}
+
 void main() {
   setUpAll(() async {
     await loadAppFonts();
@@ -289,18 +297,20 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     }
     await act(tester, () async => gesture.up());
+    // Der Alarm wird vor dem Senden gespeichert: Dateizugriff und Senden brauchen mehrere Runden der echten Ereignisschleife.
+    await settle(tester, 40);
     final id = server.sos.single['id'] as String;
     expect(find.text('Internet: Alarm ist bei der Spielleitung angekommen.'), findsOneWidget);
     expect(find.textContaining('Warten, bis die Spielleitung'), findsOneWidget);
 
     server.sosAck[id] = {'acknowledgedAt': DateTime.now().toUtc().toIso8601String(), 'acknowledgedBy': 'Anna'};
-    await act(tester, () => c.sync());
+    await syncInGame(tester, c);
     expect(find.text('Spielleitung hat gelesen (Anna).'), findsOneWidget);
     expect(find.textContaining('Warten, bis'), findsNothing);
     expect(find.textContaining('Bleibt, wo ihr seid'), findsOneWidget);
 
     server.sosAck[id] = {...server.sosAck[id]!, 'resolvedAt': DateTime.now().toUtc().toIso8601String()};
-    await act(tester, () => c.sync());
+    await syncInGame(tester, c);
     expect(find.textContaining('erledigt'), findsOneWidget);
     expect(find.textContaining('Bleibt, wo ihr seid'), findsNothing);
   });
@@ -316,9 +326,13 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     }
     await act(tester, () async => gesture.up());
+    // Der Alarm wird vor dem Senden gespeichert: Dateizugriff und Senden brauchen mehrere Runden der echten Ereignisschleife.
+    await settle(tester, 40);
     expect(find.textContaining('nicht gesendet'), findsOneWidget);
+    expect(find.textContaining('nicht angenommen'), findsOneWidget);
+    expect(find.textContaining('nachgeholt'), findsNothing, reason: 'abgelehnt wird nicht nachgeholt');
     expect(find.textContaining('angekommen'), findsNothing);
-    await act(tester, () => c.sync());
+    await syncInGame(tester, c);
     expect(find.textContaining('angekommen'), findsNothing, reason: 'ein abgelehnter Alarm wartet nicht und kommt nie an');
     expect(find.textContaining('Bleibt, wo ihr seid'), findsNothing);
     expect(find.text('SMS jetzt senden'), findsOneWidget);
@@ -335,14 +349,15 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     }
     await act(tester, () async => gesture.up());
+    // Der Alarm wird vor dem Senden gespeichert: Dateizugriff und Senden brauchen mehrere Runden der echten Ereignisschleife.
+    await settle(tester, 40);
     expect(find.textContaining('nicht gesendet'), findsOneWidget);
+    expect(find.textContaining('wird nachgeholt'), findsOneWidget, reason: 'gespeichert, also ehrlich „wird nachgeholt“');
     expect(c.sosPending, isTrue);
     server.online = true;
     // Der Abgleich läuft in der simulierten Zeit weiter, in der auch das Speichern des Alarms begann;
     // die echte Ereignisschleife bekommt in settle() ihre Runden für die Dateizugriffe.
-    final sync = c.sync();
-    await settle(tester, 30);
-    await sync;
+    await syncInGame(tester, c);
     expect(server.sos.single['deferred'], isTrue);
     expect(find.text('Internet: Alarm ist bei der Spielleitung angekommen.'), findsOneWidget);
     expect(find.textContaining('Warten, bis die Spielleitung'), findsOneWidget);
@@ -440,6 +455,8 @@ void main() {
     await settle(tester);
     await act(tester, () => c.onPosition(50.81662, 7.1552, 5));
     expect(find.textContaining('Achtung: Straße in'), findsOneWidget);
+    await act(tester, () => c.onPosition(50.8169, 7.1552, 5));
+    expect(find.textContaining('Ihr seid in der Sperrzone'), findsNothing, reason: 'ein Fix reicht nicht für das Vollbild');
     await act(tester, () => c.onPosition(50.8169, 7.1552, 5));
     expect(find.textContaining('Ihr seid in der Sperrzone'), findsOneWidget);
     await act(tester, () => c.onPosition(50.8155, 7.155, 5));

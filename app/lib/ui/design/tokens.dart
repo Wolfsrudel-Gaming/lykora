@@ -286,6 +286,9 @@ abstract final class Fonts {
   static const mono = 'Atkinson Mono';
   static const reader = 'Lykora Fibel';
   static const brand = 'Fraunces';
+
+  /// Kleinste Schrift in der ganzen App (sp). Nachts im Freien ist alles darunter nicht mehr lesbar.
+  static const minSize = 12.0;
 }
 
 /// Bewegung: Dauern und Kurven.
@@ -352,7 +355,7 @@ class LykoraTokens extends ThemeExtension<LykoraTokens> {
   TextStyle get small => body.copyWith(fontSize: (young ? 18 : 16) + _boost, color: p.textMuted, height: 1.35);
 
   TextStyle get label =>
-      TextStyle(fontFamily: Fonts.mono, fontSize: 14 + _boost, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: p.textMuted, height: 1.2);
+      TextStyle(fontFamily: Fonts.mono, fontSize: 15 + _boost, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: p.textMuted, height: 1.2);
 
   TextStyle get button => TextStyle(fontFamily: Fonts.ui, fontSize: young ? 22 : 20, fontWeight: young ? FontWeight.w800 : FontWeight.w600, height: 1.1);
 

@@ -43,7 +43,7 @@ void main() {
     expect(c.state.triggered, contains('baum'));
     await c.answer('baum', {'text': 'Eule'});
     expect(c.state.fragments, ['f1']);
-    expect(await c.sos(message: 'Knöchel'), isFalse);
+    expect((await c.sos(message: 'Knöchel')).queued, isTrue);
     expect(c.sosPending, isTrue);
     expect(c.sosSmsText(message: 'Knöchel'), startsWith('LYKORA SOS K7M2QX AB3D 50.81600,7.15650 Knöchel'));
 
@@ -69,7 +69,8 @@ void main() {
     await c.sync();
     expect(c.online, isTrue);
     expect(c.unsyncedCount, 0);
-    expect(c.sosPending, isTrue);
+    expect(c.sosPending, isFalse, reason: 'abgelehnt heißt: geht nicht mehr raus');
+    expect(c.sosRejectedCount, 1, reason: 'bleibt sichtbar, damit das Team anruft');
   });
 
   test('warnt vor Sperrzonen und erkennt den Rückruf', () async {
@@ -80,6 +81,8 @@ void main() {
     await c.start();
     await c.onPosition(50.8166, 7.155, 5);
     expect(c.zoneAlert?.inside, isFalse);
+    await c.onPosition(50.8169, 7.155, 5);
+    expect(c.zoneAlert?.inside, isFalse, reason: 'ein Fix reicht nicht für das Vollbild');
     await c.onPosition(50.8169, 7.155, 5);
     expect(c.zoneAlert?.inside, isTrue);
     server.status = 'recalled';
@@ -169,7 +172,7 @@ void main() {
   test('merkt sich, ob die Spielleitung den SOS gelesen hat', () async {
     final server = FakeServer();
     final c = await newController(server);
-    expect(await c.sos(message: 'Knöchel'), isTrue);
+    expect((await c.sos(message: 'Knöchel')).delivered, isTrue);
     final id = c.session!.lastSosId!;
     expect(c.sosStatus(id), isNull, reason: 'noch kein Abgleich');
     await c.sync();
@@ -226,7 +229,7 @@ void main() {
     await c.sync();
     expect(c.state.points, 57);
     expect(c.session!.messages.map((m) => m.body), contains('Weiter so!'));
-    expect(await c.sos(message: 'Test'), isTrue);
+    expect((await c.sos(message: 'Test')).delivered, isTrue);
   }, skip: live == null ? 'LYKORA_TEST_SERVER nicht gesetzt' : false);
 
   test('Klänge, Cues, Anstupsen und SOS-Quittung mit echtem Server', () async {
@@ -268,7 +271,7 @@ void main() {
     expect(await magic(file!), 'OggS');
 
     // Die Spielleitung bestätigt den SOS; das Handy erfährt es per Anstupsen.
-    expect(await c.sos(message: 'Klang-Test'), isTrue);
+    expect((await c.sos(message: 'Klang-Test')).delivered, isTrue);
     final list = await orga.get('/events/$eventId/sos');
     final sosId = ((list['items'] as List).first as Map)['id'];
     await orga.post('/events/$eventId/sos/$sosId/ack', {});

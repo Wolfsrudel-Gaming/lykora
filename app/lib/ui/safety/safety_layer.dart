@@ -39,12 +39,18 @@ class _SafetyLayerState extends State<SafetyLayer> {
   DateTime? _safeAgainUntil;
   bool _wasInside = false;
 
+  /// Für die aktuelle Lebenszeichen-Frage ist der Hinweiston schon gelaufen.
+  bool _heartbeatCued = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final c = Lykora.game(context);
     if (c == _c) return;
-    _c = c;
+    _c?.removeListener(_checkHeartbeat);
+    _c = c..addListener(_checkHeartbeat);
+    _heartbeatCued = false;
+    _checkHeartbeat();
     c.onAlert = _onAlert;
     _battery?.cancel();
     _battery = Timer.periodic(const Duration(minutes: 2), (_) => _readBattery());
@@ -60,8 +66,22 @@ class _SafetyLayerState extends State<SafetyLayer> {
 
   @override
   void dispose() {
+    _c?.removeListener(_checkHeartbeat);
     _battery?.cancel();
     super.dispose();
+  }
+
+  /// Die Frage „Alles okay?“ muss man bemerken, auch mit dem Handy in der Tasche: einmal Vibration und
+  /// Ton, sobald sie fällig wird. Erst nach der Antwort gilt die nächste Frage wieder als neu.
+  void _checkHeartbeat() {
+    final due = _c?.heartbeatDue ?? false;
+    if (!due) {
+      _heartbeatCued = false;
+    } else if (!_heartbeatCued) {
+      _heartbeatCued = true;
+      Fx.instance.buzz(Buzz.safety);
+      Fx.instance.play(Sound.safety, volume: 1);
+    }
   }
 
   Future<void> _onAlert(String kind) async {
@@ -149,10 +169,44 @@ class _SafetyLayerState extends State<SafetyLayer> {
   }
 }
 
-/// Feste Leiste oben: Lichtschalter, Gerätestatus, SOS. Reines Schwarz mit Absperrband-Linie.
-class SafetyBar extends StatelessWidget {
+/// Anzahl der Dinge, die noch auf Versand warten. Eine Stelle für die Leiste; hier später die
+/// Warteschlangenlänge des Controllers einsetzen.
+int queuedCount(GameController c) => c.unsyncedCount + (c.session?.messages.where((m) => m.pending).length ?? 0);
+
+/// Hinweis zur Ortung, wenn das letzte Signal alt ist oder fehlt. Eine Stelle; hier später das
+/// Positionsalter des Controllers einsetzen. Gibt null zurück, solange alles frisch ist.
+String? positionHint(GameController c) {
+  final at = c.positionAt;
+  if (c.position == null || at == null) return 'Noch kein Standort empfangen.';
+  final age = DateTime.now().difference(at);
+  if (age < _staleFix) return null;
+  return 'Standort ist ${age.inMinutes < 1 ? 'über eine Minute' : 'vor ${age.inMinutes} Min.'} alt.';
+}
+
+/// Ab diesem Alter gilt die Position als veraltet und die Leiste zeigt es an.
+const _staleFix = Duration(seconds: 90);
+
+/// Ab dieser Breite steht neben dem Lichtschalter auch sein Name.
+const _wideBar = 380.0;
+
+/// Ladestand, unter dem die Leiste ihn zeigt.
+const _lowBattery = 0.35;
+
+/// Feste Leiste oben: Lichtschalter, kompakte Statusanzeige, SOS. Reines Schwarz mit Absperrband-Linie.
+///
+/// Die SOS-Taste hat einen festen Platz rechts und wird nie verdrängt. Alles andere teilt sich den Rest:
+/// Der Lichtschalter schrumpft zum Symbol, Netz, Akku und Wartendes stehen als Symbole in einer
+/// einzigen Anzeige, die bei Platzmangel kleiner wird. Antippen klappt darunter die Einzelheiten auf.
+class SafetyBar extends StatefulWidget {
   const SafetyBar({super.key, required this.onSos});
   final VoidCallback onSos;
+
+  @override
+  State<SafetyBar> createState() => _SafetyBarState();
+}
+
+class _SafetyBarState extends State<SafetyBar> {
+  bool _details = false;
 
   @override
   Widget build(BuildContext context) {
@@ -163,63 +217,105 @@ class SafetyBar extends StatelessWidget {
     final ink = t.mode == LightMode.day ? const Color(0xFFE6E1D6) : p.textMuted;
     final top = MediaQuery.of(context).padding.top;
     final battery = c.battery;
-    final pending = c.unsyncedCount + (c.session?.messages.where((m) => m.pending).length ?? 0);
-    return Container(
-      color: Colors.black,
-      padding: EdgeInsets.only(top: top),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: Space.safetyBar,
-            child: Row(
-              children: [
-                const SizedBox(width: 4),
-                Semantics(
-                  button: true,
-                  label: 'Licht: ${prefs.lightMode.label}. Tippen zum Wechseln.',
-                  excludeSemantics: true,
-                  child: InkResponse(
-                    onTap: () {
-                      Fx.instance.play(Sound.click);
-                      prefs.cycleLight();
-                    },
-                    radius: 32,
-                    child: SizedBox(
-                      height: 56,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Row(
-                          children: [
-                            Icon(_lightIcon(prefs.lightMode), color: ink, size: 26),
-                            const SizedBox(width: 8),
-                            Text(prefs.lightMode.label, style: t.label.copyWith(color: ink, fontSize: 13)),
-                          ],
+    final lowBattery = battery != null && battery < _lowBattery;
+    final pending = queuedCount(c);
+    final hint = positionHint(c);
+    final staleFix = c.position != null && hint != null;
+    final status = _Status(
+      online: c.online,
+      pending: pending,
+      battery: lowBattery ? battery : null,
+      staleFix: staleFix,
+      ink: ink,
+    );
+    // Die Leiste hat feste Höhe; große Schrift wächst nur bis 1,3 und läuft nie in die SOS-Taste.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        color: Colors.black,
+        padding: EdgeInsets.only(top: top),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: Space.safetyBar,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final wide = box.maxWidth >= _wideBar && MediaQuery.textScalerOf(context).scale(1) <= 1.15;
+                  return Row(
+                    children: [
+                      const SizedBox(width: 4),
+                      Semantics(
+                        button: true,
+                        label: 'Licht: ${prefs.lightMode.label}. Tippen zum Wechseln.',
+                        excludeSemantics: true,
+                        child: InkResponse(
+                          onTap: () {
+                            Fx.instance.play(Sound.click);
+                            prefs.cycleLight();
+                          },
+                          radius: 32,
+                          child: SizedBox(
+                            height: 56,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: wide ? 12 : 11),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_lightIcon(prefs.lightMode), color: ink, size: 26),
+                                  if (wide) ...[
+                                    const SizedBox(width: 8),
+                                    Text(prefs.lightMode.label, style: t.label.copyWith(color: ink, fontSize: 15)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                if (battery != null && battery < 0.35) ...[
-                  Icon(battery < 0.15 ? Icons.battery_alert_rounded : Icons.battery_3_bar_rounded, color: ink, size: 22),
-                  Text(' ${(battery * 100).round()} %', style: t.label.copyWith(color: ink, fontSize: 13)),
-                  const SizedBox(width: 12),
-                ],
-                Icon(c.online ? Icons.cell_tower_rounded : Icons.portable_wifi_off_rounded, color: ink, size: 22),
-                if (!c.online || pending > 0)
-                  Text(' ${c.online ? '' : 'offline'}${pending > 0 ? ' · $pending' : ''}', style: t.label.copyWith(color: ink, fontSize: 13)),
-                const SizedBox(width: 16),
-                ValueListenableBuilder(
-                  valueListenable: sosOpen,
-                  builder: (_, open, _) => open ? const SizedBox(width: 104) : _SosKey(onTap: onSos),
-                ),
-                const SizedBox(width: 8),
-              ],
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Semantics(
+                            button: true,
+                            expanded: _details,
+                            label: status.semantics,
+                            excludeSemantics: true,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() => _details = !_details),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                                child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: status),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder(
+                        valueListenable: sosOpen,
+                        builder: (_, open, _) => open ? const SizedBox(width: _SosKey.width) : _SosKey(onTap: widget.onSos),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-          const CautionTape(height: 4, stripe: 6),
-        ],
+            if (_details)
+              _StatusDetails(
+                online: c.online,
+                pending: pending,
+                battery: lowBattery ? battery : null,
+                positionHint: hint,
+                ink: ink,
+                onClose: () => setState(() => _details = false),
+              ),
+            const CautionTape(height: 4, stripe: 6),
+          ],
+        ),
       ),
     );
   }
@@ -232,9 +328,110 @@ class SafetyBar extends StatelessWidget {
   };
 }
 
+/// Netz, Akku und Wartendes in einem Rahmen. Ohne Netz ist er gefüllt, damit es auffällt.
+class _Status extends StatelessWidget {
+  const _Status({required this.online, required this.pending, required this.battery, required this.staleFix, required this.ink});
+  final bool online;
+  final int pending;
+
+  /// Nur gesetzt, wenn der Akku niedrig ist
+  final double? battery;
+  final bool staleFix;
+  final Color ink;
+
+  String get semantics => [
+    online ? 'Netz da' : 'Kein Netz',
+    if (pending > 0) '$pending ${pending == 1 ? 'Aktion wartet' : 'Aktionen warten'}',
+    if (battery != null) 'Akku ${(battery! * 100).round()} Prozent',
+    if (staleFix) 'Standort veraltet',
+    'Tippen für Einzelheiten',
+  ].join('. ');
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final filled = !online;
+    final notable = filled || pending > 0 || battery != null || staleFix;
+    final fg = filled ? Colors.black : ink;
+    final text = t.label.copyWith(color: fg, fontSize: 15);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: filled ? ink : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        border: notable && !filled ? Border.all(color: ink, width: 1.5) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (battery != null) ...[
+            Icon(battery! < 0.15 ? Icons.battery_alert_rounded : Icons.battery_3_bar_rounded, color: fg, size: 22),
+            Text('${(battery! * 100).round()} %', style: text),
+            const SizedBox(width: 8),
+          ],
+          if (staleFix) ...[Icon(Icons.location_off_rounded, color: fg, size: 22), const SizedBox(width: 8)],
+          Icon(online ? Icons.cell_tower_rounded : Icons.portable_wifi_off_rounded, color: fg, size: 22),
+          if (pending > 0) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.schedule_send_rounded, color: fg, size: 20),
+            const SizedBox(width: 2),
+            Text('$pending', style: text),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Klartext zur Anzeige: steht unter der Leiste, bis man ihn wieder antippt.
+class _StatusDetails extends StatelessWidget {
+  const _StatusDetails({
+    required this.online,
+    required this.pending,
+    required this.battery,
+    required this.positionHint,
+    required this.ink,
+    required this.onClose,
+  });
+  final bool online;
+  final int pending;
+  final double? battery;
+  final String? positionHint;
+  final Color ink;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final style = t.body.copyWith(color: ink, fontSize: 15, height: 1.3);
+    final lines = [
+      online ? 'Netz da.' : 'Kein Netz. Eure Eingaben werden gespeichert und nachgeschickt.',
+      if (pending > 0) '$pending ${pending == 1 ? 'Aktion wartet' : 'Aktionen warten'} auf den Versand.',
+      if (battery != null) 'Akku bei ${(battery! * 100).round()} %. Geht sparsam mit dem Handy um.',
+      ?positionHint,
+    ];
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onClose,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [for (final l in lines) Text(l, style: style)],
+        ),
+      ),
+    );
+  }
+}
+
 class _SosKey extends StatelessWidget {
   const _SosKey({required this.onTap});
   final VoidCallback onTap;
+
+  /// Fester Platz: Breite der Taste, unabhängig von Schrift und Anzeigen daneben
+  static const width = 104.0;
 
   @override
   Widget build(BuildContext context) {
@@ -248,11 +445,11 @@ class _SosKey extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
-          width: 104,
+          width: width,
           height: Space.safetyBar,
           child: Center(
             child: Container(
-              width: 104,
+              width: width,
               height: 52,
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -260,9 +457,12 @@ class _SosKey extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: p.safetyRing, width: 2),
               ),
-              child: Text(
-                'SOS',
-                style: TextStyle(fontFamily: Fonts.ui, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 2, color: p.onSafety),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'SOS',
+                  style: TextStyle(fontFamily: Fonts.ui, fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 2, color: p.onSafety),
+                ),
               ),
             ),
           ),

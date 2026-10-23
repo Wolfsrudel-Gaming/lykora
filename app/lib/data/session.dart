@@ -33,7 +33,17 @@ class LocalAction {
 }
 
 class ChatMessage {
-  ChatMessage({this.id, required this.direction, required this.kind, this.sender, required this.body, required this.at, this.clientId, this.pending = false});
+  ChatMessage({
+    this.id,
+    required this.direction,
+    required this.kind,
+    this.sender,
+    required this.body,
+    required this.at,
+    this.clientId,
+    this.pending = false,
+    this.failed = false,
+  });
 
   factory ChatMessage.fromJson(Json j) => ChatMessage(
     id: j['id'] as int?,
@@ -44,6 +54,7 @@ class ChatMessage {
     at: DateTime.parse(j['at'] as String? ?? j['created_at'] as String),
     clientId: j['clientId'] as String?,
     pending: j['pending'] as bool? ?? false,
+    failed: j['failed'] as bool? ?? false,
   );
 
   final int? id;
@@ -58,6 +69,9 @@ class ChatMessage {
   final DateTime at;
   final String? clientId;
   bool pending;
+
+  /// Der Server hat die Nachricht abgelehnt; sie wird nicht noch einmal geschickt.
+  bool failed;
 
   bool get incoming => direction == 'to_team';
 
@@ -76,6 +90,7 @@ class ChatMessage {
     'at': at.toIso8601String(),
     'clientId': clientId,
     'pending': pending,
+    'failed': failed,
   };
 }
 
@@ -164,6 +179,8 @@ class Session {
   List<ChatMessage> messages = [];
   int messageCursor = 0;
   List<Json> pendingPositions = [];
+
+  /// Wartende SOS in der Reihenfolge des Auslösens; Stand der Versuche steht im Eintrag (siehe GameController.sos)
   List<Json> pendingSos = [];
   List<Json> pendingUploads = [];
 

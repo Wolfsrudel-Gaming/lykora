@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app.dart';
+import '../../data/controller.dart';
 import '../../model/game.dart';
 import '../../services/fx.dart';
 import '../../services/soundscape.dart';
@@ -25,7 +26,7 @@ class SosScreen extends StatefulWidget {
   State<SosScreen> createState() => _SosScreenState();
 }
 
-enum _Phase { idle, sending, sent, queued }
+enum _Phase { idle, sending, sent, queued, rejected, failed }
 
 const _what = ['Verletzt', 'Verlaufen', 'Jemand fehlt', 'Anderes'];
 
@@ -40,8 +41,8 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   /// id des gesendeten Alarms, um seinen Stand beim Server zu finden
   String? _sosId;
 
-  /// Ohne Netz gespeichert; der Abgleich reicht ihn nach.
-  bool _deferred = false;
+  /// Wie das Senden ausgegangen ist; der Stand eines wartenden Alarms kommt danach aus dem Controller.
+  SosResult? _result;
 
   @override
   void initState() {
@@ -77,11 +78,38 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     Fx.instance.buzz(Buzz.safety);
     setState(() => _phase = _Phase.sending);
     final c = Lykora.game(context);
-    final ok = await c.sos(message: _reason);
+    final sending = c.sos(message: _reason);
+    // Die Kennung steht schon vor dem ersten Await fest; so folgt die Anzeige dem Controller, auch wenn das Ergebnis auf sich warten lässt.
     _sosId = c.session?.lastSosId;
-    // Abgelehnt ist nicht gespeichert: Nur ein wartender Alarm kann später als angekommen gelten.
-    _deferred = !ok && (c.session?.pendingSos.any((p) => p['id'] == _sosId) ?? false);
-    if (mounted) setState(() => _phase = ok ? _Phase.sent : _Phase.queued);
+    SosResult result;
+    try {
+      result = await sending;
+    } catch (_) {
+      // Die Seite darf nie bei „Wird gesendet …“ hängen bleiben.
+      result = const SosResult(SosOutcome.failed);
+    }
+    _sosId = result.id ?? _sosId;
+    _result = result;
+    if (mounted) {
+      setState(
+        () => _phase = switch (result.outcome) {
+          SosOutcome.delivered => _Phase.sent,
+          SosOutcome.queued => _Phase.queued,
+          SosOutcome.rejected => _Phase.rejected,
+          SosOutcome.failed => _Phase.failed,
+        },
+      );
+    }
+  }
+
+  /// Phase für die Anzeige: Ein gespeicherter Alarm gilt als angekommen, sobald der Abgleich ihn nachgereicht hat.
+  _Phase _shownPhase(GameController c) {
+    if (_phase != _Phase.queued && _phase != _Phase.sending) return _phase;
+    return switch (c.sosInfo(_sosId)?.phase) {
+      SosPhase.delivered => _Phase.sent,
+      SosPhase.rejected => _Phase.rejected,
+      _ => _phase,
+    };
   }
 
   Future<void> _sms() async {
@@ -140,11 +168,12 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
               ] else
                 ListenableBuilder(
                   listenable: c,
-                  builder: (context, _) {
-                    // Offline gespeichert und inzwischen beim Abgleich nachgereicht.
-                    final delivered = _phase == _Phase.queued && _deferred && !(c.session?.pendingSos.any((p) => p['id'] == _sosId) ?? true);
-                    return _Status(phase: delivered ? _Phase.sent : _phase, status: c.sosStatus(_sosId), onSms: _sms);
-                  },
+                  builder: (context, _) => _Status(
+                    phase: _shownPhase(c),
+                    status: c.sosStatus(_sosId),
+                    reason: _result?.reason ?? c.sosInfo(_sosId)?.reason,
+                    onSms: _sms,
+                  ),
                 ),
               const SizedBox(height: 28),
               LKey(
@@ -236,9 +265,12 @@ class _HoldCircle extends StatelessWidget {
 }
 
 class _Status extends StatelessWidget {
-  const _Status({required this.phase, required this.onSms, this.status});
+  const _Status({required this.phase, required this.onSms, this.status, this.reason});
   final _Phase phase;
   final VoidCallback onSms;
+
+  /// Satz zum Grund, wenn der Alarm nicht angenommen wurde oder nicht gesendet werden konnte
+  final String? reason;
 
   /// Stand laut Server: acknowledgedAt, resolvedAt, acknowledgedBy
   final Json? status;
@@ -271,7 +303,9 @@ class _Status extends StatelessWidget {
         switch (phase) {
           _Phase.sending => row(null, 'Wird gesendet …'),
           _Phase.sent => row(true, 'Internet: Alarm ist bei der Spielleitung angekommen.'),
-          _ => row(false, 'Internet: nicht gesendet. Wird automatisch nachgeholt, sobald Netz da ist.'),
+          _Phase.queued => row(false, 'Internet: noch nicht gesendet. Der Alarm ist gespeichert und wird nachgeholt, sobald Netz da ist.'),
+          _Phase.rejected => row(false, 'Internet: nicht gesendet. Die Spielleitung hat den Alarm nicht angenommen.${_reasonText(reason)}'),
+          _ => row(false, 'Internet: nicht gesendet und nicht gespeichert.${_reasonText(reason)}'),
         },
         if (phase == _Phase.sent) ...[
           if (read)
@@ -284,7 +318,7 @@ class _Status extends StatelessWidget {
           const SizedBox(height: 8),
           Text('Bleibt, wo ihr seid. Hilfe kommt. Mit „Finde mich“ seid ihr im Dunkeln leichter zu sehen.', style: t.body.copyWith(color: ink)),
         ],
-        if (phase == _Phase.queued) ...[
+        if (phase == _Phase.queued || phase == _Phase.rejected || phase == _Phase.failed) ...[
           const SizedBox(height: 8),
           Text('Schickt jetzt eine SMS oder ruft an. SMS und Anrufe gehen oft noch, wenn das Internet nicht geht.', style: t.body.copyWith(color: ink)),
           const SizedBox(height: 12),
@@ -294,6 +328,8 @@ class _Status extends StatelessWidget {
     );
   }
 }
+
+String _reasonText(String? reason) => reason == null || reason.isEmpty ? '' : ' $reason';
 
 class _Chip extends StatelessWidget {
   const _Chip({required this.label, required this.selected, required this.onTap});

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 und neuer: Nichts aus der App geht in die Cloud-Sicherung oder auf ein neues Handy.
+  Die Sitzung enthält Teamname, Vornamen und die Notfallnummer der Kinder; sie gehört nur auf dieses Gerät.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root"/>
+        <exclude domain="file"/>
+        <exclude domain="database"/>
+        <exclude domain="sharedpref"/>
+        <exclude domain="external"/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root"/>
+        <exclude domain="file"/>
+        <exclude domain="database"/>
+        <exclude domain="sharedpref"/>
+        <exclude domain="external"/>
+    </device-transfer>
+</data-extraction-rules>

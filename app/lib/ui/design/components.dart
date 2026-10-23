@@ -6,10 +6,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../services/fx.dart';
+import 'text_scale.dart';
 import 'tokens.dart';
 
 // ---------------------------------------------------------------------------
@@ -78,9 +80,8 @@ class _LKeyState extends State<LKey> {
               if (widget.icon != null) Icon(widget.icon, size: widget.kind == KeyKind.tertiary ? 22 : 28, color: fg),
               if (widget.icon != null && widget.label.isNotEmpty) const SizedBox(width: 12),
               if (widget.label.isNotEmpty)
-                Flexible(
-                  child: Text(widget.label, style: style, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
-                ),
+                // Lange Beschriftung bricht um, die Taste wächst mit: nichts wird abgeschnitten.
+                Flexible(child: Text(widget.label, style: style, textAlign: TextAlign.center)),
             ],
           );
     final key = Semantics(
@@ -100,7 +101,7 @@ class _LKeyState extends State<LKey> {
               }
             : null,
         child: AnimatedContainer(
-          duration: Motion.tick,
+          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.tick,
           curve: Curves.easeOut,
           constraints: BoxConstraints(minHeight: height, minWidth: widget.expand ? double.infinity : 64),
           padding: EdgeInsets.symmetric(horizontal: widget.label.isEmpty ? 8 : 20, vertical: 10),
@@ -200,13 +201,19 @@ class Panel extends StatelessWidget {
       child: child,
     );
     if (onTap == null) return box;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Fx.instance.play(Sound.click);
-        onTap!();
-      },
-      child: box,
+    // Für Screenreader eine Taste mit dem Text der Fläche als Beschriftung.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Fx.instance.play(Sound.click);
+            onTap!();
+          },
+          child: box,
+        ),
+      ),
     );
   }
 }
@@ -223,7 +230,7 @@ class Caps extends StatelessWidget {
     final t = context.tok;
     return Text(
       text.toUpperCase(),
-      style: t.label.copyWith(color: color, fontSize: size),
+      style: t.label.copyWith(color: color, fontSize: size == null ? null : math.max(size!, Fonts.minSize)),
     );
   }
 }
@@ -239,10 +246,12 @@ class DisplayText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
+    // Titel sind schon groß; über 140 % wachsen sie nicht mehr, sonst sprengt ein langes Wort die Breite.
     return Text(
       t.displayText(text),
       style: t.display(size).copyWith(color: color),
       textAlign: align,
+      textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.4),
     );
   }
 }
@@ -271,8 +280,8 @@ class StageScaffold extends StatelessWidget {
             child: Column(
               children: [
                 if (title != null || canPop || trailing != null)
-                  SizedBox(
-                    height: 56,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 56),
                     child: Row(
                       children: [
                         if (canPop || onBack != null)
@@ -287,7 +296,10 @@ class StageScaffold extends StatelessWidget {
                           const SizedBox(width: Space.gutter),
                         if (title != null)
                           Expanded(
-                            child: Text(title!, style: t.heading.copyWith(fontSize: 20), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(title!, style: t.heading.copyWith(fontSize: 20), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ),
                           )
                         else
                           const Spacer(),
@@ -373,7 +385,7 @@ class _DelayedRevealState extends State<DelayedReveal> {
   @override
   Widget build(BuildContext context) => AnimatedOpacity(
     opacity: _shown ? 1 : 0,
-    duration: Motion.enter,
+    duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : Motion.enter,
     child: IgnorePointer(ignoring: !_shown, child: widget.child),
   );
 }
@@ -426,6 +438,7 @@ class FadeRoute<T> extends PageRouteBuilder<T> {
         reverseTransitionDuration: Motion.leave,
         pageBuilder: (context, _, _) => builder(context),
         transitionsBuilder: (context, animation, _, child) {
+          if (MediaQuery.disableAnimationsOf(context)) return child;
           final curved = CurvedAnimation(parent: animation, curve: Motion.enterCurve, reverseCurve: Motion.leaveCurve);
           return FadeTransition(
             opacity: curved,
@@ -831,6 +844,8 @@ class _RewardMarkState extends State<RewardMark> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final t = context.tok;
     final seal = t.g.rewardShape == RewardShape.seal;
+    // Ohne Bewegung (Systemeinstellung) steht das Siegel sofort fertig da.
+    final still = MediaQuery.disableAnimationsOf(context);
     final curve = CurvedAnimation(parent: _c, curve: t.young ? Curves.easeOutBack : Motion.enterCurve);
     final mark = CustomPaint(
       size: Size(widget.size, seal ? widget.size : widget.size * 0.58),
@@ -855,10 +870,10 @@ class _RewardMarkState extends State<RewardMark> with SingleTickerProviderStateM
     return AnimatedBuilder(
       animation: curve,
       builder: (_, child) => Opacity(
-        opacity: _c.value.clamp(0, 1),
+        opacity: still ? 1 : _c.value.clamp(0, 1),
         child: Transform.rotate(
           angle: seal ? 0 : -0.1,
-          child: Transform.scale(scale: 1.6 - 0.6 * curve.value, child: child),
+          child: Transform.scale(scale: still ? 1 : 1.6 - 0.6 * curve.value, child: child),
         ),
       ),
       child: mark,
@@ -953,19 +968,21 @@ class FragmentToken extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Caps(big ? 'Position $position' : 'Pos. $position', size: big ? 13 : 12),
+            FittedBox(fit: BoxFit.scaleDown, child: Caps(big ? 'Position $position' : 'Pos. $position', size: big ? 14 : 12)),
             SizedBox(height: big ? 6 : 2),
-            Text(
-              found ? value! : '?',
-              style: t.number.copyWith(fontSize: big ? 64 : 34, color: found ? p.accentBright : p.textMuted, height: 1.05),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                found ? value! : '?',
+                style: t.number.copyWith(fontSize: big ? 64 : 34, color: found ? p.accentBright : p.textMuted, height: 1.05),
+              ),
             ),
             if (!found && source != null) ...[
               const SizedBox(height: 4),
               Text(
                 source!,
-                style: t.small.copyWith(fontSize: big ? 15 : 13),
+                style: t.small.copyWith(fontSize: big ? 15 : 14),
                 textAlign: TextAlign.center,
-                maxLines: 2,
               ),
             ],
           ],
@@ -1006,15 +1023,17 @@ class KeyRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tok;
     final p = t.p;
+    // Die Plätze wachsen mit der Schrift, sonst ragt die Ziffer heraus.
+    final k = clampDouble(textGrowth(context), 1.0, maxTextScale);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.key_rounded, size: 20, color: p.textMuted),
+        Icon(Icons.key_rounded, size: 20 * k, color: p.textMuted),
         const SizedBox(width: 6),
         for (final v in values)
           Container(
-            width: 26,
-            height: 30,
+            width: 26 * k,
+            height: 30 * k,
             margin: const EdgeInsets.only(right: 4),
             alignment: Alignment.center,
             decoration: BoxDecoration(
@@ -1125,11 +1144,15 @@ class _ShakeState extends State<Shake> with SingleTickerProviderStateMixin {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _c,
-    builder: (_, child) => Transform.translate(offset: Offset(math.sin(_c.value * math.pi * 6) * 6 * (1 - _c.value), 0), child: child),
-    child: widget.child,
-  );
+  Widget build(BuildContext context) {
+    // Wer Bewegung abgeschaltet hat, bekommt kein Wackeln; die Meldung zum Fehlversuch bleibt.
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, child) => Transform.translate(offset: Offset(math.sin(_c.value * math.pi * 6) * 6 * (1 - _c.value), 0), child: child),
+      child: widget.child,
+    );
+  }
 }
 
 /// Kapitelkarte: 800 ms ein, 1000 ms stehen, 600 ms aus; Tippen überspringt.
@@ -1141,7 +1164,7 @@ Future<void> showChapterCard(BuildContext context, {required String label, requi
       transitionDuration: const Duration(milliseconds: 800),
       reverseTransitionDuration: const Duration(milliseconds: 600),
       pageBuilder: (context, _, _) => _ChapterCard(label: label, title: title),
-      transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
+      transitionsBuilder: (context, a, _, child) => MediaQuery.disableAnimationsOf(context) ? child : FadeTransition(opacity: a, child: child),
     ),
   );
 }
@@ -1160,9 +1183,10 @@ class _ChapterCardState extends State<_ChapterCard> {
   bool _closed = false;
 
   @override
-  void initState() {
-    super.initState();
-    _timer = Timer(const Duration(milliseconds: 1800), _close);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Mit Screenreader ist die Karte zu schnell weg, bevor sie vorgelesen ist.
+    _timer ??= Timer(MediaQuery.accessibleNavigationOf(context) ? const Duration(seconds: 6) : const Duration(milliseconds: 1800), _close);
   }
 
   void _close() {
@@ -1299,13 +1323,12 @@ class ToolKey extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 26),
+              Icon(icon, color: color, size: 26 * clampDouble(textGrowth(context), 1.0, 1.5)),
               const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: t.button.copyWith(fontSize: 15, color: color),
+              // Passt das Wort bei großer Schrift nicht in die Spalte, schrumpft es, statt abgeschnitten zu werden.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label, maxLines: 1, style: t.button.copyWith(fontSize: 15, color: color)),
               ),
             ],
           ),
