@@ -1,4 +1,4 @@
-# Baut den Lykora-Server mit Web-Dashboard, Klangbibliothek und Updater. Build-Kontext ist die Wurzel des Repos:
+# Baut den Lykora-Server mit Web-Dashboard, Klangbibliothek, Kartenpaketen und Updater. Build-Kontext ist die Wurzel des Repos:
 #   docker build -f server/Dockerfile .
 # Die CI setzt die Version als Build-Argumente; ohne sie meldet der Server „dev“.
 
@@ -21,7 +21,8 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \
     WEB_DIR=/app/web/dist \
-    MEDIA_LIBRARY_DIR=/app/server/media-library
+    MEDIA_LIBRARY_DIR=/app/server/media-library \
+    MAP_PACKS_DIR=/app/server/map-packs
 WORKDIR /app
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/package.json ./
@@ -30,6 +31,7 @@ COPY --from=build /app/server/package.json server/
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/server/migrations server/migrations
 COPY --from=build /app/server/media-library server/media-library
+COPY --from=build /app/server/map-packs server/map-packs
 COPY --from=build /app/web/dist web/dist
 RUN mkdir -p /data && chown node:node /data
 # Erst hier, damit eine neue Version die Schichten darüber nicht neu baut.

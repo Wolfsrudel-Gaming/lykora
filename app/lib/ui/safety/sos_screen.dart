@@ -1,24 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app.dart';
 import '../../data/controller.dart';
-import '../../model/game.dart';
 import '../../services/fx.dart';
 import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import 'emergency_screen.dart';
 import 'safety_layer.dart';
+import 'safety_state.dart';
 
 /// Notruf an die Spielleitung. Drei Sekunden halten verhindert Fehlalarme in der Tasche.
 ///
 /// Das Öffnen löst nichts aus; man kann jederzeit zurück. Die Geschichte schweigt, solange die Seite offen ist,
-/// auch die Atmosphäre. Nach dem Senden zeigt die Seite, ob die Spielleitung den Alarm gelesen hat.
+/// auch die Atmosphäre. Nach dem Senden zeigt die Seite, wo der Alarm steht: gespeichert und im Wiederholen
+/// (mit Countdown), abgelehnt, angekommen oder gelesen. Solange er nicht beim Server ist, stehen Anruf und SMS
+/// ganz vorn. Screenreader lösen über eine Aktion mit Bestätigung aus, weil Halten dort nicht geht.
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
 
@@ -34,9 +36,13 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   late final _hold = AnimationController(vsync: this, duration: const Duration(seconds: 3))
     ..addStatusListener(_onHold)
     ..addListener(_onTick);
+  final _scroll = ScrollController();
   _Phase _phase = _Phase.idle;
   String? _reason;
   int _ticks = 0;
+
+  /// „Nochmal senden“ läuft gerade
+  bool _retrying = false;
 
   /// id des gesendeten Alarms, um seinen Stand beim Server zu finden
   String? _sosId;
@@ -58,6 +64,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     Future.microtask(() => sosOpen.value = false);
     Soundscape.instance.release(this);
     _hold.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -74,9 +81,17 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     if (status == AnimationStatus.completed) _send();
   }
 
+  /// Der Stand steht oben. Wer die SOS-Taste weit unten gehalten hat (große Schrift), soll ihn sehen, ohne zu suchen.
+  void _toTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+    });
+  }
+
   Future<void> _send() async {
     Fx.instance.buzz(Buzz.safety);
     setState(() => _phase = _Phase.sending);
+    _toTop();
     final c = Lykora.game(context);
     final sending = c.sos(message: _reason);
     // Die Kennung steht schon vor dem ersten Await fest; so folgt die Anzeige dem Controller, auch wenn das Ergebnis auf sich warten lässt.
@@ -91,6 +106,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
     _sosId = result.id ?? _sosId;
     _result = result;
     if (mounted) {
+      _toTop();
       setState(
         () => _phase = switch (result.outcome) {
           SosOutcome.delivered => _Phase.sent,
@@ -100,6 +116,23 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
         },
       );
     }
+  }
+
+  /// Screenreader und Schaltsteuerung können nicht drei Sekunden halten: Auslösen geht über eine Aktion, aber erst nach Bestätigung.
+  Future<void> _confirmSend() async {
+    if (_phase != _Phase.idle) return;
+    final ok = await showDialog<bool>(context: context, builder: (_) => const _ConfirmDialog());
+    if (ok == true && mounted && _phase == _Phase.idle) _send();
+  }
+
+  /// Wartende Alarme sofort noch einmal versuchen, ohne auf die Wartezeit zu warten.
+  Future<void> _retry(GameController c) async {
+    if (_retrying) return;
+    setState(() => _retrying = true);
+    try {
+      await c.flushSos(force: true);
+    } catch (_) {}
+    if (mounted) setState(() => _retrying = false);
   }
 
   /// Phase für die Anzeige: Ein gespeicherter Alarm gilt als angekommen, sobald der Abgleich ihn nachgereicht hat.
@@ -115,8 +148,7 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   Future<void> _sms() async {
     final c = Lykora.game(context);
     final number = c.game!.safety.smsFallback ?? c.game!.safety.gameMasterPhone;
-    final text = c.sosSmsText(message: _reason);
-    await launchUrl(Uri.parse('sms:${number.replaceAll(' ', '')}?body=${Uri.encodeComponent(text)}'));
+    await textMessage(number, c.sosSmsText(message: _reason));
   }
 
   @override
@@ -130,79 +162,118 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
       body: TapeFrame(
         child: SafeArea(
           top: false,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    iconSize: 28,
-                    constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
-                    icon: Icon(Icons.arrow_back_rounded, color: ink),
-                    tooltip: 'Zurück, nichts auslösen',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                  Expanded(
-                    child: Text('Notruf', style: t.heading.copyWith(color: ink)),
-                  ),
-                ],
-              ),
-              Text('Zurückgehen löst nichts aus.', style: t.small.copyWith(color: ink)),
-              const SizedBox(height: 20),
-              if (_phase == _Phase.idle) ...[
-                Text('Was ist passiert?', style: t.label.copyWith(color: ink, fontSize: 15)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [for (final w in _what) _Chip(label: w, selected: _reason == w, onTap: () => setState(() => _reason = _reason == w ? null : w))],
-                ),
-                const SizedBox(height: 28),
-                Center(child: _HoldCircle(controller: _hold)),
-                const SizedBox(height: 14),
-                Text(
-                  'SOS – 3 Sekunden halten',
-                  textAlign: TextAlign.center,
-                  style: t.heading.copyWith(color: ink, fontSize: 22),
-                ),
-              ] else
-                ListenableBuilder(
-                  listenable: c,
-                  builder: (context, _) => _Status(
-                    phase: _shownPhase(c),
-                    status: c.sosStatus(_sosId),
-                    reason: _result?.reason ?? c.sosInfo(_sosId)?.reason,
-                    onSms: _sms,
-                  ),
-                ),
-              const SizedBox(height: 28),
-              LKey(
+          child: ListenableBuilder(
+            listenable: c,
+            builder: (context, _) {
+              final phase = _shownPhase(c);
+              // Alles außer „angekommen“ und „wird gesendet“ heißt: Der Alarm ist nicht beim Server (SosResult.needsFallback).
+              final fallback = phase == _Phase.queued || phase == _Phase.rejected || phase == _Phase.failed;
+              final callKey = LKey(
                 label: '${safety.emergencyNumber} anrufen',
                 icon: Icons.call_rounded,
                 kind: KeyKind.safety,
-                onPressed: () => launchUrl(Uri(scheme: 'tel', path: safety.emergencyNumber)),
-              ),
-              const SizedBox(height: Space.gap),
-              _Outline(
-                label: 'Spielleitung anrufen',
-                icon: Icons.support_agent_rounded,
-                onTap: () => launchUrl(Uri(scheme: 'tel', path: safety.gameMasterPhone.replaceAll(' ', ''))),
-              ),
-              const SizedBox(height: Space.gap),
-              _Outline(label: 'SOS per SMS', icon: Icons.sms_rounded, onTap: _sms),
-              const SizedBox(height: Space.gap),
-              _Outline(
-                label: 'Standort vorlesen',
-                icon: Icons.record_voice_over_rounded,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EmergencyScreen())),
-              ),
-              const SizedBox(height: Space.gap),
-              _Outline(
-                label: 'Finde mich (Licht)',
-                icon: Icons.flare_rounded,
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FindMeScreen())),
-              ),
-            ],
+                onPressed: () => dial(safety.emergencyNumber),
+              );
+              final masterKey = fallback
+                  ? LKey(
+                      label: 'Spielleitung anrufen: ${safety.gameMasterPhone}',
+                      icon: Icons.support_agent_rounded,
+                      kind: KeyKind.secondary,
+                      onPressed: () => dial(safety.gameMasterPhone),
+                    )
+                  : _Outline(label: 'Spielleitung anrufen', icon: Icons.support_agent_rounded, onTap: () => dial(safety.gameMasterPhone));
+              return ListView(
+                controller: _scroll,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        iconSize: 28,
+                        constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+                        icon: Icon(Icons.arrow_back_rounded, color: ink),
+                        tooltip: 'Zurück, nichts auslösen',
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                      Expanded(
+                        child: Text('Notruf', style: t.heading.copyWith(color: ink)),
+                      ),
+                    ],
+                  ),
+                  Text('Zurückgehen löst nichts aus.', style: t.small.copyWith(color: ink)),
+                  const SizedBox(height: 20),
+                  if (_phase == _Phase.idle) ...[
+                    Text('Was ist passiert?', style: t.label.copyWith(color: ink, fontSize: 15)),
+                    const SizedBox(height: 10),
+                    // Die Auswahl bleibt kompakt, auch bei großer Schrift: Die SOS-Taste darunter muss im Bild bleiben.
+                    MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: 1.3,
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          for (final w in _what)
+                            _Chip(label: w, selected: _reason == w, onTap: () => setState(() => _reason = _reason == w ? null : w)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _PositionNote(controller: c, ink: ink),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: _HoldCircle(controller: _hold, onConfirm: _confirmSend),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'SOS – 3 Sekunden halten',
+                      textAlign: TextAlign.center,
+                      style: t.heading.copyWith(color: ink, fontSize: 22),
+                    ),
+                    // Wer einen Screenreader nutzt, sieht und hört eine Taste ohne Halten (mit Bestätigung).
+                    if (MediaQuery.accessibleNavigationOf(context)) ...[
+                      const SizedBox(height: 16),
+                      _Outline(label: 'SOS auslösen (ohne Halten)', icon: Icons.touch_app_rounded, onTap: _confirmSend),
+                    ],
+                  ] else
+                    _Status(controller: c, phase: phase, sosId: _sosId, reason: _result?.reason),
+                  const SizedBox(height: 20),
+                  callKey,
+                  if (fallback) ...[
+                    const SizedBox(height: Space.gap),
+                    LKey(label: 'SMS jetzt senden', icon: Icons.sms_rounded, kind: KeyKind.safety, onPressed: _sms),
+                  ],
+                  const SizedBox(height: Space.gap),
+                  masterKey,
+                  if (!fallback) ...[const SizedBox(height: Space.gap), _Outline(label: 'SOS per SMS', icon: Icons.sms_rounded, onTap: _sms)],
+                  // Wie es um den Alarm steht und wie man ihn noch einmal schickt, kommt nach den Not-Tasten: Anrufen geht vor.
+                  if (_phase != _Phase.idle) ...[
+                    const SizedBox(height: 20),
+                    _StatusMore(
+                      controller: c,
+                      phase: phase,
+                      sosId: _sosId,
+                      reason: _result?.reason,
+                      onRetry: phase == _Phase.queued ? () => _retry(c) : _send,
+                      retrying: _retrying,
+                    ),
+                    const SizedBox(height: 8),
+                    _PositionNote(controller: c, ink: ink),
+                  ],
+                  const SizedBox(height: Space.gap),
+                  _Outline(
+                    label: 'Standort vorlesen',
+                    icon: Icons.record_voice_over_rounded,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EmergencyScreen())),
+                  ),
+                  const SizedBox(height: Space.gap),
+                  _Outline(
+                    label: 'Finde mich (Licht)',
+                    icon: Icons.flare_rounded,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FindMeScreen())),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -210,9 +281,43 @@ class _SosScreenState extends State<SosScreen> with SingleTickerProviderStateMix
   }
 }
 
+/// Fehlt die Ortung oder ist sie alt, enthält der Alarm keinen frischen Standort. Das steht vor dem Senden da.
+class _PositionNote extends StatelessWidget {
+  const _PositionNote({required this.controller, required this.ink});
+  final GameController controller;
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    return ValueListenableBuilder<int>(
+      valueListenable: controller.clock,
+      builder: (_, _, _) {
+        final hint = positionHint(controller);
+        if (hint == null) return const SizedBox.shrink();
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.location_off_rounded, color: ink, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('$hint Sagt der Spielleitung, wo ihr seid.', style: t.body.copyWith(color: ink, fontSize: 16, height: 1.3)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _HoldCircle extends StatelessWidget {
-  const _HoldCircle({required this.controller});
+  const _HoldCircle({required this.controller, required this.onConfirm});
   final AnimationController controller;
+
+  /// Auslösen ohne Halten, nur über Bedienhilfen und mit Bestätigung
+  final VoidCallback onConfirm;
+
+  static const action = CustomSemanticsAction(label: 'SOS auslösen');
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +325,10 @@ class _HoldCircle extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'SOS. Drei Sekunden gedrückt halten, um die Spielleitung zu alarmieren.',
+      hint: 'Mit Screenreader: doppelt tippen oder die Aktion „SOS auslösen“ wählen. Danach folgt eine Bestätigung.',
+      onTap: onConfirm,
+      onLongPress: onConfirm,
+      customSemanticsActions: {action: onConfirm},
       excludeSemantics: true,
       child: GestureDetector(
         onTapDown: (_) => controller.forward(from: 0),
@@ -264,39 +373,90 @@ class _HoldCircle extends StatelessWidget {
   }
 }
 
-class _Status extends StatelessWidget {
-  const _Status({required this.phase, required this.onSms, this.status, this.reason});
-  final _Phase phase;
-  final VoidCallback onSms;
-
-  /// Satz zum Grund, wenn der Alarm nicht angenommen wurde oder nicht gesendet werden konnte
-  final String? reason;
-
-  /// Stand laut Server: acknowledgedAt, resolvedAt, acknowledgedBy
-  final Json? status;
+/// Bestätigung für das Auslösen ohne Halten.
+class _ConfirmDialog extends StatelessWidget {
+  const _ConfirmDialog();
 
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
     final ink = t.monochrome ? t.p.text : Colors.white;
-    Widget row(bool? ok, String text) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(ok == null ? Icons.more_horiz_rounded : (ok ? Icons.check_circle_rounded : Icons.cancel_rounded), color: ink, size: 30),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: t.body.copyWith(color: ink, fontWeight: FontWeight.w600),
+    return Dialog(
+      backgroundColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Space.radius),
+        side: BorderSide(color: ink, width: 2),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              liveRegion: true,
+              container: true,
+              child: Text('SOS wirklich auslösen?', style: t.heading.copyWith(color: ink, fontSize: 24)),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text('Die Spielleitung wird sofort alarmiert.', style: t.body.copyWith(color: ink)),
+            const SizedBox(height: 20),
+            LKey(label: 'Ja, SOS senden', icon: Icons.sos_rounded, kind: KeyKind.safety, onPressed: () => Navigator.of(context).pop(true)),
+            const SizedBox(height: Space.gap),
+            LKey(label: 'Abbrechen', kind: KeyKind.secondary, onPressed: () => Navigator.of(context).pop(false)),
+          ],
+        ),
       ),
     );
+  }
+}
+
+/// Eine Zeile des Stands mit Symbol; [live] macht sie zum Live-Bereich für Screenreader.
+Widget _statusRow(BuildContext context, bool? ok, String text, {bool live = true}) {
+  final t = context.tok;
+  final ink = t.monochrome ? t.p.text : Colors.white;
+  final line = Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(ok == null ? Icons.more_horiz_rounded : (ok ? Icons.check_circle_rounded : Icons.cancel_rounded), color: ink, size: 30),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: t.body.copyWith(color: ink, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  );
+  // Ein Live-Bereich pro Zeile: Screenreader sagen jede Änderung an („noch nicht gesendet“ → „angekommen“).
+  return live ? Semantics(liveRegion: true, container: true, child: line) : line;
+}
+
+/// Kopf des Stands: was mit dem Alarm ist und was das Team jetzt tun soll.
+class _Status extends StatelessWidget {
+  const _Status({required this.controller, required this.phase, required this.sosId, this.reason});
+  final GameController controller;
+  final _Phase phase;
+  final String? sosId;
+
+  /// Satz zum Grund, wenn der Alarm nicht angenommen wurde oder nicht gesendet werden konnte
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final ink = t.monochrome ? t.p.text : Colors.white;
+    final c = controller;
+    Widget row(bool? ok, String text) => _statusRow(context, ok, text);
+    // Stand laut Server: acknowledgedAt, resolvedAt, acknowledgedBy
+    final status = c.sosStatus(sosId);
     final read = status?['acknowledgedAt'] != null;
     final done = status?['resolvedAt'] != null;
     final by = status?['acknowledgedBy'] as String?;
+    final why = reason ?? c.sosInfo(sosId)?.reason;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -304,8 +464,8 @@ class _Status extends StatelessWidget {
           _Phase.sending => row(null, 'Wird gesendet …'),
           _Phase.sent => row(true, 'Internet: Alarm ist bei der Spielleitung angekommen.'),
           _Phase.queued => row(false, 'Internet: noch nicht gesendet. Der Alarm ist gespeichert und wird nachgeholt, sobald Netz da ist.'),
-          _Phase.rejected => row(false, 'Internet: nicht gesendet. Die Spielleitung hat den Alarm nicht angenommen.${_reasonText(reason)}'),
-          _ => row(false, 'Internet: nicht gesendet und nicht gespeichert.${_reasonText(reason)}'),
+          _Phase.rejected => row(false, 'Internet: nicht gesendet. Die Spielleitung hat den Alarm nicht angenommen.${_reasonText(why)}'),
+          _ => row(false, 'Internet: nicht gesendet und nicht gespeichert.${_reasonText(why)}'),
         },
         if (phase == _Phase.sent) ...[
           if (read)
@@ -320,12 +480,65 @@ class _Status extends StatelessWidget {
         ],
         if (phase == _Phase.queued || phase == _Phase.rejected || phase == _Phase.failed) ...[
           const SizedBox(height: 8),
-          Text('Schickt jetzt eine SMS oder ruft an. SMS und Anrufe gehen oft noch, wenn das Internet nicht geht.', style: t.body.copyWith(color: ink)),
-          const SizedBox(height: 12),
-          _Outline(label: 'SMS jetzt senden', icon: Icons.sms_rounded, onTap: onSms),
+          Semantics(
+            liveRegion: true,
+            container: true,
+            child: Text(
+              'Schickt jetzt eine SMS oder ruft an. SMS und Anrufe gehen oft noch, wenn das Internet nicht geht.',
+              style: t.body.copyWith(color: ink, fontWeight: FontWeight.w700),
+            ),
+          ),
         ],
       ],
     );
+  }
+}
+
+/// Einzelheiten zum wartenden Alarm unter den Not-Tasten: Versuche, Countdown, Grund, „Nochmal senden“.
+class _StatusMore extends StatelessWidget {
+  const _StatusMore({required this.controller, required this.phase, required this.sosId, required this.onRetry, required this.retrying, this.reason});
+  final GameController controller;
+  final _Phase phase;
+  final String? sosId;
+
+  /// „Nochmal senden“ (wartender Alarm) beziehungsweise „Nochmal versuchen“ (neuer Alarm)
+  final VoidCallback onRetry;
+  final bool retrying;
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+    final info = c.sosInfo(sosId);
+    final why = reason ?? info?.reason;
+    final others = c.sosQueueLength - (phase == _Phase.queued ? 1 : 0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (phase == _Phase.queued) ...[
+          ValueListenableBuilder<int>(valueListenable: c.clock, builder: (_, _, _) => _statusRow(context, null, _attemptLine(c, info), live: false)),
+          if (why != null && why.isNotEmpty) _statusRow(context, null, 'Grund: $why', live: false),
+        ],
+        if (others > 0)
+          _statusRow(context, null, others == 1 ? 'Ein weiterer Alarm wartet ebenfalls.' : '$others weitere Alarme warten ebenfalls.', live: false),
+        if (phase == _Phase.queued || phase == _Phase.rejected || phase == _Phase.failed) ...[
+          const SizedBox(height: 8),
+          if (phase == _Phase.queued)
+            LKey(label: 'Nochmal senden', icon: Icons.refresh_rounded, kind: KeyKind.secondary, busy: retrying, onPressed: onRetry)
+          else
+            LKey(label: 'Nochmal versuchen', icon: Icons.refresh_rounded, kind: KeyKind.secondary, onPressed: onRetry),
+        ],
+      ],
+    );
+  }
+
+  /// „Versuch 3. Nächster Versuch in 12 s.“ Die Sekunden laufen mit der Uhr des Controllers.
+  static String _attemptLine(GameController c, SosInfo? info) {
+    final n = info?.attempts ?? 0;
+    final left = secondsToNextAttempt(c, info);
+    final tried = n > 0 ? 'Versuch $n. ' : '';
+    if (left == null) return '${tried}Der nächste Versuch kommt mit dem nächsten Abgleich.';
+    return left == 0 ? '${tried}Nächster Versuch läuft gleich …' : '${tried}Nächster Versuch in $left s.';
   }
 }
 
@@ -341,23 +554,30 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tok;
     final ink = t.monochrome ? t.p.text : Colors.white;
-    return GestureDetector(
-      onTap: () {
-        Fx.instance.buzz(Buzz.tick);
-        onTap();
-      },
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 56, minWidth: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? ink : Colors.transparent,
-          borderRadius: BorderRadius.circular(Space.radius),
-          border: Border.all(color: ink, width: 2),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: t.button.copyWith(fontSize: 18, color: selected ? Colors.black : ink),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () {
+          Fx.instance.buzz(Buzz.tick);
+          onTap();
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56, minWidth: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(Space.radius),
+            border: Border.all(color: ink, width: 2),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: t.button.copyWith(fontSize: 18, color: selected ? Colors.black : ink),
+          ),
         ),
       ),
     );
@@ -374,27 +594,33 @@ class _Outline extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tok;
     final ink = t.monochrome ? t.p.text : Colors.white;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Fx.instance.play(Sound.click);
-        onTap();
-      },
-      child: Container(
-        height: Space.secondary,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(Space.radius),
-          border: Border.all(color: ink, width: 2),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: ink, size: 26),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(label, style: t.button.copyWith(color: ink)),
-            ),
-          ],
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          Fx.instance.play(Sound.click);
+          onTap();
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: Space.secondary),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Space.radius),
+            border: Border.all(color: ink, width: 2),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: ink, size: 26),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(label, style: t.button.copyWith(color: ink)),
+              ),
+            ],
+          ),
         ),
       ),
     );

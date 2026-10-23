@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
@@ -9,15 +10,22 @@ import '../../engine/geo.dart';
 import '../../model/game.dart';
 import '../../services/compass.dart';
 import '../../services/fx.dart';
+import '../../services/live.dart';
 import '../../services/location.dart';
+import '../../services/soundscape.dart';
 import '../../data/peiler.dart';
 import '../design/components.dart';
+import '../design/text_scale.dart';
 import '../design/tokens.dart';
 import '../safety/emergency_screen.dart';
+import '../safety/safety_layer.dart' show sosOpen;
+import '../widgets/active_scope.dart';
 import '../widgets/common.dart';
 import '../widgets/direction.dart';
+import '../widgets/game_status.dart';
 import '../widgets/stations.dart';
 import 'akte_tab.dart';
+import 'ende_screen.dart';
 import 'funk_tab.dart';
 import 'leaderboard_screen.dart';
 import 'map_view.dart';
@@ -32,16 +40,23 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
   int _unread = 0;
+
+  /// Tabs, die schon einmal vorn lagen. Nur sie sind gebaut; die anderen kosten nichts.
+  final _visited = <int>{0};
   Set<String> _triggered = {};
   GameController? _c;
+  GameStatusWatch? _status;
+  GameStatus _lastStatus = GameStatus.running;
+  bool _endShown = false;
   StreamSubscription<ChatMessage>? _messages;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _setup());
   }
 
@@ -52,14 +67,64 @@ class _HomeScreenState extends State<HomeScreen> {
     _messages = c.incoming.listen(_onMessage);
     _triggered = {...c.state.triggered};
     c.addListener(_watch);
-    if (await LocationService.instance.ensurePermission() == null) {
-      await LocationService.instance.start((p) => c.onPosition(p.latitude, p.longitude, p.accuracy, at: p.timestamp));
+    sosOpen.addListener(_maybeShowEnd);
+    _status = GameStatusWatch.of(c)..addListener(_onStatus);
+    _lastStatus = GameStatus.running;
+    _onStatus();
+    await _startLocation();
+  }
+
+  /// Ortung starten, wenn sie erlaubt ist; Fehler des Stroms landen in der Steuerung und zeigen sich als Hinweis.
+  Future<void> _startLocation() async {
+    final c = _c;
+    final location = LocationService.instance;
+    if (c == null || location.running) return;
+    if (await location.ensurePermission() == null && mounted && !location.running) {
+      await location.start((p) => c.onPosition(p.latitude, p.longitude, p.accuracy, at: p.timestamp), onError: c.onPositionError);
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    Soundscape.instance.lifecycle(state);
+    if (state != AppLifecycleState.resumed) return;
+    // Zurück im Vordergrund: gleich abgleichen, Wartendes senden, Verbindung zum Anstupsen prüfen, Ortung neu aufnehmen.
+    _c?.onAppResumed();
+    LiveLink.appResumed();
+    unawaited(_resumeLocation());
+  }
+
+  Future<void> _resumeLocation() async {
+    final c = _c;
+    final location = LocationService.instance;
+    if (c == null) return;
+    if (!location.running) {
+      // Erlaubnis kann in den Systemeinstellungen zurückgekommen sein. Hier nicht erneut fragen.
+      if (await location.check() == LocationState.ready && mounted && !location.running) {
+        await location.start((p) => c.onPosition(p.latitude, p.longitude, p.accuracy, at: p.timestamp), onError: c.onPositionError);
+      }
+    } else if (c.locationError != null) {
+      await location.restart((p) => c.onPosition(p.latitude, p.longitude, p.accuracy, at: p.timestamp), onError: c.onPositionError);
+    }
+  }
+
+  /// Liegt diese Seite obenauf (keine Station, keine Einstellungen darüber)?
+  bool _onTop = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _onTop = ModalRoute.of(context)?.isCurrent ?? true;
+    // Kommt diese Seite wieder obenauf, wartet vielleicht der Abschluss.
+    if (_c != null) WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowEnd());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _c?.removeListener(_watch);
+    sosOpen.removeListener(_maybeShowEnd);
+    _status?.removeListener(_onStatus);
     _messages?.cancel();
     super.dispose();
   }
@@ -73,6 +138,48 @@ class _HomeScreenState extends State<HomeScreen> {
       Fx.instance.buzz(Buzz.arrival);
     }
     _triggered = now;
+    _maybeShowEnd();
+  }
+
+  /// Pause, Ende oder fehlender Kontakt: einmal Ton und Vibration, damit auch ein Team mit Handy in der Tasche es merkt.
+  void _onStatus() {
+    final status = _status?.status ?? GameStatus.running;
+    if (status != _lastStatus) {
+      final before = _lastStatus;
+      _lastStatus = status;
+      if (!Fx.instance.safetyActive) {
+        switch (status) {
+          case GameStatus.paused:
+            Fx.instance.buzz(Buzz.arrival);
+            Fx.instance.play(Sound.squelchOn);
+          case GameStatus.ended:
+            Fx.instance.buzz(Buzz.arrival);
+            Fx.instance.play(Sound.chapter);
+          case GameStatus.unreachable:
+            Fx.instance.buzz(Buzz.pulse);
+            Fx.instance.play(Sound.squelchOff);
+          case GameStatus.running:
+            // Es geht weiter (Pause vorbei oder Kontakt wieder da).
+            if (before == GameStatus.paused) {
+              Fx.instance.buzz(Buzz.pulse);
+              Fx.instance.play(Sound.squelchOn);
+            }
+        }
+      }
+    }
+    _maybeShowEnd();
+  }
+
+  /// Das Spiel ist vorbei: Der Abschluss erscheint von selbst, einmal. Beendet die Spielleitung, sofort (nie über der SOS-Seite);
+  /// kommt das Team selbst ins Ziel, wenn es wieder auf dieser Seite ist, damit Belohnung und Auflösung nicht abgeschnitten werden.
+  void _maybeShowEnd() {
+    final c = _c;
+    if (_endShown || !mounted || c == null || !gameIsOver(c) || sosOpen.value) return;
+    if (!c.eventEnded && !_onTop) return;
+    _endShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) openEnde(context);
+    });
   }
 
   void _onMessage(ChatMessage m) {
@@ -109,8 +216,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _select(int i) => setState(() {
     _tab = i;
+    _visited.add(i);
     if (i == 1) _unread = 0;
   });
+
+  Widget _tabBody(int i) => switch (i) {
+    0 => WegTab(active: _tab == 0),
+    1 => const FunkTab(),
+    _ => const AkteTab(),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +237,22 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             const GameHeader(),
+            const GameStatusBanner(),
             Expanded(
-              child: IndexedStack(
-                index: _tab,
+              // Nur Tabs, die schon einmal vorn lagen, und nur der vordere rechnet und tickt; die anderen warten im Hintergrund.
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  WegTab(active: _tab == 0),
-                  const FunkTab(),
-                  const AkteTab(),
+                  for (var i = 0; i < 3; i++)
+                    if (_visited.contains(i))
+                      Offstage(
+                        key: ValueKey('tab-$i'),
+                        offstage: _tab != i,
+                        child: TickerMode(
+                          enabled: _tab == i,
+                          child: TabPresence(visible: _tab == i, child: _tabBody(i)),
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -150,6 +273,7 @@ class GameHeader extends StatelessWidget {
 
   void _menu(BuildContext context) {
     final t = context.tok;
+    final over = gameIsOver(Lykora.game(context));
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: t.p.surface,
@@ -161,7 +285,8 @@ class GameHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (label, icon, page) in [
-                ('Rangliste', Icons.leaderboard_rounded, const LeaderboardScreen() as Widget),
+                if (over) ('Abschluss', Icons.flag_rounded, const EndeScreen() as Widget),
+                ('Rangliste', Icons.leaderboard_rounded, const LeaderboardScreen()),
                 ('Notfallinfos', Icons.health_and_safety_rounded, const EmergencyScreen()),
                 ('Einstellungen', Icons.tune_rounded, const SettingsScreen()),
               ]) ...[
@@ -191,7 +316,6 @@ class GameHeader extends StatelessWidget {
       builder: (context, _) {
         final t = context.tok;
         final chapter = c.currentChapter;
-        final remaining = c.remaining;
         final ring = c.keyRing;
         final status = c.paused
             ? 'Pausiert'
@@ -203,50 +327,118 @@ class GameHeader extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: t.p.line)),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Caps(
-                      status ?? (chapter == null ? c.game!.title.of(context) : 'Kapitel ${roman(c.chapterNumber)}'),
-                      color: status != null ? t.p.accent : null,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(t.displayText(chapter?.title.of(context) ?? c.session!.teamName), style: t.display(22), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
+          child: LayoutBuilder(
+            builder: (context, box) => Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Caps(
+                        status ?? (chapter == null ? c.game!.title.of(context) : 'Kapitel ${roman(c.chapterNumber)}'),
+                        color: status != null ? t.p.accent : null,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        t.displayText(chapter?.title.of(context) ?? c.session!.teamName),
+                        style: t.display(22),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (ring.isNotEmpty) KeyRing(values: ring),
-                  if (remaining != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                // Schlüsselbund und Zeit schrumpfen bei großer Schrift, statt den Titel oder den Rand zu sprengen.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: box.maxWidth * 0.55),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (remaining <= 600) Icon(Icons.hourglass_bottom_rounded, size: 18, color: t.p.accentBright),
-                        Text(
-                          remaining <= 600 && remaining > 0 ? 'Noch ${coarseTime(remaining)}' : coarseTime(remaining),
-                          style: remaining <= 600 ? t.number.copyWith(fontSize: 18, color: t.p.accentBright) : t.label.copyWith(fontSize: 15),
-                        ),
+                        if (ring.isNotEmpty) KeyRing(values: ring),
+                        RemainingTime(controller: c),
                       ],
                     ),
-                  ],
-                ],
-              ),
-              IconButton(
-                tooltip: 'Mehr',
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 56),
-                icon: Icon(Icons.more_vert_rounded, color: t.p.textMuted),
-                onPressed: () => _menu(context),
-              ),
-            ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Mehr',
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 56),
+                  icon: Icon(Icons.more_vert_rounded, color: t.p.textMuted),
+                  onPressed: () => _menu(context),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Restzeit grob. Hört auf die Uhr der Steuerung, baut aber nur neu, wenn sich der Text ändert:
+/// meist alle paar Minuten, in den letzten zehn jede Sekunde.
+class RemainingTime extends StatefulWidget {
+  const RemainingTime({super.key, required this.controller});
+  final GameController controller;
+
+  @override
+  State<RemainingTime> createState() => _RemainingTimeState();
+}
+
+class _RemainingTimeState extends State<RemainingTime> {
+  late String? _shown = _label();
+
+  String? _label() {
+    final remaining = widget.controller.remaining;
+    if (remaining == null) return null;
+    return remaining <= 600 && remaining > 0 ? 'Noch ${coarseTime(remaining)}' : coarseTime(remaining);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.clock.addListener(_tick);
+  }
+
+  @override
+  void didUpdateWidget(RemainingTime old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      old.controller.clock.removeListener(_tick);
+      widget.controller.clock.addListener(_tick);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.clock.removeListener(_tick);
+    super.dispose();
+  }
+
+  void _tick() {
+    final next = _label();
+    if (next != _shown && mounted) setState(() => _shown = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final text = _shown = _label();
+    if (text == null) return const SizedBox.shrink();
+    final remaining = widget.controller.remaining!;
+    final urgent = remaining <= 600;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (urgent) Icon(Icons.hourglass_bottom_rounded, size: 18, color: t.p.accentBright),
+          Text(text, style: urgent ? t.number.copyWith(fontSize: 18, color: t.p.accentBright) : t.label.copyWith(fontSize: 15)),
+        ],
+      ),
     );
   }
 }
@@ -263,6 +455,8 @@ class DeviceBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tok;
     final items = [('Weg', Icons.explore_rounded), ('Funk', Icons.settings_input_antenna_rounded), (caseFile, Icons.menu_book_rounded)];
+    // Die Leiste wächst mit der Schrift: Zwei Zeilen Beschriftung brauchen bei 200 % gut 100 dp.
+    final growth = clampDouble(textGrowth(context), 1.0, maxTextScale);
     return Container(
       decoration: BoxDecoration(
         color: t.p.ground,
@@ -271,7 +465,7 @@ class DeviceBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 76,
+          height: 76 + 44 * (growth - 1),
           child: Row(
             children: [
               for (final (i, (label, icon)) in items.indexed)
@@ -349,12 +543,13 @@ class _WegTabState extends State<WegTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
+    final growth = clampDouble(textGrowth(context), 1.0, maxTextScale);
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.gutter, 10, Space.gutter, 4),
           child: Container(
-            height: 52,
+            height: 52 + 12 * (growth - 1),
             decoration: BoxDecoration(
               color: t.p.surface,
               borderRadius: BorderRadius.circular(Space.radius),
@@ -379,7 +574,10 @@ class _WegTabState extends State<WegTab> {
                           borderRadius: BorderRadius.circular(Space.radius - 4),
                           border: Border.all(color: i == _view ? t.p.accent : Colors.transparent, width: 1.5),
                         ),
-                        child: Text(label, style: t.button.copyWith(fontSize: 17, color: i == _view ? t.p.text : t.p.textMuted)),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(label, maxLines: 1, style: t.button.copyWith(fontSize: 17, color: i == _view ? t.p.text : t.p.textMuted)),
+                        ),
                       ),
                     ),
                   ),
@@ -407,27 +605,16 @@ class StationList extends StatefulWidget {
   State<StationList> createState() => _StationListState();
 }
 
-class _StationListState extends State<StationList> {
-  @override
-  void initState() {
-    super.initState();
-    Compass.instance.acquire();
-  }
-
-  @override
-  void dispose() {
-    Compass.instance.release();
-    super.dispose();
-  }
-
+class _StationListState extends State<StationList> with PresentCompass {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: Listenable.merge([c, Compass.instance]),
       builder: (context, _) {
         final t = context.tok;
-        final pos = c.position;
+        // Eine alte Position gibt keine Entfernung her.
+        final pos = c.positionFresh ? c.position : null;
         final heading = Compass.instance.heading;
         double dist(Station s) => pos == null || s.location == null ? double.infinity : distance(pos, s.location!);
         final stations = [...c.visibleStations]
@@ -439,6 +626,7 @@ class _StationListState extends State<StationList> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 24),
           children: [
+            const PositionNote(),
             for (final s in stations)
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.gap),

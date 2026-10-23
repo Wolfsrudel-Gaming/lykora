@@ -9,6 +9,8 @@ import '../../model/game.dart';
 import '../design/components.dart';
 import '../design/pictograms.dart';
 import '../design/tokens.dart';
+import '../widgets/active_scope.dart';
+import '../widgets/direction.dart' show ageText;
 import '../widgets/stations.dart';
 
 LatLng _ll(GeoPoint p) => LatLng(p.lat, p.lon);
@@ -49,7 +51,7 @@ class _GameMapState extends State<GameMap> {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: c,
       builder: (context, _) {
         final t = context.tok;
@@ -57,6 +59,8 @@ class _GameMapState extends State<GameMap> {
         final game = c.game!;
         final field = game.field;
         final pos = c.position;
+        // Eine alte Position bleibt als blasse Spur sichtbar, gilt aber nicht als aktuell.
+        final stale = c.positionStale;
         if (_follow && pos != null && !widget.focusAssembly) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _move(_ll(pos)));
         }
@@ -145,7 +149,7 @@ class _GameMapState extends State<GameMap> {
                       ),
                   ],
                 ),
-                if (pos != null && c.accuracy != null)
+                if (pos != null && c.accuracy != null && !stale)
                   CircleLayer(
                     circles: [
                       CircleMarker(
@@ -201,7 +205,13 @@ class _GameMapState extends State<GameMap> {
                       height: c.recalled ? 56 : 40,
                       child: Pictogram(Picto.assembly, size: c.recalled ? 52 : 36),
                     ),
-                    if (pos != null && game.settings.showOwnPosition) Marker(point: _ll(pos), width: 44, height: 44, child: const _Me()),
+                    if (pos != null && game.settings.showOwnPosition)
+                      Marker(
+                        point: _ll(pos),
+                        width: 44,
+                        height: 44,
+                        child: Opacity(opacity: stale ? 0.4 : 1, child: const _Me()),
+                      ),
                   ],
                 ),
               ],
@@ -216,7 +226,28 @@ class _GameMapState extends State<GameMap> {
                   child: Text('© OpenStreetMap-Mitwirkende', style: t.small.copyWith(fontSize: 12)),
                 ),
               ),
-            if (c.accuracy != null && c.accuracy! > 25)
+            if (stale)
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 80,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: c.clock,
+                  builder: (context, _, _) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: p.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: p.accent, width: 2),
+                    ),
+                    child: Text(
+                      'Ortung veraltet${c.positionAge == null ? '' : ' · Position ${ageText(c.positionAge!)}'}',
+                      style: t.small.copyWith(color: p.text),
+                    ),
+                  ),
+                ),
+              )
+            else if (c.accuracy != null && c.accuracy! > 25)
               Positioned(
                 top: 12,
                 left: 12,

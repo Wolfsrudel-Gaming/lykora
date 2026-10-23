@@ -17,8 +17,11 @@ import '../design/components.dart';
 import '../design/pictograms.dart';
 import '../design/tokens.dart';
 import '../widgets/direction.dart';
-import 'sos_screen.dart';
 import '../screens/map_view.dart';
+import 'safety_state.dart';
+import 'sos_screen.dart';
+
+export 'safety_state.dart' show positionHint, queuedCount;
 
 /// Ist die SOS-Seite offen, braucht die Leiste keinen zweiten SOS-Knopf.
 final sosOpen = ValueNotifier(false);
@@ -31,25 +34,44 @@ class SafetyLayer extends StatefulWidget {
   State<SafetyLayer> createState() => _SafetyLayerState();
 }
 
+/// So lange bleibt das Vollbild einer Sperrzone weg, wenn das Team „Meine Position stimmt nicht“ meldet.
+const zoneDismissFor = Duration(seconds: 60);
+
+/// So lange steht „Danke, ihr seid wieder sicher“, nachdem das Team die Sperrzone verlassen hat.
+const _safeAgainFor = Duration(seconds: 3);
+
 class _SafetyLayerState extends State<SafetyLayer> {
   GameController? _c;
   Timer? _battery;
-  bool _stageA = false;
+  Timer? _safeTimer;
+  final _dismissTimers = <Timer>[];
   bool _showRecall = false;
-  DateTime? _safeAgainUntil;
+  bool _safeAgain = false;
   bool _wasInside = false;
+
+  /// Ein Vollbild (Rückruf oder Sperrzone) war beim letzten Prüfen zu sehen.
+  bool _stageActive = false;
 
   /// Für die aktuelle Lebenszeichen-Frage ist der Hinweiston schon gelaufen.
   bool _heartbeatCued = false;
+
+  /// Sperrzone → Zeitpunkt (Uhr des Spiels, ms), bis zu dem ihr Vollbild ausgeblendet bleibt.
+  final _dismissed = <String, int>{};
+
+  /// Wartende und abgelehnte SOS beim letzten Prüfen, um Wechsel anzusagen.
+  int _sosQueued = 0;
+  int _sosRejected = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final c = Lykora.game(context);
     if (c == _c) return;
-    _c?.removeListener(_checkHeartbeat);
-    _c = c..addListener(_checkHeartbeat);
+    _c?.removeListener(_onController);
+    _c = c..addListener(_onController);
     _heartbeatCued = false;
+    _sosQueued = c.sosQueueLength;
+    _sosRejected = c.sosRejectedCount;
     _checkHeartbeat();
     c.onAlert = _onAlert;
     _battery?.cancel();
@@ -66,9 +88,20 @@ class _SafetyLayerState extends State<SafetyLayer> {
 
   @override
   void dispose() {
-    _c?.removeListener(_checkHeartbeat);
+    _c?.removeListener(_onController);
     _battery?.cancel();
+    _safeTimer?.cancel();
+    for (final t in _dismissTimers) {
+      t.cancel();
+    }
     super.dispose();
+  }
+
+  /// Jede Meldung des Controllers: Wirkungen (Ton, Ansage, Vollbild-Ende) laufen hier, nie im Aufbau.
+  void _onController() {
+    _checkHeartbeat();
+    _trackZone();
+    _trackSos();
   }
 
   /// Die Frage „Alles okay?“ muss man bemerken, auch mit dem Handy in der Tasche: einmal Vibration und
@@ -82,6 +115,89 @@ class _SafetyLayerState extends State<SafetyLayer> {
       Fx.instance.buzz(Buzz.safety);
       Fx.instance.play(Sound.safety, volume: 1);
     }
+  }
+
+  /// Verlassen der Sperrzone merken (dann kurz „Danke“) und die Ausblendungen vergessen.
+  void _trackZone() {
+    final c = _c;
+    if (c == null || c.session == null) return;
+    final inside = c.zoneAlert?.inside ?? false;
+    if (_wasInside && !inside) {
+      _dismissed.clear();
+      _safeAgain = true;
+      _safeTimer?.cancel();
+      _safeTimer = Timer(_safeAgainFor, _endSafeAgain);
+    } else if (!_wasInside && inside) {
+      _safeAgain = false;
+      _safeTimer?.cancel();
+    }
+    _wasInside = inside;
+    _trackStage();
+  }
+
+  void _endSafeAgain() {
+    _safeTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _safeAgain = false);
+    _trackStage();
+    // „Danke“ ist vorbei und kein Vollbild folgt: Jetzt wird die Atmosphäre wieder frei (ohne Alarm tut das nichts).
+    if (!_stageActive) Fx.instance.safetyCleared();
+  }
+
+  /// Endet ein Vollbild, wird die Atmosphäre wieder frei; während „Danke“ noch steht, erst danach.
+  void _trackStage() {
+    final c = _c;
+    if (c == null || c.session == null) return;
+    final active = _recallFull(c) || _zonePanel(c) != null;
+    if (_stageActive && !active && !_safeAgain) Fx.instance.safetyCleared();
+    _stageActive = active;
+  }
+
+  /// SOS, die nicht mehr warten, ohne dass die SOS-Seite offen ist, sagt die Leiste an.
+  void _trackSos() {
+    final c = _c;
+    if (c == null || c.session == null) return;
+    final queued = c.sosQueueLength;
+    final rejected = c.sosRejectedCount;
+    if (!sosOpen.value) {
+      if (rejected > _sosRejected) {
+        Fx.instance.announce('SOS nicht angenommen. Ruft die Spielleitung an oder schickt eine SMS.');
+      } else if (queued < _sosQueued) {
+        Fx.instance.announce('SOS ist bei der Spielleitung angekommen.');
+      }
+    }
+    _sosQueued = queued;
+    _sosRejected = rejected;
+  }
+
+  bool _recallFull(GameController c) => c.recalled && (!c.session!.recallAcknowledged || _showRecall);
+
+  /// Die Sperrzone, die als Vollbild gilt: sicher drin und nicht gerade als Irrtum gemeldet.
+  ZoneAlert? _zonePanel(GameController c) {
+    final z = c.zoneAlert;
+    if (z == null || !z.inside || z.uncertain) return null;
+    final until = _dismissed[z.zone?.id];
+    if (until != null && c.now() < until) return null;
+    return z;
+  }
+
+  /// „Meine Position stimmt nicht“: Das Vollbild weicht für [zoneDismissFor], die Spielleitung erfährt es,
+  /// der Streifen bleibt, SOS bleibt oben.
+  void _wrongPosition(ZoneAlert alert) {
+    final c = _c;
+    final id = alert.zone?.id;
+    if (c == null || id == null) return;
+    setState(() => _dismissed[id] = c.now() + zoneDismissFor.inMilliseconds);
+    _dismissTimers.add(
+      Timer(zoneDismissFor, () {
+        if (!mounted) return;
+        setState(() => _dismissed.remove(id));
+        _trackStage();
+      }),
+    );
+    _trackStage();
+    final name = alert.zone!.name.resolve(c.game?.language ?? 'de');
+    unawaited(c.sendMessage('Position stimmt nicht: Das Team meldet die Sperrzone „$name“ als Irrtum.', kind: 'predefined').catchError((_) {}));
   }
 
   Future<void> _onAlert(String kind) async {
@@ -111,23 +227,20 @@ class _SafetyLayerState extends State<SafetyLayer> {
         final t = context.tok;
         final zone = c.zoneAlert;
         final recalled = c.recalled;
-        final recallFull = recalled && (!c.session!.recallAcknowledged || _showRecall);
-        final zoneInside = zone != null && zone.inside;
-        final stageA = recallFull || zoneInside;
-
-        // Nach dem Verlassen der Zone kurz bestätigen.
-        if (_wasInside && !zoneInside) _safeAgainUntil = DateTime.now().add(const Duration(seconds: 3));
-        _wasInside = zoneInside;
-        final safeAgain = _safeAgainUntil != null && DateTime.now().isBefore(_safeAgainUntil!);
-        if (_stageA && !stageA && !safeAgain) Fx.instance.safetyCleared();
-        _stageA = stageA;
+        final recallFull = _recallFull(c);
+        final panel = _zonePanel(c);
+        final stale = c.positionStale || c.locationError != null;
 
         final banners = <Widget>[
           if (recalled && !recallFull) _RecallStrip(onTap: () => setState(() => _showRecall = true)),
-          if (zone != null && !zone.inside) _ZoneStrip(alert: zone),
-          if (c.heartbeatDue) _HeartbeatStrip(onHelp: _openSos),
+          if (zone != null && panel == null)
+            if (zone.uncertain) _UncertainNote(alert: zone, stale: stale) else _ZoneStrip(alert: zone, stale: stale),
+          if (c.heartbeatDue) _HeartbeatStrip(onHelp: _openSos, showContact: !recallFull),
+          if (!c.heartbeatDue && !recallFull) const _NoContactStrip(),
           if (c.unreadSystem.isNotEmpty) _SystemStrip(text: c.unreadSystem.last.body),
-          if (c.sosPending) _Strip(text: 'SOS wird gesendet, sobald Netz da ist. Ruft zusätzlich an.', onTap: _openSos),
+          if (c.sosRejectedCount > 0)
+            _Strip(text: 'Euer SOS wurde nicht angenommen. Ruft die Spielleitung an oder schickt eine SMS.', onTap: _openSos),
+          if (c.sosPending) _Strip(text: 'SOS ist gespeichert und wird weiter gesendet. Ruft zusätzlich an.', onTap: _openSos),
         ];
 
         final media = MediaQuery.of(context);
@@ -136,28 +249,47 @@ class _SafetyLayerState extends State<SafetyLayer> {
           child: Column(
             children: [
               SafetyBar(onSos: _openSos),
-              ...banners,
+              // Viele Streifen und große Schrift dürfen das Spiel nie ganz verdrängen: Der Streifenbereich scrollt ab der halben Höhe.
+              if (banners.isNotEmpty)
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: media.size.height * 0.5),
+                  child: SingleChildScrollView(child: Column(children: banners)),
+                ),
+              // Eigene Semantik-Grenze: Die Sperre der Routen (ModalBarrier) verdeckt sonst alles, was vor ihnen gemalt
+              // wurde, also auch Leiste und Streifen. Ein Screenreader fände dann die SOS-Taste nicht.
               Expanded(
-                child: MediaQuery(
-                  data: media.removePadding(removeTop: true),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: widget.child),
-                      if (recallFull)
-                        Positioned.fill(
-                          child: _RecallPanel(
-                            onAck: () async {
-                              setState(() => _showRecall = false);
-                              Fx.instance.safetyCleared();
-                              if (!c.session!.recallAcknowledged) await c.acknowledgeRecall();
-                            },
-                          ),
-                        )
-                      else if (zoneInside)
-                        Positioned.fill(child: _ZonePanel(alert: zone))
-                      else if (safeAgain)
-                        Positioned.fill(child: _SafeAgain(onDone: () => setState(() => _safeAgainUntil = null))),
-                    ],
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  child: MediaQuery(
+                    data: media.removePadding(removeTop: true),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(child: widget.child),
+                        // Ein Vollbild der Sicherheit ist das Einzige, was ein Screenreader dahinter noch findet.
+                        if (recallFull)
+                          Positioned.fill(
+                            child: BlockSemantics(
+                              child: _RecallPanel(
+                                onAck: () async {
+                                  setState(() => _showRecall = false);
+                                  Fx.instance.safetyCleared();
+                                  _trackStage();
+                                  if (!c.session!.recallAcknowledged) await c.acknowledgeRecall();
+                                },
+                              ),
+                            ),
+                          )
+                        else if (panel != null)
+                          Positioned.fill(
+                            child: BlockSemantics(
+                              child: _ZonePanel(key: ValueKey('zone-${panel.zone?.id}'), alert: panel, onWrongPosition: () => _wrongPosition(panel)),
+                            ),
+                          )
+                        else if (_safeAgain)
+                          Positioned.fill(child: _SafeAgain(onDone: _endSafeAgain)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -169,23 +301,6 @@ class _SafetyLayerState extends State<SafetyLayer> {
   }
 }
 
-/// Anzahl der Dinge, die noch auf Versand warten. Eine Stelle für die Leiste; hier später die
-/// Warteschlangenlänge des Controllers einsetzen.
-int queuedCount(GameController c) => c.unsyncedCount + (c.session?.messages.where((m) => m.pending).length ?? 0);
-
-/// Hinweis zur Ortung, wenn das letzte Signal alt ist oder fehlt. Eine Stelle; hier später das
-/// Positionsalter des Controllers einsetzen. Gibt null zurück, solange alles frisch ist.
-String? positionHint(GameController c) {
-  final at = c.positionAt;
-  if (c.position == null || at == null) return 'Noch kein Standort empfangen.';
-  final age = DateTime.now().difference(at);
-  if (age < _staleFix) return null;
-  return 'Standort ist ${age.inMinutes < 1 ? 'über eine Minute' : 'vor ${age.inMinutes} Min.'} alt.';
-}
-
-/// Ab diesem Alter gilt die Position als veraltet und die Leiste zeigt es an.
-const _staleFix = Duration(seconds: 90);
-
 /// Ab dieser Breite steht neben dem Lichtschalter auch sein Name.
 const _wideBar = 380.0;
 
@@ -195,7 +310,7 @@ const _lowBattery = 0.35;
 /// Feste Leiste oben: Lichtschalter, kompakte Statusanzeige, SOS. Reines Schwarz mit Absperrband-Linie.
 ///
 /// Die SOS-Taste hat einen festen Platz rechts und wird nie verdrängt. Alles andere teilt sich den Rest:
-/// Der Lichtschalter schrumpft zum Symbol, Netz, Akku und Wartendes stehen als Symbole in einer
+/// Der Lichtschalter schrumpft zum Symbol, Netz, Akku, Ortung und Wartendes stehen als Symbole in einer
 /// einzigen Anzeige, die bei Platzmangel kleiner wird. Antippen klappt darunter die Einzelheiten auf.
 class SafetyBar extends StatefulWidget {
   const SafetyBar({super.key, required this.onSos});
@@ -208,6 +323,20 @@ class SafetyBar extends StatefulWidget {
 class _SafetyBarState extends State<SafetyBar> {
   bool _details = false;
 
+  /// Langes Drücken: bewusst zu Tag und zurück. Der Hinweis sagt, wie man das findet.
+  void _toggleDay(AppSettings prefs) {
+    Fx.instance.play(Sound.click);
+    prefs.toggleDay();
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 6),
+          content: Text(AppSettings.dayHint, style: TextStyle(fontSize: 16, height: 1.3)),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
@@ -219,13 +348,12 @@ class _SafetyBarState extends State<SafetyBar> {
     final battery = c.battery;
     final lowBattery = battery != null && battery < _lowBattery;
     final pending = queuedCount(c);
-    final hint = positionHint(c);
-    final staleFix = c.position != null && hint != null;
     final status = _Status(
       online: c.online,
       pending: pending,
       battery: lowBattery ? battery : null,
-      staleFix: staleFix,
+      position: positionShort(c),
+      sosRejected: c.sosRejectedCount > 0,
       ink: ink,
     );
     // Die Leiste hat feste Höhe; große Schrift wächst nur bis 1,3 und läuft nie in die SOS-Taste.
@@ -242,18 +370,24 @@ class _SafetyBarState extends State<SafetyBar> {
               child: LayoutBuilder(
                 builder: (context, box) {
                   final wide = box.maxWidth >= _wideBar && MediaQuery.textScalerOf(context).scale(1) <= 1.15;
+                  void cycle() {
+                    Fx.instance.play(Sound.click);
+                    prefs.cycleLight();
+                  }
+
+                  final isDay = prefs.lightMode == LightMode.day;
                   return Row(
                     children: [
                       const SizedBox(width: 4),
                       Semantics(
                         button: true,
-                        label: 'Licht: ${prefs.lightMode.label}. Tippen zum Wechseln.',
+                        label: 'Licht: ${prefs.lightMode.label}. Tippen zum Wechseln, lange drücken für ${isDay ? 'Nacht' : 'Tag'}.',
+                        onTap: cycle,
+                        onLongPress: () => _toggleDay(prefs),
                         excludeSemantics: true,
                         child: InkResponse(
-                          onTap: () {
-                            Fx.instance.play(Sound.click);
-                            prefs.cycleLight();
-                          },
+                          onTap: cycle,
+                          onLongPress: () => _toggleDay(prefs),
                           radius: 32,
                           child: SizedBox(
                             height: 56,
@@ -281,6 +415,7 @@ class _SafetyBarState extends State<SafetyBar> {
                             button: true,
                             expanded: _details,
                             label: status.semantics,
+                            onTap: () => setState(() => _details = !_details),
                             excludeSemantics: true,
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
@@ -305,14 +440,7 @@ class _SafetyBarState extends State<SafetyBar> {
               ),
             ),
             if (_details)
-              _StatusDetails(
-                online: c.online,
-                pending: pending,
-                battery: lowBattery ? battery : null,
-                positionHint: hint,
-                ink: ink,
-                onClose: () => setState(() => _details = false),
-              ),
+              _StatusDetails(controller: c, battery: lowBattery ? battery : null, ink: ink, onClose: () => setState(() => _details = false)),
             const CautionTape(height: 4, stripe: 6),
           ],
         ),
@@ -328,22 +456,35 @@ class _SafetyBarState extends State<SafetyBar> {
   };
 }
 
-/// Netz, Akku und Wartendes in einem Rahmen. Ohne Netz ist er gefüllt, damit es auffällt.
+/// Netz, Akku, Ortung und Wartendes in einem Rahmen. Ohne Netz ist er gefüllt, damit es auffällt.
 class _Status extends StatelessWidget {
-  const _Status({required this.online, required this.pending, required this.battery, required this.staleFix, required this.ink});
+  const _Status({
+    required this.online,
+    required this.pending,
+    required this.battery,
+    required this.position,
+    required this.sosRejected,
+    required this.ink,
+  });
   final bool online;
   final int pending;
 
   /// Nur gesetzt, wenn der Akku niedrig ist
   final double? battery;
-  final bool staleFix;
+
+  /// „Keine Ortung“ oder „Ortung veraltet“; null, solange die Ortung frisch ist
+  final String? position;
+
+  /// Der Server hat einen SOS abgelehnt: Anruf und SMS sind der Weg
+  final bool sosRejected;
   final Color ink;
 
   String get semantics => [
     online ? 'Netz da' : 'Kein Netz',
     if (pending > 0) '$pending ${pending == 1 ? 'Aktion wartet' : 'Aktionen warten'}',
+    if (sosRejected) 'SOS nicht angenommen',
     if (battery != null) 'Akku ${(battery! * 100).round()} Prozent',
-    if (staleFix) 'Standort veraltet',
+    ?position,
     'Tippen für Einzelheiten',
   ].join('. ');
 
@@ -351,7 +492,7 @@ class _Status extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tok;
     final filled = !online;
-    final notable = filled || pending > 0 || battery != null || staleFix;
+    final notable = filled || pending > 0 || battery != null || position != null || sosRejected;
     final fg = filled ? Colors.black : ink;
     final text = t.label.copyWith(color: fg, fontSize: 15);
     return Container(
@@ -364,12 +505,13 @@ class _Status extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (sosRejected) ...[Icon(Icons.warning_amber_rounded, color: fg, size: 22), const SizedBox(width: 8)],
           if (battery != null) ...[
             Icon(battery! < 0.15 ? Icons.battery_alert_rounded : Icons.battery_3_bar_rounded, color: fg, size: 22),
             Text('${(battery! * 100).round()} %', style: text),
             const SizedBox(width: 8),
           ],
-          if (staleFix) ...[Icon(Icons.location_off_rounded, color: fg, size: 22), const SizedBox(width: 8)],
+          if (position != null) ...[Icon(Icons.location_off_rounded, color: fg, size: 22), const SizedBox(width: 8)],
           Icon(online ? Icons.cell_tower_rounded : Icons.portable_wifi_off_rounded, color: fg, size: 22),
           if (pending > 0) ...[
             const SizedBox(width: 8),
@@ -383,33 +525,42 @@ class _Status extends StatelessWidget {
   }
 }
 
-/// Klartext zur Anzeige: steht unter der Leiste, bis man ihn wieder antippt.
+/// Klartext zur Anzeige: steht unter der Leiste, bis man ihn wieder antippt. Die Zeitangaben laufen mit der Uhr.
 class _StatusDetails extends StatelessWidget {
-  const _StatusDetails({
-    required this.online,
-    required this.pending,
-    required this.battery,
-    required this.positionHint,
-    required this.ink,
-    required this.onClose,
-  });
-  final bool online;
-  final int pending;
+  const _StatusDetails({required this.controller, required this.battery, required this.ink, required this.onClose});
+  final GameController controller;
   final double? battery;
-  final String? positionHint;
   final Color ink;
   final VoidCallback onClose;
+
+  List<String> _lines() {
+    final c = controller;
+    final pending = queuedCount(c);
+    final contact = contactText(c);
+    final lostFor = contactAge(c);
+    return [
+      c.online ? 'Netz da.' : 'Kein Netz. Eure Eingaben werden gespeichert und nachgeschickt.',
+      if (pending > 0) '$pending ${pending == 1 ? 'Aktion wartet' : 'Aktionen warten'} auf den Versand.',
+      if (c.sosQueueLength > 0) _sosLine(c),
+      if (c.sosRejectedCount > 0) 'Euer SOS wurde nicht angenommen. Ruft die Spielleitung an oder schickt eine SMS.',
+      if (battery != null) 'Akku bei ${(battery! * 100).round()} %. Geht sparsam mit dem Handy um.',
+      ?positionHint(c),
+      if (contact != null && (!c.online || lostFor! >= contactNoticeAfter)) contact,
+      if (contactLost(c)) 'Spielleitung anrufen: ${c.game!.safety.gameMasterPhone}',
+    ];
+  }
+
+  String _sosLine(GameController c) {
+    final last = c.sosLastAttemptAt;
+    if (last == null) return 'SOS ist gespeichert und wird gesendet.';
+    final ms = deviceNowMs(c) - last.millisecondsSinceEpoch;
+    return sentenceEnd('SOS ist gespeichert, letzter Versuch vor ${spanText(Duration(milliseconds: ms < 0 ? 0 : ms))}.');
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
     final style = t.body.copyWith(color: ink, fontSize: 15, height: 1.3);
-    final lines = [
-      online ? 'Netz da.' : 'Kein Netz. Eure Eingaben werden gespeichert und nachgeschickt.',
-      if (pending > 0) '$pending ${pending == 1 ? 'Aktion wartet' : 'Aktionen warten'} auf den Versand.',
-      if (battery != null) 'Akku bei ${(battery! * 100).round()} %. Geht sparsam mit dem Handy um.',
-      ?positionHint,
-    ];
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onClose,
@@ -417,9 +568,12 @@ class _StatusDetails extends StatelessWidget {
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [for (final l in lines) Text(l, style: style)],
+        child: ValueListenableBuilder<int>(
+          valueListenable: controller.clock,
+          builder: (_, _, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [for (final l in _lines()) Text(l, style: style)],
+          ),
         ),
       ),
     );
@@ -440,6 +594,7 @@ class _SosKey extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'SOS – Notruf öffnen',
+      onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -475,10 +630,13 @@ class _SosKey extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Stufe B
 
+/// Streifen unter der Leiste. Der Text ist ein Live-Bereich: Screenreader sagen ihn an, sobald er erscheint
+/// oder sich ändert. [extra] (Zeitangaben, die sich ändern) liegt bewusst außerhalb davon.
 class _Strip extends StatelessWidget {
-  const _Strip({required this.text, this.actions = const [], this.onTap, this.leading});
+  const _Strip({required this.text, this.actions = const [], this.onTap, this.leading, this.extra});
   final String text;
   final Widget? leading;
+  final Widget? extra;
   final List<Widget> actions;
   final VoidCallback? onTap;
 
@@ -505,25 +663,30 @@ class _Strip extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          if (leading != null) ...[leading!, const SizedBox(width: 10)],
-                          Expanded(
-                            child: Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: 'ECHT · ',
-                                    style: t.label.copyWith(color: ink, fontSize: 15),
-                                  ),
-                                  TextSpan(text: text),
-                                ],
+                      Semantics(
+                        liveRegion: true,
+                        container: true,
+                        child: Row(
+                          children: [
+                            if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: 'ECHT · ',
+                                      style: t.label.copyWith(color: ink, fontSize: 15),
+                                    ),
+                                    TextSpan(text: text),
+                                  ],
+                                ),
+                                style: t.body.copyWith(color: ink, fontSize: 18, fontWeight: FontWeight.w600, height: 1.3),
                               ),
-                              style: t.body.copyWith(color: ink, fontSize: 18, fontWeight: FontWeight.w600, height: 1.3),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      if (extra != null) ...[const SizedBox(height: 8), extra!],
                       if (actions.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Row(
@@ -546,59 +709,185 @@ class _Strip extends StatelessWidget {
 }
 
 class _StripButton extends StatelessWidget {
-  const _StripButton({required this.label, required this.onTap, this.strong = false});
+  const _StripButton({required this.label, required this.onTap, this.strong = false, this.icon});
   final String label;
   final VoidCallback onTap;
   final bool strong;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
     final ink = t.monochrome ? t.p.text : Colors.white;
-    return GestureDetector(
-      onTap: () {
-        Fx.instance.play(Sound.click);
-        onTap();
-      },
-      child: Container(
-        height: 56,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: strong ? ink : Colors.transparent,
-          borderRadius: BorderRadius.circular(Space.radius),
-          border: Border.all(color: ink, width: 2),
-        ),
-        child: Text(
-          label,
-          style: t.button.copyWith(fontSize: 18, color: strong ? Colors.black : ink),
-          textAlign: TextAlign.center,
+    final fg = strong ? Colors.black : ink;
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          Fx.instance.play(Sound.click);
+          onTap();
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: strong ? ink : Colors.transparent,
+            borderRadius: BorderRadius.circular(Space.radius),
+            border: Border.all(color: ink, width: 2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[Icon(icon, size: 24, color: fg), const SizedBox(width: 8)],
+              Flexible(
+                child: Text(
+                  label,
+                  style: t.button.copyWith(fontSize: 18, color: fg),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+/// Sperrzone in der Nähe, gemeldete Zone nach „Position stimmt nicht“ oder Spielfeldgrenze.
 class _ZoneStrip extends StatelessWidget {
-  const _ZoneStrip({required this.alert});
+  const _ZoneStrip({required this.alert, required this.stale});
   final ZoneAlert alert;
 
+  /// Die Ortung ist alt: Die Entfernung kann nicht mehr stimmen.
+  final bool stale;
+
   @override
-  Widget build(BuildContext context) => _Strip(text: alert.message, leading: const Pictogram(Picto.prohibited, size: 36));
+  Widget build(BuildContext context) {
+    final c = Lykora.game(context);
+    final assembly = c.game!.field.assemblyPoint;
+    final pos = c.position;
+    final base = alert.boundary && pos != null ? '${alert.message} Sammelpunkt: ${metersText(distance(pos, assembly.location))}.' : alert.message;
+    return _Strip(
+      text: stale ? '$base Ortung veraltet.' : base,
+      leading: Pictogram(alert.boundary ? Picto.assembly : Picto.prohibited, size: 36),
+      onTap: alert.boundary
+          ? () => navigatorKey.currentState?.push(MaterialPageRoute<void>(builder: (_) => const MapPage(focusAssembly: true)))
+          : null,
+    );
+  }
+}
+
+/// Ortung zu ungenau, um zu wissen, ob das Team in der Sperrzone steht: ruhiger Hinweis, nie Vollbild, kein Alarm.
+class _UncertainNote extends StatelessWidget {
+  const _UncertainNote({required this.alert, required this.stale});
+  final ZoneAlert alert;
+  final bool stale;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    final ink = t.monochrome ? t.p.text : const Color(0xFFE6E1D6);
+    return Semantics(
+      container: true,
+      child: Container(
+        width: double.infinity,
+        color: Colors.black,
+        constraints: const BoxConstraints(minHeight: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.location_searching_rounded, color: ink, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(stale ? '${alert.message} Ortung veraltet.' : alert.message, style: t.body.copyWith(color: ink, fontSize: 16, height: 1.3)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _HeartbeatStrip extends StatelessWidget {
-  const _HeartbeatStrip({required this.onHelp});
+  const _HeartbeatStrip({required this.onHelp, this.showContact = true});
   final VoidCallback onHelp;
+
+  /// Das Vollbild des Rückrufs nennt die Verbindung schon.
+  final bool showContact;
 
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
     return _Strip(
       text: 'Eure Betreuer fragen: Alles okay bei euch?',
+      extra: showContact ? const _ContactBlock() : null,
       actions: [
         _StripButton(label: 'Ja, alles okay', strong: true, onTap: () => c.heartbeat()),
         _StripButton(label: 'Wir brauchen Hilfe', onTap: onHelp),
       ],
+    );
+  }
+}
+
+/// „Zuletzt Verbindung vor N Min.“; nach [noContactAfter] steht die Telefonnummer der Spielleitung groß darunter.
+/// Läuft mit der Uhr des Controllers, ohne ihn bei jeder Sekunde neu zu bauen.
+class _ContactBlock extends StatelessWidget {
+  const _ContactBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Lykora.game(context);
+    final t = context.tok;
+    final ink = t.monochrome ? t.p.text : Colors.white;
+    return ValueListenableBuilder<int>(
+      valueListenable: c.clock,
+      builder: (_, _, _) {
+        final text = contactText(c);
+        if (text == null) return const SizedBox.shrink();
+        final lost = contactLost(c);
+        final phone = c.game!.safety.gameMasterPhone;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              text,
+              style: t.body.copyWith(color: ink, fontSize: 16, fontWeight: lost ? FontWeight.w700 : FontWeight.w500),
+            ),
+            if (lost) ...[
+              const SizedBox(height: 8),
+              _StripButton(label: 'Spielleitung anrufen: $phone', icon: Icons.call_rounded, strong: true, onTap: () => dial(phone)),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Seit [noContactAfter] ohne Verbindung (und kein anderer Streifen sagt es schon): Spielleitung anrufen.
+class _NoContactStrip extends StatelessWidget {
+  const _NoContactStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Lykora.game(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: c.clock,
+      builder: (_, _, _) {
+        if (!contactLost(c)) return const SizedBox.shrink();
+        final phone = c.game!.safety.gameMasterPhone;
+        return _Strip(
+          text: 'Seit ${spanText(contactAge(c)!)} keine Verbindung zur Spielleitung. Ruft an, wenn etwas ist.',
+          leading: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 32),
+          extra: _StripButton(label: 'Spielleitung anrufen: $phone', icon: Icons.call_rounded, strong: true, onTap: () => dial(phone)),
+        );
+      },
     );
   }
 }
@@ -633,6 +922,15 @@ class _RecallStrip extends StatelessWidget {
 
 // ---------------------------------------------------------------------------
 // Stufe A
+
+/// Text, den Screenreader sofort ansagen, wenn er erscheint oder sich ändert.
+class _Live extends StatelessWidget {
+  const _Live({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Semantics(liveRegion: true, container: true, child: child);
+}
 
 class _SafetyPage extends StatelessWidget {
   const _SafetyPage({required this.children});
@@ -681,10 +979,12 @@ class _RecallPanel extends StatelessWidget {
       children: [
         const Center(child: Pictogram(Picto.assembly, size: 120)),
         const SizedBox(height: 20),
-        Text(
-          'ALLE ZURÜCK ZUM SAMMELPUNKT',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: Fonts.ui, fontSize: 32, fontWeight: FontWeight.w800, color: ink, height: 1.15),
+        _Live(
+          child: Text(
+            'ALLE ZURÜCK ZUM SAMMELPUNKT',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: Fonts.ui, fontSize: 32, fontWeight: FontWeight.w800, color: ink, height: 1.15),
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -696,6 +996,8 @@ class _RecallPanel extends StatelessWidget {
         Center(
           child: DirectionArrow(target: ap.location, color: ink),
         ),
+        const SizedBox(height: 20),
+        const _ContactBlock(),
         const SizedBox(height: 28),
         LKey(label: 'Wir sind unterwegs', icon: Icons.directions_walk_rounded, kind: KeyKind.safety, onPressed: onAck),
         const SizedBox(height: Space.gap),
@@ -709,8 +1011,9 @@ class _RecallPanel extends StatelessWidget {
 }
 
 class _ZonePanel extends StatelessWidget {
-  const _ZonePanel({required this.alert});
+  const _ZonePanel({super.key, required this.alert, required this.onWrongPosition});
   final ZoneAlert alert;
+  final VoidCallback onWrongPosition;
 
   @override
   Widget build(BuildContext context) {
@@ -722,10 +1025,12 @@ class _ZonePanel extends StatelessWidget {
       children: [
         const Center(child: Pictogram(Picto.prohibited, size: 120)),
         const SizedBox(height: 20),
-        Text(
-          'Ihr seid in der Sperrzone „$name“.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: Fonts.ui, fontSize: 30, fontWeight: FontWeight.w800, color: ink, height: 1.15),
+        _Live(
+          child: Text(
+            'Ihr seid in der Sperrzone „$name“.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: Fonts.ui, fontSize: 30, fontWeight: FontWeight.w800, color: ink, height: 1.15),
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -737,7 +1042,31 @@ class _ZonePanel extends StatelessWidget {
         Center(
           child: DirectionArrow(target: c.game!.field.assemblyPoint.location, color: ink),
         ),
-        const SizedBox(height: 20),
+        // Eine alte Position kann die Richtung verfälschen: ehrlich sagen.
+        ValueListenableBuilder<int>(
+          valueListenable: c.clock,
+          builder: (_, _, _) {
+            final hint = positionHint(c);
+            if (hint == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Text(
+                '$hint Die Richtung kann abweichen.',
+                textAlign: TextAlign.center,
+                style: t.body.copyWith(color: ink, fontWeight: FontWeight.w700),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+        _StripButton(label: 'Meine Position stimmt nicht', icon: Icons.wrong_location_rounded, onTap: onWrongPosition),
+        const SizedBox(height: 8),
+        Text(
+          'Blendet diese Seite für eine Minute aus und sagt der Spielleitung Bescheid. SOS bleibt oben.',
+          textAlign: TextAlign.center,
+          style: t.small.copyWith(color: ink),
+        ),
+        const SizedBox(height: 16),
         Text(
           'Diese Seite schließt sich von selbst, sobald ihr draußen seid.',
           textAlign: TextAlign.center,
@@ -748,43 +1077,26 @@ class _ZonePanel extends StatelessWidget {
   }
 }
 
-class _SafeAgain extends StatefulWidget {
+class _SafeAgain extends StatelessWidget {
   const _SafeAgain({required this.onDone});
   final VoidCallback onDone;
-
-  @override
-  State<_SafeAgain> createState() => _SafeAgainState();
-}
-
-class _SafeAgainState extends State<_SafeAgain> {
-  Timer? _t;
-
-  @override
-  void initState() {
-    super.initState();
-    _t = Timer(const Duration(seconds: 3), widget.onDone);
-  }
-
-  @override
-  void dispose() {
-    _t?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tok;
     final ink = t.monochrome ? t.p.text : Colors.white;
     return GestureDetector(
-      onTap: widget.onDone,
+      onTap: onDone,
       child: Container(
         color: Colors.black,
         alignment: Alignment.center,
         padding: const EdgeInsets.all(32),
-        child: Text(
-          'Danke, ihr seid wieder sicher.',
-          textAlign: TextAlign.center,
-          style: t.heading.copyWith(color: ink, fontSize: 28),
+        child: _Live(
+          child: Text(
+            'Danke, ihr seid wieder sicher.',
+            textAlign: TextAlign.center,
+            style: t.heading.copyWith(color: ink, fontSize: 28),
+          ),
         ),
       ),
     );

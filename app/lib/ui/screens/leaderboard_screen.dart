@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
+import '../widgets/active_scope.dart';
 
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({super.key});
@@ -10,7 +11,7 @@ class LeaderboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: c,
       builder: (context, _) {
         final t = context.tok;

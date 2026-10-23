@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../app.dart';
+import '../../data/controller.dart';
 import '../../data/peiler.dart';
 import '../../engine/geo.dart';
 import '../../model/game.dart';
@@ -11,6 +11,7 @@ import '../design/components.dart';
 import '../design/pictograms.dart';
 import '../design/tokens.dart';
 import '../widgets/direction.dart';
+import 'safety_state.dart';
 
 /// Notfallinfos. Funktionieren immer offline, weil alles im Spielpaket steckt.
 class EmergencyScreen extends StatefulWidget {
@@ -33,7 +34,9 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     setState(() => _bright = !_bright);
     if (!Fx.enabled) return;
     try {
-      _bright ? await ScreenBrightness.instance.setApplicationScreenBrightness(1) : await ScreenBrightness.instance.resetApplicationScreenBrightness();
+      _bright
+          ? await ScreenBrightness.instance.setApplicationScreenBrightness(1)
+          : await ScreenBrightness.instance.resetApplicationScreenBrightness();
     } catch (_) {}
   }
 
@@ -55,7 +58,13 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
         final relative = pos == null || nearest == null
             ? null
             : '${metersText(distance(nearest.location, pos))} ${_adverb(bearing(nearest.location, pos))} von: ${nearest.name.of(context)}';
-        final speech = pos == null ? 'Noch keine Position.' : 'Breite ${pos.lat.toStringAsFixed(5)}, Länge ${pos.lon.toStringAsFixed(5)}. ${relative ?? ''}';
+        String speech() {
+          if (pos == null) return 'Keine Ortung. Noch keine Position.';
+          // Eine alte Position gehört mit Alter vorgelesen: Wer sie hört, soll wissen, dass sie abweichen kann.
+          final old = positionHint(c) == null ? '' : ' Achtung, die Position ist ${_ageSpeech(c.positionAge)} alt und kann abweichen.';
+          return 'Breite ${pos.lat.toStringAsFixed(5)}, Länge ${pos.lon.toStringAsFixed(5)}. ${relative ?? ''}$old';
+        }
+
         return StageScaffold(
           title: 'Notfallinfos',
           trailing: TextButton.icon(
@@ -74,19 +83,24 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (pos == null)
-                      Text('Noch keine Position. Geht ein paar Schritte ins Freie.', style: t.body)
+                      Text(
+                        'Keine Ortung. Noch keine Position. Geht ein paar Schritte ins Freie.',
+                        style: t.body.copyWith(fontWeight: FontWeight.w700),
+                      )
                     else ...[
                       SelectableText(pos.lat.toStringAsFixed(5), style: t.number),
                       SelectableText(pos.lon.toStringAsFixed(5), style: t.number),
                       if (c.accuracy != null) Text('Genauigkeit etwa ${c.accuracy!.round()} m', style: t.small),
                       if (relative != null) ...[const SizedBox(height: 10), Text(relative, style: t.body)],
                     ],
+                    const SizedBox(height: 10),
+                    _PositionAge(controller: c),
                     const SizedBox(height: 14),
                     LKey(
                       label: 'Langsam vorlesen',
                       icon: Icons.record_voice_over_rounded,
                       kind: KeyKind.secondary,
-                      onPressed: () => Lykora.prefs(context).speak(speech, rate: 0.4),
+                      onPressed: () => Lykora.prefs(context).speak(speech(), rate: 0.4),
                     ),
                   ],
                 ),
@@ -96,19 +110,22 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                 label: 'Notruf ${safety.emergencyNumber}',
                 icon: Icons.call_rounded,
                 kind: KeyKind.safety,
-                onPressed: () => launchUrl(Uri(scheme: 'tel', path: safety.emergencyNumber)),
+                onPressed: () => dial(safety.emergencyNumber),
               ),
               const SizedBox(height: Space.safetyGap),
               LKey(
                 label: 'Spielleitung ${safety.gameMasterPhone}',
                 icon: Icons.support_agent_rounded,
                 kind: KeyKind.secondary,
-                onPressed: () => launchUrl(Uri(scheme: 'tel', path: safety.gameMasterPhone.replaceAll(' ', ''))),
+                onPressed: () => dial(safety.gameMasterPhone),
               ),
               const SizedBox(height: 24),
               _Place(picto: Picto.assembly, label: 'Sammelpunkt', point: game.field.assemblyPoint),
               for (final r in game.field.rescuePoints) _Place(picto: Picto.firstAid, label: 'Rettungszufahrt', point: r),
-              if (!safety.emergencyNotes.isEmpty) ...[const SizedBox(height: 12), Panel(child: Text(safety.emergencyNotes.of(context), style: t.body))],
+              if (!safety.emergencyNotes.isEmpty) ...[
+                const SizedBox(height: 12),
+                Panel(child: Text(safety.emergencyNotes.of(context), style: t.body)),
+              ],
               const SizedBox(height: 24),
               const Caps('Im Notfall'),
               const SizedBox(height: 8),
@@ -148,6 +165,64 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
       const ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'][((deg + 22.5) % 360 ~/ 45)];
 }
 
+/// „Gesprochen“ für die Altersangabe: „7 Minuten“, „25 Sekunden“.
+String _ageSpeech(Duration? d) {
+  if (d == null) return 'unbekannt';
+  if (d.inMinutes < 1) return '${d.inSeconds} Sekunden';
+  return d.inMinutes == 1 ? 'eine Minute' : '${d.inMinutes} Minuten';
+}
+
+/// Wie alt die Position ist, neben den Koordinaten. Frisch steht es ruhig da; veraltet oder fehlend sagt die Seite es
+/// deutlich, denn wer Koordinaten vorliest, muss wissen, ob sie noch stimmen. Läuft mit der Uhr des Controllers.
+class _PositionAge extends StatelessWidget {
+  const _PositionAge({required this.controller});
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    return ValueListenableBuilder<int>(
+      valueListenable: controller.clock,
+      builder: (_, _, _) {
+        final c = controller;
+        final age = c.positionAge;
+        final hint = positionHint(c);
+        if (c.position == null || age == null) {
+          // „Keine Ortung“ steht schon in der Anzeige darüber; hier nur die Ursache, falls die Ortung einen Fehler meldet.
+          return c.locationError == null ? const SizedBox.shrink() : Text(c.locationError!, style: t.small);
+        }
+        if (hint == null) return Text('Position von vor ${spanText(age)}. Aktuell.', style: t.small);
+        return Semantics(
+          liveRegion: true,
+          container: true,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Space.radius),
+              border: Border.all(color: t.p.text, width: 2),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.location_off_rounded, color: t.p.text, size: 26),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    c.locationError == null
+                        ? 'Achtung: Position veraltet, von vor ${spanText(age)}. Sie kann abweichen.'
+                        : 'Achtung: Keine Ortung. Die letzte Position ist von vor ${spanText(age)} und kann abweichen.',
+                    style: t.body.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _Place extends StatelessWidget {
   const _Place({required this.picto, required this.label, required this.point});
   final Picto picto;
@@ -172,7 +247,8 @@ class _Place extends StatelessWidget {
                 children: [
                   Caps(label),
                   Text(point.name.of(context), style: t.body.copyWith(fontWeight: FontWeight.w600)),
-                  if (pos != null) Text('${metersText(distance(pos, point.location))} · Richtung ${compassWord(bearing(pos, point.location))}', style: t.small),
+                  if (pos != null)
+                    Text('${metersText(distance(pos, point.location))} · Richtung ${compassWord(bearing(pos, point.location))}', style: t.small),
                 ],
               ),
             ),

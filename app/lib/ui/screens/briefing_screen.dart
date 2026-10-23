@@ -6,6 +6,7 @@ import '../../services/fx.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../story/beats.dart';
+import 'tutorial_screen.dart';
 
 /// Briefing als Einsatzalarm: Die Zentrale meldet sich, das Team bestätigt, dann beginnt Kapitel I.
 class BriefingScreen extends StatefulWidget {
@@ -28,6 +29,9 @@ class _BriefingScreenState extends State<BriefingScreen> {
   Future<void> _done() async {
     final c = Lykora.game(context);
     final game = c.game!;
+    // Beim ersten Mal auf diesem Handy: drei Karten zu Peiler, Funk und SOS (überspringbar).
+    await showTutorialOnce(context);
+    if (!mounted) return;
     // Kapitel I zeigen, wenn keine Station es selbst ankündigt.
     final announced = game.allBeats.any((e) => e.$2.kind == 'chapter');
     if (game.chapters.isNotEmpty && !announced) {

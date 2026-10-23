@@ -12,10 +12,12 @@ import '../../services/fx.dart';
 import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
+import '../widgets/active_scope.dart';
 import '../widgets/direction.dart';
 import '../widgets/common.dart';
 import '../widgets/stations.dart';
 import '../widgets/triggers.dart';
+import 'ende_screen.dart';
 
 /// Peilen: grobe Annäherung in vier Stufen, in Ton und Vibration, damit das Team in den Wald schaut.
 ///
@@ -31,20 +33,72 @@ class PeilerView extends StatefulWidget {
   State<PeilerView> createState() => _PeilerViewState();
 }
 
-class _PeilerViewState extends State<PeilerView> {
+class _PeilerViewState extends State<PeilerView> with WidgetsBindingObserver {
   final _peiler = Peiler();
   PeilStage? _lastStage;
   bool _pocket = false;
 
+  /// Die App ist zu sehen. Im Hintergrund schweigt der Peiler, außer im Taschenmodus: Dort führen Ton und Vibration weiter.
+  bool _foreground = true;
+
+  /// Bildschirm ist zu sehen: Tab vorn, keine Vollbildseite darüber.
+  bool _present = true;
+
+  /// Das Spiel läuft (nicht pausiert, nicht beendet, kein Rückruf).
+  bool _live = true;
+  bool _compass = false;
+
+  /// Pulst, vibriert und spielt Töne: nur wenn der Peiler obenauf liegt, die App vorn ist (oder der Taschenmodus läuft) und gespielt wird.
+  bool get _running => widget.active && _present && _live && (_foreground || _pocket);
+
   @override
   void initState() {
     super.initState();
-    Compass.instance.acquire();
+    WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _present = isPresent(context);
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(PeilerView old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final foreground = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    if (foreground == _foreground) return;
+    setState(() => _foreground = foreground);
+    _sync();
+  }
+
+  /// Kompass und Klanglandschaft folgen dem Zustand: Läuft der Peiler nicht, sind beide frei.
+  void _sync() {
+    final compass = widget.active && _present && _foreground && !_pocket;
+    if (compass != _compass) {
+      _compass = compass;
+      compass ? Compass.instance.acquire() : Compass.instance.release();
+    }
+    if (_running) {
+      Soundscape.instance.keepPlaying(this, _pocket);
+    } else {
+      Soundscape.instance.release(this);
+    }
   }
 
   @override
   void dispose() {
-    Compass.instance.release();
+    WidgetsBinding.instance.removeObserver(this);
+    if (_compass) Compass.instance.release();
+    _compass = false;
     Soundscape.instance.release(this);
     super.dispose();
   }
@@ -85,31 +139,40 @@ class _PeilerViewState extends State<PeilerView> {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: Listenable.merge([c, Compass.instance]),
       builder: (context, _) {
         final t = context.tok;
         final game = c.game!;
+        _live = !c.paused && !c.eventEnded && !c.recalled;
+        _sync();
+        // Das Spiel ist vorbei: Hier gibt es nichts mehr zu peilen.
+        if (c.eventEnded && widget.fixed == null) return const _EventOver();
         final target = widget.fixed ?? c.nextTarget;
         if (target == null) {
           Soundscape.instance.peil(this, null, null);
           return _NoTarget(finished: c.finished);
         }
-        final pos = c.position;
+        // Eine alte Position zeigt in die Irre: Ohne frischen Fix gibt es keine Richtung, keine Stufe und keinen Puls.
+        final fresh = c.positionFresh;
+        final stale = c.positionStale;
+        final pos = fresh ? c.position : null;
         final loc = target.trigger('gps')?.location ?? target.location;
         final triggered = c.state.triggered.contains(target.id);
         final radius = target.trigger('gps')?.radius ?? 20;
         final d = pos == null || loc == null ? null : distance(pos, loc);
         final stage = d == null ? (triggered ? PeilStage.here : PeilStage.far) : _peiler.update(target.id, d, radius: radius, triggered: triggered);
         // Ziel und Stufe für die Klanglandschaft: Nahe Stationen bringen ihre Atmosphäre mit.
-        Soundscape.instance.peil(this, target.id, stage);
-        if (_lastStage != stage) {
-          if (_lastStage != null && stage.index > _lastStage!.index && widget.active) {
-            stage == PeilStage.here ? Fx.instance.play(Sound.arrival) : _pulse(stage);
-            // Geräusch der Station zu dieser Stufe, z. B. eine Eule, sobald das Team nah ist.
-            Soundscape.instance.approach(target.id, stage, c.mediaFile(target.sound.approach(stage.key)));
+        if (_running) Soundscape.instance.peil(this, target.id, stage);
+        if (d != null || triggered) {
+          if (_lastStage != stage) {
+            if (_lastStage != null && stage.index > _lastStage!.index && _running) {
+              stage == PeilStage.here ? Fx.instance.play(Sound.arrival) : _pulse(stage);
+              // Geräusch der Station zu dieser Stufe, z. B. eine Eule, sobald das Team nah ist.
+              Soundscape.instance.approach(target.id, stage, c.mediaFile(target.sound.approach(stage.key)));
+            }
+            _lastStage = stage;
           }
-          _lastStage = stage;
         }
         final heading = Compass.instance.heading;
         final b = pos == null || loc == null ? null : bearing(pos, loc);
@@ -118,7 +181,7 @@ class _PeilerViewState extends State<PeilerView> {
         final device = game.deviceName.or(context, t.g.device);
         final line = stage == PeilStage.here && !triggered
             ? target.approach('here').or(context, 'Hier muss es sein. Weckt die Station.')
-            : target.approach(stage.key).or(context, _defaultLine(stage, pos == null, loc == null));
+            : target.approach(stage.key).or(context, _defaultLine(stage, pos == null, loc == null, stale));
         final types = target.triggers.map((x) => x.type).toSet();
         final period = switch (stage) {
           PeilStage.mid => const Duration(seconds: 8),
@@ -152,14 +215,15 @@ class _PeilerViewState extends State<PeilerView> {
                     // Scheibe so groß wie möglich, aber Stufe und Gerätezeile bleiben sichtbar.
                     final size = math.max(160.0, math.min(280.0, math.min(box.maxWidth - 2 * Space.gutter, box.maxHeight - 250)));
                     return Breathe(
-                      enabled: widget.active && stage.index >= PeilStage.mid.index,
+                      enabled: _running && pos != null && stage.index >= PeilStage.mid.index,
                       period: switch (stage) {
                         PeilStage.here => const Duration(milliseconds: 400),
                         PeilStage.near => const Duration(seconds: 1),
                         _ => const Duration(seconds: 2),
                       },
                       child: Semantics(
-                        label: 'Peilscheibe: ${stage.word}${rel == null ? '' : ', Richtung ${clockDirection(rel)}'}',
+                        label:
+                            'Peilscheibe: ${pos == null && !triggered ? (stale ? 'Ortung veraltet' : 'Suche Signal') : stage.word}${rel == null ? '' : ', Richtung ${clockDirection(rel)}'}',
                         child: CustomPaint(
                           size: Size.square(size),
                           painter: _DiscPainter(
@@ -179,8 +243,14 @@ class _PeilerViewState extends State<PeilerView> {
               ),
               const SizedBox(height: 8),
               Center(
-                child: DisplayText(pos == null && !triggered ? 'Suche Signal' : stage.word, size: 40, color: stage == PeilStage.here ? t.p.accentBright : null),
+                child: DisplayText(
+                  pos == null && !triggered ? (stale ? 'Ortung veraltet' : 'Suche Signal') : stage.word,
+                  size: 40,
+                  align: TextAlign.center,
+                  color: stage == PeilStage.here ? t.p.accentBright : null,
+                ),
               ),
+              if (stale || c.locationError != null) ...[const SizedBox(height: 14), const PositionNote(hint: false)],
               const SizedBox(height: 14),
               Panel(
                 child: Column(
@@ -211,14 +281,21 @@ class _PeilerViewState extends State<PeilerView> {
             ),
             if (widget.fixed == null)
               Expanded(
-                child: ToolKey(label: 'Einstecken', icon: Icons.phonelink_lock_rounded, onPressed: () => setState(() => _pocket = true)),
+                child: ToolKey(
+                  label: 'Einstecken',
+                  icon: Icons.phonelink_lock_rounded,
+                  onPressed: () {
+                    setState(() => _pocket = true);
+                    _sync();
+                  },
+                ),
               ),
           ],
         );
         final actions = <Widget>[
           if (triggered)
             Breathe(
-              enabled: widget.active,
+              enabled: _running,
               child: LKey(label: 'Station öffnen', icon: Icons.lock_open_rounded, sound: Sound.key, onPressed: () => openStation(context, target.id)),
             )
           else if (stage == PeilStage.here && pos != null && types.contains('gps'))
@@ -242,8 +319,11 @@ class _PeilerViewState extends State<PeilerView> {
 
         return Heartbeat(
           period: period,
-          active: widget.active && period.inDays == 0,
-          onTick: () => _pulse(_peiler.stage),
+          // Kein Puls ohne frische Position: Er würde Nähe melden, wo das Team längst nicht mehr ist.
+          active: _running && fresh && period.inDays == 0,
+          onTick: () {
+            if (_running && c.positionFresh) _pulse(_peiler.stage);
+          },
           child: Stack(
             children: [
               Column(
@@ -254,7 +334,13 @@ class _PeilerViewState extends State<PeilerView> {
               ),
               if (_pocket)
                 Positioned.fill(
-                  child: _Pocket(onWake: () => setState(() => _pocket = false), stage: stage),
+                  child: _Pocket(
+                    onWake: () {
+                      setState(() => _pocket = false);
+                      _sync();
+                    },
+                    stage: stage,
+                  ),
                 ),
             ],
           ),
@@ -263,8 +349,9 @@ class _PeilerViewState extends State<PeilerView> {
     );
   }
 
-  String _defaultLine(PeilStage s, bool noPos, bool noLoc) {
+  String _defaultLine(PeilStage s, bool noPos, bool noLoc, bool stale) {
     if (noLoc) return 'Diese Station hat keinen festen Ort. Haltet Ausschau nach dem Zeichen der Station.';
+    if (stale) return 'Das Gerät hat euer Signal verloren. Geht ein paar Schritte ins Freie, bis die Ortung zurück ist.';
     if (noPos) return 'Das Gerät sucht noch eure Position. Geht ein paar Schritte ins Freie.';
     return switch (s) {
       PeilStage.far => 'Kaum ein Signal. Folgt dem Weg und achtet auf die Stufe.',
@@ -394,6 +481,29 @@ class _TargetRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Die Spielleitung hat beendet: kein Peilen mehr, nur der Weg zum Abschluss.
+class _EventOver extends StatelessWidget {
+  const _EventOver();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tok;
+    return ListView(
+      padding: const EdgeInsets.all(Space.gutter),
+      children: [
+        const SizedBox(height: 24),
+        Icon(Icons.flag_circle_outlined, size: 72, color: t.p.textMuted),
+        const SizedBox(height: 16),
+        Text('Das Spiel ist vorbei.', textAlign: TextAlign.center, style: t.heading),
+        const SizedBox(height: 8),
+        Text('Danke fürs Mitspielen. Euer Abschluss wartet.', textAlign: TextAlign.center, style: t.muted),
+        const SizedBox(height: 24),
+        LKey(label: 'Zum Abschluss', icon: Icons.flag_rounded, onPressed: () => openEnde(context)),
+      ],
     );
   }
 }

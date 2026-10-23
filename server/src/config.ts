@@ -18,6 +18,8 @@ export interface Config {
   dataDir: string;
   /** Mitgelieferte Klangbibliothek: <id>.ogg und library.json. */
   mediaLibraryDir: string;
+  /** Eigene Kartenpakete: <paket>/{z}/{x}/{y}.png und <paket>/pack.json (Werkzeug server/tool/map_pack.py). */
+  mapPacksDir: string;
   /** Build des Web-Dashboards (index.html und Assets). */
   webDir: string;
   logLevel: string;
@@ -81,6 +83,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dataDir: env.DATA_DIR ?? "./data",
     // src/ und dist/ liegen gleich tief im Server-Ordner, daher passen die Standardpfade für beide.
     mediaLibraryDir: env.MEDIA_LIBRARY_DIR || fileURLToPath(new URL("../media-library", import.meta.url)),
+    mapPacksDir: env.MAP_PACKS_DIR || fileURLToPath(new URL("../map-packs", import.meta.url)),
     webDir: env.WEB_DIR || fileURLToPath(new URL("../../web/dist", import.meta.url)),
     logLevel: env.LOG_LEVEL ?? "info",
     sessionDays: Number(env.SESSION_DAYS ?? 14),

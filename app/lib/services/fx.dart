@@ -10,9 +10,11 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show PlatformDispatcher, TextDirection;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
 
@@ -85,6 +87,8 @@ class Fx extends ChangeNotifier {
   void Function(Buzz b)? onBuzz;
   @visibleForTesting
   void Function(Sound s)? onPlay;
+  @visibleForTesting
+  void Function(String text)? onAnnounce;
 
   /// Spielt eine eigene Aufnahme des Spiels statt des eingebauten Geräuschs und gibt dann true zurück.
   /// Setzt die Klanglandschaft, solange ein Spiel geladen ist.
@@ -152,6 +156,17 @@ class Fx extends ChangeNotifier {
         case Buzz.safety:
           await Vibration.vibrate(pattern: const [0, 600, 300, 600, 300, 600], intensities: const [0, 255, 0, 255, 0, 255]);
       }
+    } catch (_) {}
+  }
+
+  /// Sagt Screenreadern (TalkBack, VoiceOver) etwas an, das sich im Hintergrund geändert hat, z. B. „SOS angekommen“.
+  /// Ohne Screenreader und in Widget-Tests passiert nichts weiter.
+  Future<void> announce(String text) async {
+    onAnnounce?.call(text);
+    try {
+      final views = PlatformDispatcher.instance.views;
+      if (views.isEmpty) return;
+      await SemanticsService.sendAnnouncement(views.first, text, TextDirection.ltr);
     } catch (_) {}
   }
 

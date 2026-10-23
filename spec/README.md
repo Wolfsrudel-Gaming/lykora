@@ -6,7 +6,7 @@ Das Spielformat beschreibt ein Lykora-Spiel vollständig als JSON-Datei. Es ist 
 | --- | --- | --- |
 | 0.1 | [`v0.1/game.schema.json`](v0.1/game.schema.json) | Entwurf für M1 |
 
-Beispiele: [`v0.1/examples/testspiel.json`](v0.1/examples/testspiel.json) (klein, vier Stationen) und [`v0.1/examples/nachtigall-wetterwarte.json`](v0.1/examples/nachtigall-wetterwarte.json) (Beispielgeschichte mit neun Stationen, allen fünf Aufgabentypen, Regeln und Klangkulisse; Handout: [`docs/de/beispielgeschichte-nachtigall-wetterwarte.md`](../docs/de/beispielgeschichte-nachtigall-wetterwarte.md))
+Beispiele: [`v0.1/examples/testspiel.json`](v0.1/examples/testspiel.json) (klein, vier Stationen) und [`v0.1/examples/nachtigall-wetterwarte.json`](v0.1/examples/nachtigall-wetterwarte.json) (Beispielgeschichte mit neun Stationen, allen fünf Aufgabentypen, Regeln und Klangkulisse; Handout: [`docs/de/beispielgeschichte-nachtigall-wetterwarte.md`](../docs/de/beispielgeschichte-nachtigall-wetterwarte.md)) sowie [`v0.1/examples/nachtigall-sieglar.json`](v0.1/examples/nachtigall-sieglar.json) (dieselbe Geschichte als Nachtspaziergang auf echten Straßen rund um die Teutonenstraße in Troisdorf-Sieglar, ortsgebunden; Handout: [`docs/de/spielleiter-nachtigall-sieglar.md`](../docs/de/spielleiter-nachtigall-sieglar.md))
 
 TypeScript-Typen: [`v0.1/game.d.ts`](v0.1/game.d.ts), erzeugt mit `npm run generate -w @lykora/spec`. Nach jeder Schema-Änderung neu erzeugen; die CI prüft das.
 

@@ -1,5 +1,5 @@
 /**
- * Lagekarte mit Leaflet und OSM-Kacheln: Spielfeld, Sperrzonen, Stationen, Sammel- und
+ * Lagekarte mit Leaflet und den Kacheln des Spiels (settings.map.tiles, sonst OSM): Spielfeld, Sperrzonen, Stationen, Sammel- und
  * Rettungspunkte, Teams mit Genauigkeitskreis, SOS-Orte und die Laufspur eines Teams.
  * Eigener Chunk, damit Leaflet nur im Leitstand geladen wird.
  */
@@ -10,6 +10,7 @@ import "./map.css";
 import { useEffect, useRef } from "preact/hooks";
 import { formatAgo, text } from "../../lib/format.ts";
 import { areaBounds } from "../../lib/game.ts";
+import { setBaseTiles } from "../../lib/map-tiles.ts";
 import type { Game, OverviewTeam, Sos, TrackPoint } from "../../lib/types.ts";
 import { teamColor } from "../../ui/components.tsx";
 
@@ -47,10 +48,7 @@ export function MapView({ game, teams, sos, selected, track, focus, onSelect }: 
   useEffect(() => {
     const m = L.map(el.current!, { zoomControl: true, attributionControl: true, minZoom: 3, maxZoom: 19 });
     m.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
-    }).addTo(m);
+    setBaseTiles(m, undefined);
     m.setView([51.16, 10.45], 6);
     layers.current = {
       field: L.layerGroup().addTo(m),
@@ -69,6 +67,12 @@ export function MapView({ game, teams, sos, selected, track, focus, onSelect }: 
       layers.current = null;
     };
   }, []);
+
+  // Kacheln des Spiels (eigenes Kartenpaket des Servers oder fremde Adresse), sonst OpenStreetMap
+  const tiles = game?.settings?.map?.tiles;
+  useEffect(() => {
+    if (map.current) setBaseTiles(map.current, tiles);
+  }, [tiles]);
 
   // Spielfeld, Sperrzonen, Stationen, Sammel- und Rettungspunkte
   useEffect(() => {

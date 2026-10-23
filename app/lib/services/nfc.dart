@@ -22,23 +22,30 @@ class NfcService {
   /// Wartet auf einen Tag und liefert seine UID als Hex sowie gespeicherten Text, falls vorhanden.
   Future<({String uid, String? text})?> readOnce({Duration timeout = const Duration(seconds: 30)}) async {
     final completer = Completer<({String uid, String? text})?>();
-    await NfcManager.instance.startSession(
-      pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693},
-      onDiscovered: (tag) async {
-        final android = NfcTagAndroid.from(tag);
-        String? text;
-        try {
-          final ndef = NdefAndroid.from(tag);
-          final message = ndef?.cachedNdefMessage;
-          if (message != null) text = _firstText(message);
-        } catch (_) {}
-        if (!completer.isCompleted && android != null) completer.complete((uid: tagIdHex(android.id), text: text));
-      },
-    );
+    try {
+      await NfcManager.instance.startSession(
+        pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693},
+        onDiscovered: (tag) async {
+          final android = NfcTagAndroid.from(tag);
+          String? text;
+          try {
+            final ndef = NdefAndroid.from(tag);
+            final message = ndef?.cachedNdefMessage;
+            if (message != null) text = _firstText(message);
+          } catch (_) {}
+          if (!completer.isCompleted && android != null) completer.complete((uid: tagIdHex(android.id), text: text));
+        },
+      );
+    } catch (_) {
+      // NFC wurde zwischen Prüfung und Start ausgeschaltet oder ist belegt: kein Tag, aber auch kein Absturz.
+      return null;
+    }
     try {
       return await completer.future.timeout(timeout, onTimeout: () => null);
     } finally {
-      await NfcManager.instance.stopSession();
+      try {
+        await NfcManager.instance.stopSession();
+      } catch (_) {}
     }
   }
 

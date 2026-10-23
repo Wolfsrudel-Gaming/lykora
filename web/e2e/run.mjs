@@ -467,6 +467,29 @@ async function main() {
     check("Karte: Sperrzone „Straße“ als Vieleck mit 3 Ecken", zone?.area?.polygon?.length === 3 && zone.kind === "road", JSON.stringify({ name: zone?.name, kind: zone?.kind, ecken: zone?.area?.polygon?.length }));
     await shot(page, "baukasten-karte");
 
+    // Eigene Karte: settings.map.tiles ersetzt OpenStreetMap durch die Kacheln des Servers
+    const packs = await (await fetch(`${SERVER}/api/tiles`)).json();
+    check("Server listet das Kartenpaket „sieglar“ samt Nachtvariante", ["sieglar", "sieglar-nacht"].every((n) => packs.some((p) => p.name === n)), packs.map((p) => p.name).join(", "));
+    const packTile = await fetch(`${SERVER}/tiles/sieglar/16/34065/21995.png`);
+    check("Kachel des Pakets kommt ohne Anmeldung als PNG", packTile.ok && packTile.headers.get("content-type") === "image/png", String(packTile.status));
+    const karteUrl = new URL(page.url());
+    await page.goto(`${karteUrl.origin}${karteUrl.pathname}?experte=1`);
+    await page.locator("summary", { hasText: "Felder ohne Wirkung" }).click();
+    const ownTile = page.waitForRequest((r) => /\/lykora\/tiles\/sieglar-nacht\/\d+\/\d+\/\d+\.png$/.test(new URL(r.url()).pathname), { timeout: 15_000 }).catch(() => null);
+    const tilesField = page.getByLabel("Kartenkacheln (Adresse)");
+    await tilesField.fill("tiles/sieglar-nacht/{z}/{x}/{y}.png");
+    await saved();
+    await nav.getByRole("link", { name: /Karte & Stationen/ }).click();
+    await page.locator(".ed-map-main .leaflet-container").waitFor({ timeout: 15_000 });
+    check("Karte: Kacheln aus settings.map.tiles vom eigenen Server", !!(await ownTile));
+    check("Karte: Zuschreibung „OpenStreetMap-Mitwirkende“ bleibt sichtbar", (await page.locator(".ed-map-main .leaflet-control-attribution").innerText()).includes("OpenStreetMap"));
+    await page.goto(`${karteUrl.origin}${karteUrl.pathname}?experte=1`);
+    await page.locator("summary", { hasText: "Felder ohne Wirkung" }).click();
+    await page.getByLabel("Kartenkacheln (Adresse)").fill("");
+    await saved();
+    await page.goto(`${karteUrl.origin}${karteUrl.pathname}`);
+    await page.locator(".ed-map-main .leaflet-container").waitFor({ timeout: 15_000 });
+
     // 3. Stationseditor: Rätsel mit Tipps, Funkspruch, neues Codeteil
     await page.locator(".editor-nav .ed-st-link", { hasText: "Die Brücke" }).click();
     await page.getByRole("heading", { level: 2, name: /Die Brücke/ }).waitFor({ timeout: 15_000 });

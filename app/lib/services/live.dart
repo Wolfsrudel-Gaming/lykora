@@ -63,12 +63,25 @@ class LiveLink {
 
   bool get connected => _socket != null;
 
+  /// Alle laufenden Verbindungen, damit die App sie beim Zurückkehren in den Vordergrund wecken kann.
+  static final _links = <LiveLink>{};
+
+  /// Die App ist wieder im Vordergrund. Eine Verbindung, die im Hintergrund abgerissen ist, baut sofort neu auf,
+  /// statt ihre Pause abzuwarten; nach dem Verbinden holt „hello“ nach, was inzwischen kam. Eine stehende bleibt:
+  /// Den Abgleich beim Zurückkehren löst die Steuerung selbst aus.
+  static void appResumed() {
+    for (final link in _links.toList()) {
+      link.wake();
+    }
+  }
+
   /// Fehlschläge seit der letzten guten Verbindung
   int get failures => _failures;
 
   void start() {
     if (_running) return;
     _running = true;
+    _links.add(this);
     // Läuft vom letzten Start noch ein Versuch, übernimmt er; ein zweiter hielte zwei Verbindungen offen.
     if (!_connecting) _connectNow();
   }
@@ -83,6 +96,7 @@ class LiveLink {
 
   Future<void> stop() async {
     _running = false;
+    _links.remove(this);
     _retry?.cancel();
     _poke?.cancel();
     _poke = null;

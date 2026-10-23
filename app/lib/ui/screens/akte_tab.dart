@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/controller.dart';
 import '../../model/game.dart';
 import '../design/components.dart';
+import '../design/text_scale.dart';
 import '../design/tokens.dart';
 import '../story/beats.dart';
+import '../widgets/active_scope.dart';
 import 'leaderboard_screen.dart';
 
 /// Gegenstände in der Akte: Belohnungen und Dokumente aus erlebten Szenen.
@@ -48,7 +51,7 @@ class AkteTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: c,
       builder: (context, _) {
         final t = context.tok;
@@ -93,13 +96,16 @@ class AkteTab extends StatelessWidget {
             ],
             if (game.items.isNotEmpty) ...[
               const _Section('Fundstücke'),
-              GridView.count(
-                crossAxisCount: 2,
+              GridView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: Space.gap,
-                crossAxisSpacing: Space.gap,
-                childAspectRatio: 1.15,
+                // Die Kacheln wachsen mit der Schrift, sonst läuft der Text unten über.
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: Space.gap,
+                  crossAxisSpacing: Space.gap,
+                  mainAxisExtent: 126 + 80 * (clampDouble(textGrowth(context), 1.0, maxTextScale) - 1),
+                ),
                 children: [
                   for (final i in items) _ItemTile(item: i),
                   for (var k = 0; k < missing; k++) const _ItemTile(item: null),

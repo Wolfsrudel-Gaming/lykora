@@ -1107,6 +1107,8 @@ class GameController extends ChangeNotifier {
         'messagesAfter': s.messageCursor,
         'actionsAfter': s.actionCursor,
       });
+      // Das Team hat das Spiel verlassen, während die Antwort unterwegs war: Sie gehört niemandem mehr.
+      if (session != s) return;
       _applySync(res, positions.length, sent, _deviceClock());
       // Der Rest des Rückstands geht gleich hinterher, aber nur, wenn dieser Teil durchgekommen ist.
       if (moreToSend) _syncAgain = true;

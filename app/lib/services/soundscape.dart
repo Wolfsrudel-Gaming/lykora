@@ -10,6 +10,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 
 import '../data/controller.dart';
 import '../data/peiler.dart';
@@ -228,6 +229,10 @@ class Soundscape {
   final _scenes = <Object, String?>{};
   final _peils = <Object, (String, PeilStage)?>{};
   final _hush = <Object>{};
+
+  /// Bildschirme, die im Hintergrund weiterspielen wollen (Taschenmodus: Ton führt weiter, das Handy ist gesperrt)
+  final _pocket = <Object>{};
+  bool _foreground = true;
   final _tracks = [_Track(), _Track()];
   int _active = 0;
   Timer? _ticker;
@@ -299,12 +304,28 @@ class Soundscape {
     if (quiet ? _hush.add(owner) : _hush.remove(owner)) _apply();
   }
 
+  /// Die App geht in den Hintergrund oder kommt zurück. Im Hintergrund schweigt die Atmosphäre, außer ein Bildschirm hat
+  /// mit [keepPlaying] verlangt, dass sie weiterspielt (Taschenmodus). Cues der Spielleitung und Sicherheitstöne bleiben davon unberührt.
+  void lifecycle(AppLifecycleState state) {
+    // „inactive“ heißt nur: etwas liegt davor (Anruf, Benachrichtigungen), die App ist noch zu sehen.
+    final foreground = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    if (foreground == _foreground) return;
+    _foreground = foreground;
+    _apply();
+  }
+
+  /// Solange [owner] es will, spielt die Atmosphäre auch bei gesperrtem Handy weiter.
+  void keepPlaying(Object owner, bool keep) {
+    if (keep ? _pocket.add(owner) : _pocket.remove(owner)) _apply();
+  }
+
   /// Bildschirm geschlossen: Szene, Peiler und Stille dieses Bildschirms vergessen.
   void release(Object owner) {
     final scene = _scenes.remove(owner);
     final peil = _peils.remove(owner);
     final hushed = _hush.remove(owner);
-    if (scene != null || peil != null || hushed) _apply();
+    final pocket = _pocket.remove(owner);
+    if (scene != null || peil != null || hushed || pocket) _apply();
   }
 
   /// Einmal-Geräusch, z. B. beat.sfx oder ein Geräusch beim Annähern; still ohne Datei oder während eines Alarms.
@@ -391,6 +412,7 @@ class Soundscape {
     final c = _c;
     final game = c?.game;
     if (c == null || game == null || !c.started || c.eventEnded || c.recalled || _hush.isNotEmpty) return null;
+    if (!_foreground && _pocket.isEmpty) return null;
     final scene = _scenes.values.whereType<String>().lastOrNull;
     // Nach dem Finale nur noch in dessen Szene.
     if (c.finished && scene == null) return null;

@@ -13,7 +13,9 @@ import '../../services/soundscape.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../story/beats.dart';
+import '../widgets/active_scope.dart';
 import '../widgets/common.dart';
+import '../widgets/game_status.dart';
 import 'peiler_view.dart';
 import 'reward_screen.dart';
 
@@ -120,6 +122,7 @@ class _StationScreenState extends State<StationScreen> {
                         ],
                       ),
                     ),
+                    const GameStatusBanner(),
                     Expanded(
                       child: InputGuard(key: ValueKey('$dot-$_step-$triggered'), child: stage),
                     ),
@@ -233,7 +236,6 @@ class _TaskStageState extends State<_TaskStage> {
   final _inserted = <int>{};
   bool _busy = false;
   String? _feedback;
-  Timer? _clock;
 
   Station get s => widget.station;
 
@@ -243,15 +245,10 @@ class _TaskStageState extends State<_TaskStage> {
     final task = s.task;
     final len = task != null && task.useLock ? task.answers.first.length : 0;
     _wheels = List.filled(len, 0);
-    // Für Sperrzeit und das Hilfe-Angebot an Jüngere jede Sekunde neu zeichnen.
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _clock?.cancel();
     _text.dispose();
     _shake.dispose();
     super.dispose();
@@ -358,9 +355,30 @@ class _TaskStageState extends State<_TaskStage> {
     if (mounted) showMessage(context, 'Gemeldet. Die Zentrale meldet sich über Funk.');
   }
 
+  /// Zeitpunkt, bis zu dem sich etwas von selbst ändert: Sperrzeit des Schlosses, Hilfe-Angebot an Jüngere. Sonst null.
+  int? _deadline(GameController c) {
+    final now = c.now();
+    final st = c.state;
+    final used = st.hints[s.id] ?? 0;
+    final trig = _triggeredAt(c);
+    final offer = context.tok.young && c.game!.settings.hintsEnabled && used < s.hints.length && used == 0 && trig != null ? trig + 180000 : null;
+    final due = [if (st.lockedUntil != null) st.lockedUntil!, ?offer].where((d) => d > now);
+    return due.isEmpty ? null : due.reduce(math.max);
+  }
+
+  int? _triggeredAt(GameController c) => c.session!.actions
+      .where((a) => a.type == 'trigger' && a.payload['station'] == s.id)
+      .map((a) => a.time)
+      .fold<int?>(null, (a, b) => a == null ? b : math.min(a, b));
+
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
+    // Sperrzeit und Hilfe-Angebot zählen mit; sonst tickt hier nichts.
+    return ClockBuilder(clock: c.clock, until: _deadline(c), builder: (context, _) => _stage(context, c));
+  }
+
+  Widget _stage(BuildContext context, GameController c) {
     final t = context.tok;
     final task = s.task;
     final st = c.state;
@@ -372,10 +390,7 @@ class _TaskStageState extends State<_TaskStage> {
     final hq = c.game!.hq?.name.of(context) ?? c.game!.hqName.of(context);
 
     // 6–9: Die Zentrale bietet nach drei Minuten von sich aus Hilfe an.
-    final trig = c.session!.actions
-        .where((a) => a.type == 'trigger' && a.payload['station'] == s.id)
-        .map((a) => a.time)
-        .fold<int?>(null, (a, b) => a == null ? b : math.min(a, b));
+    final trig = _triggeredAt(c);
     final offer = t.young && canHint && used == 0 && trig != null && c.now() - trig > 180000;
 
     final finale =
@@ -514,12 +529,13 @@ class _TaskStageState extends State<_TaskStage> {
         return (
           'Wir sind da',
           Icons.where_to_vote_rounded,
-          c.position == null
+          // Nur mit frischer Position: Eine alte würde „Wir sind da“ an einer Stelle melden, an der das Team nicht mehr steht.
+          !c.positionFresh
               ? null
               : () => _submit({
                   'location': {...c.position!.toJson(), 'accuracy': c.accuracy},
                 }),
-          'Warte auf GPS …',
+          c.positionStale ? 'Ortung veraltet. Geht ein paar Schritte ins Freie.' : 'Warte auf GPS …',
         );
     }
     return null;
@@ -581,6 +597,8 @@ class _TaskStageState extends State<_TaskStage> {
           child: Text(
             c.position == null
                 ? 'Das Gerät sucht noch eure Position.'
+                : c.positionStale
+                ? 'Die Ortung ist veraltet. Geht ein paar Schritte ins Freie, bis das Signal zurück ist.'
                 : 'Steht ihr an der richtigen Stelle? Genauigkeit gerade etwa ${c.accuracy?.round() ?? '?'} m.',
             style: t.body,
           ),

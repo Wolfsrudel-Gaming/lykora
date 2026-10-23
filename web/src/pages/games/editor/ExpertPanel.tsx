@@ -176,8 +176,8 @@ function RawFields() {
         label="Kartenkacheln (Adresse)"
         plain
         inputMode="url"
-        placeholder="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        hint="Die App nutzt derzeit nur OpenStreetMap; andere Adressen haben keine Wirkung."
+        placeholder="tiles/sieglar/{z}/{x}/{y}.png"
+        hint="Vorlage mit {z}/{x}/{y}. Ohne https:// gilt sie relativ zum Server (eigenes Kartenpaket, Nachtvariante: tiles/sieglar-nacht/{z}/{x}/{y}.png); leer heißt OpenStreetMap. Das Dashboard nutzt sie schon, die App liest bisher nur vollständige Adressen."
       />
       <h3>Bluetooth- und Box-Auslöser</h3>
       {!triggers.length && <p class="small muted">Keine. Neue legst du im Stationseditor bei den Auslösern an.</p>}

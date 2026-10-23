@@ -15,6 +15,7 @@ import playRoutes from "./routes/play.ts";
 import integrationRoutes from "./routes/integrations.ts";
 import mediaRoutes from "./routes/media.ts";
 import fileRoutes from "./routes/files.ts";
+import tileRoutes from "./routes/tiles.ts";
 import webRoutes from "./routes/web.ts";
 import systemRoutes from "./routes/system.ts";
 import { UpdateService, type UpdateOptions } from "./services/update.ts";
@@ -104,6 +105,7 @@ export async function buildApp(
         { name: "play", description: "Schnittstelle der Spieler-App" },
         { name: "integrations", description: "Eingänge für externe Systeme" },
         { name: "media", description: "Medien der Spiele und Klangbibliothek" },
+        { name: "tiles", description: "Eigene Kartenpakete (OpenStreetMap-Kacheln)" },
         { name: "system", description: "Version und Updates des Servers" },
       ],
     },
@@ -131,6 +133,7 @@ export async function buildApp(
     { prefix: api },
   );
   await app.register(fileRoutes, { prefix: config.basePath });
+  await app.register(tileRoutes, { prefix: config.basePath });
   await app.register(webRoutes);
 
   return app;

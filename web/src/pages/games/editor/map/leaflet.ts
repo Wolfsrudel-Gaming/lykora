@@ -9,6 +9,8 @@ import "leaflet/dist/leaflet.css";
 import "../../../control/map.css";
 import "./editor-map.css";
 import { areaBounds } from "../../../../lib/game.ts";
+import { editor } from "../../../../lib/editor/store.ts";
+import { setBaseTiles } from "../../../../lib/map-tiles.ts";
 import { isArea, isPoint, type Area } from "../../../../lib/editor/geo.ts";
 import type { Game, Point } from "../../../../lib/editor/types.ts";
 
@@ -19,21 +21,23 @@ export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", 
 export const ll = (p: Point): L.LatLngTuple => [p.lat, p.lon];
 export const pt = (l: L.LatLng): Point => ({ lat: l.lat, lon: l.lng });
 
-/** Grundkarte: OSM-Kacheln, Zuschreibung, Größe folgt dem Layout. Liefert die Karte und das Aufräumen. */
+/** Grundkarte: Kacheln nach settings.map.tiles des offenen Spiels (sonst OSM), Zuschreibung, Größe folgt dem Layout. Liefert die Karte und das Aufräumen. */
 export function baseMap(el: HTMLElement, opts: L.MapOptions = {}): { map: L.Map; dispose: () => void } {
   // Viertelstufen, damit ein Spielfeld auch in kleinen Rahmen den Platz füllt.
   const map = L.map(el, { zoomControl: true, attributionControl: true, minZoom: 3, maxZoom: 19, zoomSnap: 0.25, ...opts });
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
-  }).addTo(map);
+  const store = editor.get().current;
+  const tilesOf = (game: Game | undefined) => game?.settings?.map?.tiles;
+  setBaseTiles(map, tilesOf(store?.get().game));
+  // Eine Änderung im Experten-Feld wirkt sofort; bei gleichem Wert passiert nichts.
+  const offTiles = store?.subscribe((st) => setBaseTiles(map, tilesOf(st.game)));
   map.setView([51.16, 10.45], 6);
   const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize());
   ro?.observe(el);
   return {
     map,
     dispose: () => {
+      offTiles?.();
       ro?.disconnect();
       map.remove();
     },

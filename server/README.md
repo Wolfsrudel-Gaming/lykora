@@ -7,6 +7,7 @@ Backend für Lykora: REST-API mit OpenAPI-Doku, WebSockets für Dashboard und Ap
 | `<PUBLIC_URL>/` | Web-Dashboard (Single-Page-App) |
 | `<PUBLIC_URL>/api/` | REST-API, vollständige Beschreibung unter **`<PUBLIC_URL>/api/docs`** |
 | `<PUBLIC_URL>/media/` | Hochgeladene Medien der Spiele und Klangbibliothek, öffentlich |
+| `<PUBLIC_URL>/tiles/<paket>/{z}/{x}/{y}.png` | Kacheln der eigenen Karte, öffentlich (siehe „Eigene Karte“) |
 
 ## Betrieb mit Docker
 
@@ -46,6 +47,7 @@ docker compose exec db pg_dump -U lykora lykora > lykora-$(date +%F).sql
 | `DATA_DIR` | `/data` im Container | Ablage für Fotos und Videos der Teams und für hochgeladene Medien der Spiele (`media/`) |
 | `WEB_DIR` | `web/dist` im Repo, `/app/web/dist` im Container | Build des Web-Dashboards; fehlt er, zeigt `<PUBLIC_URL>/` einen Hinweis |
 | `MEDIA_LIBRARY_DIR` | `server/media-library` im Repo | Klangbibliothek: `<id>.ogg` und `library.json` |
+| `MAP_PACKS_DIR` | `server/map-packs` im Repo, `/app/server/map-packs` im Container | Kartenpakete: `<paket>/{z}/{x}/{y}.png` und `<paket>/pack.json` |
 | `SESSION_DAYS` | `14` | Gültigkeit einer Anmeldung |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `LYKORA_IMAGE` | `ghcr.io/wolfsrudel-gaming/lykora:testbuild` (Compose) | Image von Server und Updater; darunter sucht der Server neue Versionen. Leer schaltet die Prüfung ab |
@@ -199,6 +201,36 @@ Die mitgelieferte Klangbibliothek (CC0) listet `GET /api/library/sounds`; im Spi
 Alle Medien sind ohne Anmeldung unter `<PUBLIC_URL>/media/…` abrufbar, mit Range-Anfragen zum Spulen. Hochgeladene Dateien ändern sich nie und dürfen ein Jahr im Cache bleiben.
 
 Im Klangpult spielt die Spielleitung Klänge live ein: `POST /api/events/<id>/cues` mit `audio` (Medien-ID des Spiels oder `lib:<id>`), optional `teamId`, `volume` und `text` als Funkspruch. Das Team bekommt eine Nachricht mit `kind: "cue"` und JSON im `body` und wird angestupst.
+
+## Eigene Karte
+
+Der Server liefert Kartenkacheln selbst aus: ein Paket aus echten OpenStreetMap-Rasterkacheln für ein kleines Spielgebiet, dazu eine dunkle Nachtvariante. Das Testspiel läuft damit sofort, ohne dass Dashboard oder Handys einen fremden Kartenserver brauchen, und im Feld reichen die einmal geladenen Kacheln. Mitgeliefert ist `sieglar` (DRK Ortsverein Troisdorf, Teutonenstraße 31, 800 m Umkreis, Zoom 14–18) und `sieglar-nacht`.
+
+| Adresse | Inhalt |
+| --- | --- |
+| `GET <PUBLIC_URL>/tiles/<paket>/{z}/{x}/{y}.png` | Kachel, ohne Anmeldung, eine Woche im Cache, mit ETag; fehlt sie, gibt es 404 (Clients zeigen dann Lücke oder Ersatz) |
+| `GET <PUBLIC_URL>/api/tiles` | Liste der Pakete aus ihrer `pack.json` mit `tiles` (Vorlage relativ zum Server) und `url` (vollständig) |
+
+**Im Spiel** trägt `settings.map.tiles` die Vorlage ein, relativ zum Server, so wie `media[].src`:
+
+```json
+"settings": { "map": { "tiles": "tiles/sieglar/{z}/{x}/{y}.png" } }
+```
+
+Nachts: `tiles/sieglar-nacht/{z}/{x}/{y}.png`. Das Schema erlaubt jeden Text; das Dashboard erkennt eine Vorlage an `{z}`, `{x}` und `{y}`. Ohne `https://` gilt sie ab dem Basispfad des Servers, mit `https://` als vollständige Adresse. Ist das Feld leer oder keine Vorlage, nimmt das Dashboard `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Mehr dazu in `docs/de/eigene-karte.md`.
+
+**Paket neu erzeugen oder ein anderes Gebiet:**
+
+```sh
+python3 server/tool/map_pack.py --name sieglar --title "DRK Ortsverein Troisdorf, Sieglar" \
+    --lat 50.8070781 --lon 7.1337849 --radius 800 --zooms 14-18
+```
+
+Das Werkzeug (Python 3 und Pillow) holt die Kacheln einmalig von `tile.openstreetmap.org` (höflich: Kennung im User-Agent, höchstens 2 Anfragen je Sekunde, vorhandene Kacheln werden übersprungen, Zwischenspeicher in `~/.cache/lykora/osm-tiles`, anderer Ort mit `--cache`). Mit `--zoom-radius 18=450` (Standard) bekommt die feinste Stufe nur 450 m Umkreis, sonst wächst das Paket auf das Vierfache. Der Server wertet nur den Ordner aus; für ein weiteres Gebiet genügt ein weiterer Paketname (`^[a-z0-9-]{1,40}$`). Das aktuelle Paket hat 192 Kacheln je Variante (z14: 4, z15: 8, z16: 22, z17: 71, z18: 87) und rund 5,4 MB zusammen. Nach dem Erzeugen die Änderung committen: `server/map-packs` gehört ins Image (Dockerfile) und ins Repo.
+
+**Lizenz und Zuschreibung.** Kartendaten © OpenStreetMap-Mitwirkende, ODbL 1.0; die Zuschreibung „© OpenStreetMap-Mitwirkende“ muss in jeder Karte sichtbar bleiben (Dashboard und App zeigen sie, `pack.json` trägt sie). Die Nachtvariante ist eine Umfärbung derselben Kacheln und steht unter derselben Lizenz.
+
+**Hinweis für den Betrieb.** Die Kacheln stammen vom Standard-Server des OSM-Projekts, dessen [Nutzungsbedingungen](https://operations.osmfoundation.org/policies/tiles/) kein Massenabrufen erlauben. Das Werkzeug ist für ein kleines Gebiet und einmaliges Laden gedacht. Wer größere Gebiete oder viele Pakete braucht, nimmt einen eigenen Kachelserver oder einen Anbieter mit passenden Bedingungen (`--tile-url https://…/{z}/{x}/{y}.png`) und erzeugt das Paket damit neu.
 
 ## Rollen
 

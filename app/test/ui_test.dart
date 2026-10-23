@@ -121,15 +121,17 @@ void main() {
     final (c, s) = await _setup(tester);
     await tester.pumpWidget(LykoraApp(controller: c, settings: s));
     await settle(tester);
+    // Die Sicherheitsebene hat eigene Streifen, die scrollen können: Blättern nur in der Liste der Vorbereitung.
+    final prepList = find.descendant(of: find.byType(PrepScreen), matching: find.byType(Scrollable));
     expect(find.byType(PrepScreen), findsOneWidget);
     expect(find.text('STARTKLAR?'), findsOneWidget);
     expect(find.text('Erst Ausrüstung abhaken'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Warnweste'), 200);
+    await tester.scrollUntilVisible(find.text('Warnweste'), 200, scrollable: prepList);
     await tester.tap(find.text('Lampe'));
     await tester.tap(find.text('Warnweste'));
     await settle(tester);
     expect(find.text('Abenteuer starten'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Rotlicht'), 200);
+    await tester.scrollUntilVisible(find.text('Rotlicht'), 200, scrollable: prepList);
     await tester.tap(find.text('Rotlicht').last);
     await settle(tester);
     expect(s.lightMode, LightMode.red);

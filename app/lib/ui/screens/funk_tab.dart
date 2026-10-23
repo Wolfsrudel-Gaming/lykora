@@ -7,6 +7,7 @@ import '../../services/fx.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
 import '../story/beats.dart';
+import '../widgets/active_scope.dart';
 
 /// Ein Eintrag im Funkprotokoll.
 class RadioEntry {
@@ -97,6 +98,20 @@ class _FunkTabState extends State<FunkTab> {
   final _text = TextEditingController();
   bool _writing = false;
 
+  /// Das Protokoll wird nur neu gerechnet, wenn sich Spielstand oder Nachrichten geändert haben.
+  List<RadioEntry>? _log;
+  Object? _logKey;
+
+  List<RadioEntry> _entries(GameController c) {
+    final s = c.session!;
+    final key = (identityHashCode(c.state), s.messages.length, s.messages.where((m) => m.pending).length, s.messages.where((m) => m.failed).length);
+    if (_log == null || _logKey != key) {
+      _log = radioLog(context, c).reversed.toList();
+      _logKey = key;
+    }
+    return _log!;
+  }
+
   @override
   void dispose() {
     _text.dispose();
@@ -137,11 +152,11 @@ class _FunkTabState extends State<FunkTab> {
   @override
   Widget build(BuildContext context) {
     final c = Lykora.game(context);
-    return ListenableBuilder(
+    return QuietListenableBuilder(
       listenable: c,
       builder: (context, _) {
         final t = context.tok;
-        final log = radioLog(context, c).reversed.toList();
+        final log = _entries(c);
         final waiting = c.session!.messages.where((m) => m.pending).length;
         return Column(
           children: [
