@@ -1,0 +1,2361 @@
+{
+  "$schema": "../game.schema.json",
+  "format": {
+    "name": "lykora-game",
+    "version": "0.1"
+  },
+  "id": "nachtigall-wetterwarte",
+  "meta": {
+    "title": {
+      "de": "Nachtigall: Das Echo der Wetterwarte"
+    },
+    "summary": {
+      "de": "Seit Sonnenuntergang sendet eine längst stillgelegte Wetterwarte ein einziges Wort: Nachtigall. Neun Stationen, ein Tonband von 1996 und die Frage, wer damals wirklich die Vereinskasse nahm. Beispielorte, vor dem Einsatz anpassen."
+    },
+    "authors": [
+      "Lykora-Team"
+    ],
+    "languages": [
+      "de"
+    ],
+    "ageGroups": [
+      "14-17"
+    ],
+    "genre": "mystery",
+    "scareLevel": 2,
+    "night": true,
+    "expectedDuration": 6600,
+    "license": "CC-BY-SA-4.0"
+  },
+  "settings": {
+    "mode": "time_trial",
+    "winCondition": "all_fragments_in_time",
+    "time": {
+      "limit": "per_team",
+      "duration": 9000
+    },
+    "teamSize": {
+      "min": 3,
+      "max": 6
+    },
+    "wrongAnswer": {
+      "type": "time",
+      "amount": 30
+    },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        {
+          "type": "time",
+          "amount": 60
+        },
+        {
+          "type": "time",
+          "amount": 120
+        },
+        {
+          "type": "time",
+          "amount": 300
+        }
+      ]
+    },
+    "scoring": {
+      "solvePoints": 100,
+      "speedBonus": false,
+      "tieBreak": "fewer_hints"
+    },
+    "leaderboard": "end_only"
+  },
+  "field": {
+    "boundary": {
+      "center": {
+        "lat": 50.815,
+        "lon": 7.145
+      },
+      "radius": 450
+    },
+    "start": {
+      "lat": 50.815,
+      "lon": 7.145
+    },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": {
+        "de": "Wanderparkplatz am Schlagbaum"
+      },
+      "description": {
+        "de": "Hier beginnt und endet das Spiel. Wenn etwas schiefgeht, sammeln sich alle hier."
+      },
+      "location": {
+        "lat": 50.815,
+        "lon": 7.145
+      }
+    },
+    "restrictedZones": [
+      {
+        "id": "strasse",
+        "name": {
+          "de": "Kreisstraße"
+        },
+        "kind": "road",
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.813291,
+              "lon": 7.140735
+            },
+            {
+              "lat": 50.813291,
+              "lon": 7.149265
+            },
+            {
+              "lat": 50.813111,
+              "lon": 7.149265
+            },
+            {
+              "lat": 50.813111,
+              "lon": 7.140735
+            }
+          ]
+        },
+        "warnDistance": 25
+      },
+      {
+        "id": "muehlbach",
+        "name": {
+          "de": "Mühlbach"
+        },
+        "kind": "water",
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.816439,
+              "lon": 7.147844
+            },
+            {
+              "lat": 50.816439,
+              "lon": 7.147986
+            },
+            {
+              "lat": 50.81446,
+              "lon": 7.147986
+            },
+            {
+              "lat": 50.81446,
+              "lon": 7.147844
+            }
+          ]
+        },
+        "warnDistance": 20
+      },
+      {
+        "id": "boeschung",
+        "name": {
+          "de": "Böschung am Hohlweg"
+        },
+        "kind": "slope",
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.816079,
+              "lon": 7.144147
+            },
+            {
+              "lat": 50.816079,
+              "lon": 7.144502
+            },
+            {
+              "lat": 50.815764,
+              "lon": 7.144502
+            },
+            {
+              "lat": 50.815764,
+              "lon": 7.144147
+            }
+          ]
+        },
+        "warnDistance": 15
+      }
+    ],
+    "rescuePoints": [
+      {
+        "id": "rp-schlagbaum",
+        "name": {
+          "de": "Rettungszufahrt am Schlagbaum"
+        },
+        "description": {
+          "de": "Befahrbarer Schotterweg. Rettungsfahrzeuge halten hier."
+        },
+        "location": {
+          "lat": 50.815135,
+          "lon": 7.144573
+        }
+      },
+      {
+        "id": "rp-forstweg",
+        "name": {
+          "de": "Forstweg unterhalb der Wetterwarte"
+        },
+        "description": {
+          "de": "Zweite Zufahrt für Rettungsfahrzeuge."
+        },
+        "location": {
+          "lat": 50.816799,
+          "lon": 7.144218
+        }
+      }
+    ]
+  },
+  "story": {
+    "intro": {
+      "speaker": "hq",
+      "text": {
+        "de": "Wetterwarte an Team, Jule hier. Hört ihr mich? Dann funktioniert wenigstens ein Gerät heute Nacht. Seit Sonnenuntergang sendet die alte Wetterwarte auf dem Hügel. Dabei ist der Sender seit 1996 tot. Ich habe sogar die Sicherung gezogen. Er sendet trotzdem, immer dasselbe Wort: Nachtigall. Ich brauche Augen und Beine da draußen. Lampen an, zusammenbleiben, und rechnet damit, dass ich nervös klinge. Ich bin nervös. Over."
+      }
+    },
+    "hq": {
+      "name": {
+        "de": "Jule (Wetterwarte)"
+      }
+    },
+    "outro": {
+      "text": {
+        "de": "Das Schloss gibt nach. In der Kiste liegt kein Diebesgut, nur ein dicker Umschlag: 412 Mark in kleinen Scheinen, beschriftet mit „Für die neue Antenne der Funk-AG“. Darunter ein Zettel in Konrads Handschrift: „Ich habe nichts genommen. Ich habe nur dafür gesorgt, dass es nicht verloren geht.“ Jule liest ihn zweimal. Dann stellt Brandt das alte Mikrofon auf den Tisch und schaltet den Sender ein, zum ersten Mal seit dreißig Jahren mit Absicht. „Hier Nachtigall, Wetterwarte“, sagt Jule. „Opa, wir haben dich gehört. QSL.“ Draußen wird es still. Am nächsten Morgen hängt im Schaukasten ein neues Blatt, unterschrieben von Dr. Ilse Lindner. Die Überschrift lautet: „Berichtigung“."
+      }
+    },
+    "chapters": [
+      {
+        "id": "k1",
+        "title": {
+          "de": "Funkstille"
+        },
+        "ambience": {
+          "audio": "funkrauschen",
+          "volume": 0.3
+        }
+      },
+      {
+        "id": "k2",
+        "title": {
+          "de": "Das Echo"
+        },
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.5
+        }
+      },
+      {
+        "id": "k3",
+        "title": {
+          "de": "Schritte im Laub"
+        },
+        "ambience": {
+          "audio": "wind",
+          "volume": 0.5
+        }
+      },
+      {
+        "id": "k4",
+        "title": {
+          "de": "Sturmnacht"
+        },
+        "ambience": {
+          "audio": "sturm",
+          "volume": 0.35
+        }
+      },
+      {
+        "id": "k5",
+        "title": {
+          "de": "QRT"
+        },
+        "ambience": {
+          "audio": "lagerfeuer",
+          "volume": 0.5
+        }
+      }
+    ]
+  },
+  "presentation": {
+    "device": {
+      "de": "Nachtigall-Peiler"
+    },
+    "caseFile": {
+      "de": "Funkbuch"
+    },
+    "stamp": {
+      "de": "QSL"
+    }
+  },
+  "characters": [
+    {
+      "id": "jule",
+      "kind": "hq",
+      "name": {
+        "de": "Jule (Wetterwarte)"
+      },
+      "callSign": {
+        "de": "Wetterwarte an Team"
+      },
+      "description": {
+        "de": "Funkerin des Heimatvereins. Sitzt in der Wetterwarte, trinkt Tee und redet, wenn sie nervös ist."
+      }
+    },
+    {
+      "id": "erzaehler",
+      "kind": "narrator",
+      "name": {
+        "de": "Erzähler"
+      }
+    },
+    {
+      "id": "konrad",
+      "kind": "npc",
+      "name": {
+        "de": "Konrad Weidenbach"
+      },
+      "description": {
+        "de": "Physiklehrer, Funkamateur, Gründer der Funk-AG „Nachtigall“. Seine Stimme lebt auf einem Lehrband mit Pausen für die Antworten der Kinder."
+      }
+    },
+    {
+      "id": "brandt",
+      "kind": "npc",
+      "name": {
+        "de": "Revierförster Brandt"
+      },
+      "description": {
+        "de": "Knurrig, grundehrlich und ein schlechter Lügner. Kennt jeden Weg im Wald und redet nur, wenn es sein muss."
+      }
+    },
+    {
+      "id": "lindner",
+      "kind": "npc",
+      "name": {
+        "de": "Dr. Ilse Lindner"
+      },
+      "description": {
+        "de": "Vorsitzende des Heimatvereins und Archivarin. Glaubt an Akten, solange sie gestempelt sind."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "id": "f1",
+      "position": 1,
+      "value": "1"
+    },
+    {
+      "id": "f2",
+      "position": 2,
+      "value": "4"
+    },
+    {
+      "id": "f3",
+      "position": 3,
+      "value": "5"
+    },
+    {
+      "id": "f4",
+      "position": 4,
+      "value": "5"
+    }
+  ],
+  "items": [
+    {
+      "id": "ausschnitt",
+      "name": {
+        "de": "Zeitungsausschnitt, 26. Oktober 1996"
+      },
+      "description": {
+        "de": "Die offizielle Version der Sturmnacht."
+      },
+      "kind": "document",
+      "body": {
+        "de": "WOCHENBLATT · Samstag, 26. Oktober 1996\n\nFUNKER VERSCHWUNDEN – KASSE FEHLT\n\nNach dem Sturm in der Nacht zu Freitag fehlt vom Physiklehrer und Funkamateur Konrad Weidenbach (52) jede Spur. Die Wetterwarte am Hügel fand man am Morgen verlassen vor. Mit ihm verschwunden ist die Vereinskasse der von ihm geleiteten Funk-AG „Nachtigall“ (gegründet 1989).\n\nOrtsvorsteher Heribert Voss: „Herr Weidenbach hat uns alle enttäuscht. Seine angeblichen Warnungen vor dem Wehr waren Panikmache.“ Die Polizei schließt eine Flucht nicht aus.\n\nDas Wehr am Mühlbach war in der Sturmnacht gebrochen. Verletzte gab es nicht."
+      }
+    },
+    {
+      "id": "morsekarte",
+      "name": {
+        "de": "Morse-Merkblatt der Funk-AG"
+      },
+      "description": {
+        "de": "Punkt, Strich, Pause. Aus dem Infokasten am Schlagbaum."
+      },
+      "kind": "document",
+      "body": {
+        "de": "FUNK-AG „NACHTIGALL“\nMerkblatt für Anfänger\n\nA ·–   |   B –···   |   C –·–·   |   D –··\nE ·   |   F ··–·   |   G ––·   |   H ····\nI ··   |   J ·–––   |   K –·–   |   L ·–··\nM ––   |   N –·   |   O –––   |   P ·––·\nQ ––·–   |   R ·–·   |   S ···   |   T –\nU ··–   |   V ···–   |   W ·––   |   X –··–\nY –·––   |   Z ––··\n\nEin Punkt (·) ist ein kurzer Ton, ein Strich (–) ein langer. Zwischen zwei Buchstaben: kurze Pause. Zwischen zwei Wörtern: lange Pause.\n\nWer zuhört, lernt es in einer Woche. – K. W."
+      }
+    },
+    {
+      "id": "marke",
+      "name": {
+        "de": "Messingmarke „Nachtigall“"
+      },
+      "description": {
+        "de": "Messing, rund, kalt und schwer. Vorderseite: ein Singvogel und die Prägung NACHTIGALL · MITGLIED NR. 7. Rückseite, mit einer Nadel eingeritzt: „Für den, der zuhört.“"
+      },
+      "kind": "evidence"
+    },
+    {
+      "id": "protokoll",
+      "name": {
+        "de": "Aktenvermerk des Ortsvorstehers"
+      },
+      "description": {
+        "de": "Die Version von Heribert Voss, amtlich unterschrieben."
+      },
+      "kind": "document",
+      "body": {
+        "de": "ORTSVORSTEHER H. VOSS\nAKTENVERMERK · 25.10.1996\n\n1. Das Wehr am Mühlbach ist am 25.10. um 00:20 Uhr infolge Starkregens gebrochen.\n\n2. Der Funkamateur K. Weidenbach hat die Wetterwarte am 24.10. um 22:10 Uhr verlassen. Zeugen: keine.\n\n3. Eine Warnung vor einem Wehrbruch ist zu keinem Zeitpunkt bei mir eingegangen.\n\n4. Die Vereinskasse der Funk-AG (412 DM) fehlt. Der Verdacht richtet sich gegen Weidenbach.\n\ngez. H. Voss, Ortsvorsteher"
+      }
+    },
+    {
+      "id": "logbuch",
+      "name": {
+        "de": "Logbuch der Wetterwarte, Seite 114"
+      },
+      "description": {
+        "de": "Aus der Wurzelhöhle des Hörbaums. Konrads Version."
+      },
+      "kind": "document",
+      "body": {
+        "de": "WETTERWARTE NACHTIGALL · LOGBUCH · SEITE 114\nDonnerstag, 24. Oktober 1996\n\n19:40 Regen seit 14 Uhr, 62 Liter je m². Pegel Mühlbach 2,60 m. Alarm ab 3,50 m.\n\n20:15 Wehr: Schütz klemmt, rostet fest. Zum dritten Mal Voss angerufen. Antwort: „Sie sehen Gespenster, Weidenbach.“\n\n21:05 Pegel 3,10 m. Anton mit dem Rad zum Bauhof, Sandsäcke holen. Bauhof zu. Den Schlüssel hat Voss.\n\n22:10 Voss steht an der Tür. Will das Logbuch „zur Sicherheit“ mitnehmen. Ich habe nein gesagt. Er ist gegangen. Wütend.\n\n22:40 Er kommt wieder, ich spüre es. Diese Seite reiße ich heraus und verstecke sie, wo die Funk-AG am besten hört. Wer zuhört, der findet. – K. W."
+      }
+    },
+    {
+      "id": "journal",
+      "name": {
+        "de": "Funkjournal der Feuerwehr"
+      },
+      "description": {
+        "de": "Die dritte Version: die der Uhr."
+      },
+      "kind": "document",
+      "body": {
+        "de": "FREIWILLIGE FEUERWEHR\nFUNKJOURNAL · Nacht 24./25.10.1996\n(Kopie aus dem Kreisarchiv)\n\n23:12 Meldung Wetterwarte (Weidenbach): Pegel Mühlbach 3,90 m. Wehr gefährdet.\n\n23:47 Meldung Wetterwarte (Weidenbach): „Wehr bricht! Mühlgasse räumen! Ich wiederhole: Mühlgasse räumen!“ Alarm ausgelöst. 31 Anwohner aus den Häusern geholt.\n\n00:20 Wehr gebrochen. Mühlgasse überflutet. Keine Verletzten.\n\nRandnotiz, Handschrift: Anfrage des Ortsvorstehers Voss, den Eintrag 23:47 aus dem Gemeindebericht zu streichen: abgelehnt."
+      }
+    },
+    {
+      "id": "kassette",
+      "name": {
+        "de": "Kassette „Für die Nachtigallen“"
+      },
+      "description": {
+        "de": "Eine Kompaktkassette im Gefrierbeutel. Auf dem Etikett, in Konrads enger Handschrift: „Erst nach der Kasse abspielen.“"
+      },
+      "kind": "evidence"
+    }
+  ],
+  "stations": [
+    {
+      "id": "schlagbaum",
+      "name": {
+        "de": "Der Schlagbaum"
+      },
+      "location": {
+        "lat": 50.815315,
+        "lon": 7.144858
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-S7KR"
+        },
+        {
+          "type": "manual",
+          "code": "5127"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Der Schlagbaum am Wanderparkplatz steht offen. Die rot-weiße Stange zeigt in den Nachthimmel, dahinter beginnt der Hohlweg. Irgendwo dort oben fiept etwas, hoch und dünn, immer im gleichen Rhythmus."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Wetterwarte an Team. Ihr seid am Schlagbaum? Dann hört ihr es auch. Mein Empfänger piept seit Sonnenuntergang ein einziges Wort in Morsezeichen: NACHTIGALL."
+            },
+            "sfx": "funk-knacken"
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Nachtigall war das Rufzeichen der Funk-AG von Konrad Weidenbach. Er hat hier Wetter und Pegel gefunkt, bis er in der Sturmnacht 1996 verschwand. Der Sender ist seitdem tot. Ich habe ihn vorhin noch einmal vom Strom genommen. Er sendet weiter."
+            }
+          },
+          {
+            "kind": "document",
+            "item": "ausschnitt",
+            "title": {
+              "de": "Zeitungsausschnitt, 26. Oktober 1996"
+            },
+            "text": {
+              "de": "WOCHENBLATT · Samstag, 26. Oktober 1996\n\nFUNKER VERSCHWUNDEN – KASSE FEHLT\n\nNach dem Sturm in der Nacht zu Freitag fehlt vom Physiklehrer und Funkamateur Konrad Weidenbach (52) jede Spur. Die Wetterwarte am Hügel fand man am Morgen verlassen vor. Mit ihm verschwunden ist die Vereinskasse der von ihm geleiteten Funk-AG „Nachtigall“ (gegründet 1989).\n\nOrtsvorsteher Heribert Voss: „Herr Weidenbach hat uns alle enttäuscht. Seine angeblichen Warnungen vor dem Wehr waren Panikmache.“ Die Polizei schließt eine Flucht nicht aus.\n\nDas Wehr am Mühlbach war in der Sturmnacht gebrochen. Verletzte gab es nicht."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Das ist die offizielle Geschichte: Funker haut mit der Vereinskasse ab. Ich glaube sie nicht. Aber glauben reicht nicht, ich brauche Beweise. Und ihr seid die Einzigen mit Beinen."
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Im Infokasten am Schlagbaum klebt ein vergilbtes Blatt, mit frischem Klebeband befestigt. Jemand hat sich in letzter Zeit darum gekümmert."
+            }
+          },
+          {
+            "kind": "document",
+            "item": "morsekarte",
+            "title": {
+              "de": "Merkblatt der Funk-AG"
+            },
+            "text": {
+              "de": "FUNK-AG „NACHTIGALL“\nMerkblatt für Anfänger\n\nA ·–   |   B –···   |   C –·–·   |   D –··\nE ·   |   F ··–·   |   G ––·   |   H ····\nI ··   |   J ·–––   |   K –·–   |   L ·–··\nM ––   |   N –·   |   O –––   |   P ·––·\nQ ––·–   |   R ·–·   |   S ···   |   T –\nU ··–   |   V ···–   |   W ·––   |   X –··–\nY –·––   |   Z ––··\n\nEin Punkt (·) ist ein kurzer Ton, ein Strich (–) ein langer. Zwischen zwei Buchstaben: kurze Pause. Zwischen zwei Wörtern: lange Pause.\n\nWer zuhört, lernt es in einer Woche. – K. W."
+            }
+          },
+          {
+            "kind": "group",
+            "text": {
+              "de": "Bevor es losgeht, alle zusammen: Lampen an, Warnwesten an. Ein Betreuer geht hinter eurem Team. Bleibt auf den Wegen. Straße und Bach sind tabu, auch für Abkürzungen."
+            },
+            "ack": {
+              "de": "Wir sind komplett"
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Gut. Euer Stempel heißt QSL: Empfang bestätigt. Den gibt es ab jetzt für jede Station. Die Spur teilt sich: Auf eurer Karte erscheinen die Bank der Funk-AG und der Schaukasten des Heimatvereins. Reihenfolge egal, aber ich will beide. Ich koche inzwischen Tee. Aus Pfefferminz und Nervosität."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Im Peiler knistert es leise. Irgendwo vor euch fängt etwas an."
+        },
+        "mid": {
+          "de": "Das Knistern bekommt einen Rhythmus: kurz, kurz, lang. Ein Parkplatz, ein Schlagbaum."
+        },
+        "near": {
+          "de": "Die rot-weiße Stange zeichnet sich gegen den Nachthimmel ab. Sie zeigt nach oben, als würde sie lauschen."
+        },
+        "here": {
+          "de": "Ihr seid am Schlagbaum. Das Knistern hat aufgehört. Das ist nicht beruhigend."
+        }
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Jule hat die Regeln für heute Nacht genannt. Welche Aussagen stimmen? (Mehrere sind richtig.)"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Wir bleiben immer zusammen und zählen an jeder Station durch."
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Straße und Bachufer sind tabu, auch für Abkürzungen."
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Bei Gefahr drücken wir SOS und lassen Verletzte nie allein."
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Wer ein Rätsel schnell lösen will, darf vorlaufen."
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Im Dunkeln gehen wir ohne Lampe, die Augen gewöhnen sich daran."
+            },
+            "correct": false
+          }
+        ],
+        "shuffle": true
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Zwei Aussagen sind gefährlich. Streicht sie zuerst."
+          }
+        },
+        {
+          "text": {
+            "de": "Wer vorläuft, trennt das Team. Wer ohne Lampe geht, stolpert."
+          }
+        },
+        {
+          "text": {
+            "de": "Richtig sind genau die drei Aussagen, die für Sicherheit und Zusammenhalt sorgen."
+          }
+        }
+      ],
+      "rewards": {
+        "points": 50,
+        "items": [
+          "ausschnitt",
+          "morsekarte"
+        ],
+        "reveal": [
+          "bank",
+          "schaukasten"
+        ],
+        "chapter": "k2"
+      },
+      "props": [
+        {
+          "name": "QR-Code Schlagbaum (laminiert, am Infokasten)",
+          "kind": "marker",
+          "note": "LYK-S7KR; Plan B: Notfall-Code 5127"
+        },
+        {
+          "name": "Morse-Merkblatt (Ausdruck, optional zum Anfassen)",
+          "kind": "document"
+        }
+      ],
+      "notes": "PLATZHALTER: Alle Orte sind Beispielorte bei Troisdorf. Die Telefonnummer +49 170 0000000 (Spielleitung und SMS-Rückfall) ist ein Platzhalter und muss vor dem Einsatz durch die echte Nummer ersetzt werden. Start der Teams gestaffelt im Abstand von 10 Minuten. Die Sicherheitsbelehrung findet hier mündlich vor dem Start statt, die App wiederholt sie. Dauer etwa 10 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "funkrauschen",
+          "volume": 0.25,
+          "from": "near"
+        },
+        "approach": {
+          "near": "funk-knacken"
+        }
+      }
+    },
+    {
+      "id": "bank",
+      "name": {
+        "de": "Die Bank der Funk-AG"
+      },
+      "location": {
+        "lat": 50.81554,
+        "lon": 7.143223
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-B4NQ"
+        },
+        {
+          "type": "manual",
+          "code": "8346"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Bank steht am Wegrand, die Lehne grau vom Regen, zwei Latten fehlen. Jemand hat Zeichen ins Holz geritzt: Initialen, ein Herz, ein Vogel mit langem Hals und die Zahl 91."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Die Bank der Funk-AG. Hier hat Opa – äh – Herr Weidenbach seinen Schülern das Morsen beigebracht. Er sagte immer: Auf einer Bank hört man besser als im Stehen. Ich meine: Herr Weidenbach sagte das. Vergesst das mit dem Opa, ich bin müde. Hört zu!"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Das Signal hat sich gerade geändert. Neben NACHTIGALL kommt ein zweites Wort rein. Ich schreibe euch auf, wie es ankommt, Buchstabe für Buchstabe: ––  /  ·–  /  ·–·  /  –·–  /  ·. Das Merkblatt vom Schlagbaum liegt in eurem Funkbuch."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "MARKE. Ihr tastet die Sitzfläche von unten ab. An einem rostigen Haken hängt etwas Kaltes, Schweres: eine Messingmarke, so groß wie ein Fünfmarkstück."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Eine Marke! Die Mitglieder der Funk-AG haben so eine getragen, nummeriert nach Eintrittsdatum. Wer sie hier aufgehängt hat, wollte, dass sie jemand findet. Und das war nicht Herr Weidenbach, der ist seit dreißig Jahren weg. Wer läuft hier also herum und hängt Dinge an Haken? Wenn ihr beide Spuren habt, zeigt eure Karte den nächsten Ort."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Das Knistern wird zu einem Piepen. Irgendwo am Weg, hinter den Büschen."
+        },
+        "mid": {
+          "de": "Piep. Piep-piep. Pause. Ihr hört, wie sich ein Wort wiederholt."
+        },
+        "near": {
+          "de": "Eine Holzbank im Lampenschein. Auf der Lehne sitzt niemand. Hoffentlich."
+        },
+        "here": {
+          "de": "Setzt euch. Vielleicht. Wenn ihr euch traut."
+        }
+      },
+      "task": {
+        "type": "text",
+        "question": {
+          "de": "Entschlüsselt das zweite Wort der Nachtigall:\n\n––  /  ·–  /  ·–·  /  –·–  /  ·\n\nDas Merkblatt liegt in eurem Funkbuch unter den Fundstücken."
+        },
+        "answers": [
+          "MARKE"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Das Merkblatt hat eine Tabelle: Links der Buchstabe, rechts die Zeichen. Sucht zuerst den ersten Buchstaben: zwei Striche."
+          }
+        },
+        {
+          "text": {
+            "de": "Zwei Striche sind M. Danach kommt Punkt-Strich: A."
+          }
+        },
+        {
+          "text": {
+            "de": "Das Wort beginnt mit M und endet mit E. Es hat mit dem zu tun, was unter dieser Bank hängt."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "f1"
+        ],
+        "items": [
+          "marke"
+        ]
+      },
+      "props": [
+        {
+          "name": "QR-Aufkleber an der Rückseite der Bank",
+          "kind": "marker",
+          "note": "LYK-B4NQ; Plan B: Notfall-Code 8346"
+        },
+        {
+          "name": "Messingmarke an einem Haken unter der Sitzfläche (optional)",
+          "kind": "hidden_object",
+          "note": "Nur zum Anfassen. Das Spiel funktioniert auch ohne: die Marke kommt in jedem Fall per App in das Funkbuch."
+        }
+      ],
+      "notes": "Ohne Requisiten spielbar: Das Rätsel steckt komplett in der App. Jede Bank oder Sitzgelegenheit am Weg geht, sie sollte aber nicht direkt an der Straße oder am Wasser stehen. Dauer etwa 8 Minuten. Typische Stolperstelle: Teams übersehen das Merkblatt in den Fundstücken, dafür ist Tipp 1.",
+      "sound": {
+        "approach": {
+          "near": "eule"
+        }
+      }
+    },
+    {
+      "id": "schaukasten",
+      "name": {
+        "de": "Der Schaukasten"
+      },
+      "location": {
+        "lat": 50.816214,
+        "lon": 7.14372
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-H3TZ"
+        },
+        {
+          "type": "manual",
+          "code": "3962"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Am Waldrand steht ein Schaukasten des Heimatvereins: Holzdach, Glastür, Moos an den Seiten. Hinter dem Glas hängen vergilbte Blätter. Ein Zahlenschloss hält die Tür zu. Daneben ein grüner Knopf: „Hörstation. Bitte drücken.“"
+            },
+            "sfx": "tuer-knarzt"
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "lindner",
+            "text": {
+              "de": "Willkommen an der Hörstation des Heimatvereins. Hier spricht Dr. Ilse Lindner, Vorsitzende und Archivarin. Aktenzeichen 96 Strich 41: die Sturmnacht. Ich bitte um Ihre Aufmerksamkeit."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Taste 1: Was geschah in der Sturmnacht?"
+                },
+                "reply": {
+                  "de": "In der Nacht zum 25. Oktober 1996 brach das Wehr am Mühlbach. Laut Protokoll des damaligen Ortsvorstehers hatte der Funker Weidenbach zuvor die Wetterwarte verlassen, samt Vereinskasse. So steht es in den Akten. Und was in den Akten steht, meine Damen und Herren, ist wahr."
+                }
+              },
+              {
+                "label": {
+                  "de": "Taste 2: Wer war Konrad Weidenbach?"
+                },
+                "reply": {
+                  "de": "Physiklehrer, Funkamateur, Gründer der Funk-AG „Nachtigall“. Pünktlich. Gründlich. Unbequem. Mein Vater mochte ihn nicht, aber das ist nicht aktenkundig. Bitte vergessen Sie, dass ich es erwähnt habe."
+                }
+              },
+              {
+                "label": {
+                  "de": "Taste 3: Wie öffne ich den Kasten?"
+                },
+                "reply": {
+                  "de": "Der Kasten öffnet sich mit dem Gründungsjahr der Funk-AG. Ich nenne es nicht. Wer es nicht weiß, hat im Archiv nichts zu suchen. Das war ein Scherz. Ich scherze selten. Bitte notieren Sie das."
+                }
+              }
+            ]
+          }
+        ],
+        "beats": [
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Lindner. Die Vorsitzende vom Heimatverein, sagt Aktenzeichen im Schlaf auf. Ich mag sie, aber sie glaubt jedes Wort, auf dem ein Stempel ist. Was im Schaukasten hängt, ist die Version der Gewinner. Wir brauchen die Papiere dahinter."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "document",
+            "item": "protokoll",
+            "title": {
+              "de": "Aktenvermerk des Ortsvorstehers"
+            },
+            "text": {
+              "de": "ORTSVORSTEHER H. VOSS\nAKTENVERMERK · 25.10.1996\n\n1. Das Wehr am Mühlbach ist am 25.10. um 00:20 Uhr infolge Starkregens gebrochen.\n\n2. Der Funkamateur K. Weidenbach hat die Wetterwarte am 24.10. um 22:10 Uhr verlassen. Zeugen: keine.\n\n3. Eine Warnung vor einem Wehrbruch ist zu keinem Zeitpunkt bei mir eingegangen.\n\n4. Die Vereinskasse der Funk-AG (412 DM) fehlt. Der Verdacht richtet sich gegen Weidenbach.\n\ngez. H. Voss, Ortsvorsteher"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Aktenvermerk, 25. Oktober 1996, gezeichnet H. Voss. Merkt euch Punkt 2 und Punkt 3: Weidenbach hat die Wetterwarte um 22:10 verlassen, und eine Warnung ist nie angekommen. Ich habe das Gefühl, das brauchen wir noch. Wenn ihr beide Spuren habt, zeigt eure Karte den nächsten Ort."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Ein zweites Signal, schwächer als das erste. Wie ein Echo vom Waldrand."
+        },
+        "mid": {
+          "de": "Das Echo wird deutlicher. Holz, Glas, Moos: Irgendwo dort steht ein Kasten."
+        },
+        "near": {
+          "de": "Ein Holzdach hebt sich aus dem Dunkel. Darunter glänzt Glas."
+        },
+        "here": {
+          "de": "Ihr steht vor dem Schaukasten. Drückt den grünen Knopf, wenn ihr euch traut."
+        }
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Das Zahlenschloss hat vier Räder. Lindner nannte den Schlüssel: das Gründungsjahr der Funk-AG „Nachtigall“. Es stand schon einmal irgendwo, schwarz auf grau. Schaut in eurem Funkbuch nach."
+        },
+        "answers": [
+          "1989"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Der Zeitungsausschnitt von der ersten Station nennt das Jahr."
+          }
+        },
+        {
+          "text": {
+            "de": "Es steht in Klammern hinter dem Namen der Funk-AG."
+          }
+        },
+        {
+          "text": {
+            "de": "Neunzehnhundert… neunundachtzig."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "f2"
+        ],
+        "items": [
+          "protokoll"
+        ]
+      },
+      "props": [
+        {
+          "name": "QR-Code am Schaukasten oder Pfosten",
+          "kind": "marker",
+          "note": "LYK-H3TZ; Plan B: Notfall-Code 3962"
+        },
+        {
+          "name": "Kleine Kiste oder Schaukasten mit Zahlenschloss (optional)",
+          "kind": "lock",
+          "note": "Code 1989; darin der Aktenvermerk als Ausdruck"
+        }
+      ],
+      "notes": "Ohne Requisiten spielbar: Das Schloss gibt es nur in der App. Ein echter Schaukasten oder Infokasten am Waldrand macht die Szene stimmiger, Lindner spricht auch ohne ihn. Dauer etwa 8 Minuten. Lindner ist in dieser Station die Stimme des Amtlichen: förmlich, korrekt, ohne Humor, aber unfreiwillig komisch. Wird die Szene gespielt, nicht vorlesen lassen, sondern aufsagen.",
+      "sound": {
+        "approach": {
+          "near": "tuer-knarzt"
+        },
+        "solved": "kiste-auf"
+      }
+    },
+    {
+      "id": "eiche",
+      "name": {
+        "de": "Der Hörbaum"
+      },
+      "location": {
+        "lat": 50.816619,
+        "lon": 7.145071
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-E8MW"
+        },
+        {
+          "type": "manual",
+          "code": "7285"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Eiche am Hohlweg ist so dick, dass vier Menschen sie nicht umfassen. Die Funk-AG nannte sie den Hörbaum. Wer das Ohr an die Rinde legt, hört den Baum arbeiten: Knacken, Knistern, ganz tief ein Pochen."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Der Hörbaum. Herr Weidenbach hat seine Funk-AG hier im Kreis aufgestellt, ein Ohr an der Rinde, Augen zu. Jeder musste sagen, was er hört. Schlechte Antworten gab es nicht, steht in der Vereinschronik. Nur bei „Pochen“ bin ich skeptisch."
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "group",
+            "text": {
+              "de": "Aufstellung: alle im Kreis um den Stamm, alle Lampen aus bis auf eine. Ein Ohr an die Rinde, Augen zu, zehn Sekunden Stille."
+            },
+            "ack": {
+              "de": "Zehn Sekunden vorbei"
+            }
+          },
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Pochen. Gleichmäßig. Langsam. Das ist euer eigener Puls, sagt der Verstand. Der Rest von euch ist sich nicht ganz sicher."
+            },
+            "sfx": "herzschlag"
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Als ihr die Hände vom Stamm nehmt, fällt euer Lampenlicht in die Höhle zwischen den Wurzeln. Dort steckt eine Blechdose, mit Isolierband verschlossen. Darin, in Plastik gefaltet, eine herausgerissene Seite."
+            }
+          },
+          {
+            "kind": "document",
+            "item": "logbuch",
+            "title": {
+              "de": "Logbuch der Wetterwarte, Seite 114"
+            },
+            "text": {
+              "de": "WETTERWARTE NACHTIGALL · LOGBUCH · SEITE 114\nDonnerstag, 24. Oktober 1996\n\n19:40 Regen seit 14 Uhr, 62 Liter je m². Pegel Mühlbach 2,60 m. Alarm ab 3,50 m.\n\n20:15 Wehr: Schütz klemmt, rostet fest. Zum dritten Mal Voss angerufen. Antwort: „Sie sehen Gespenster, Weidenbach.“\n\n21:05 Pegel 3,10 m. Anton mit dem Rad zum Bauhof, Sandsäcke holen. Bauhof zu. Den Schlüssel hat Voss.\n\n22:10 Voss steht an der Tür. Will das Logbuch „zur Sicherheit“ mitnehmen. Ich habe nein gesagt. Er ist gegangen. Wütend.\n\n22:40 Er kommt wieder, ich spüre es. Diese Seite reiße ich heraus und verstecke sie, wo die Funk-AG am besten hört. Wer zuhört, der findet. – K. W."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Seite 114! Dreimal hat Herr Weidenbach den Ortsvorsteher angerufen, und um 22:10 steht Voss persönlich an der Tür der Wetterwarte. Der Mann, der später „Zeugen: keine“ schreibt, war selbst der Zeuge. Ich glaube, ich muss mich setzen. Ich sitze schon."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Vor dem Sternenhimmel zeichnet sich ein dunkler Klumpen ab: ein Baum, älter als eure Eltern zusammen."
+        },
+        "mid": {
+          "de": "Der Wind wird leiser, je näher ihr kommt. Als würde der Baum die Luft anhalten."
+        },
+        "near": {
+          "de": "Ein gewaltiger Stamm im Lampenschein, die Rinde glänzt nass. Zwischen den Wurzeln klafft ein Loch."
+        },
+        "here": {
+          "de": "Ihr steht vor dem Hörbaum. Legt die Hände auf die Rinde."
+        }
+      },
+      "task": {
+        "type": "photo",
+        "prompt": {
+          "de": "Beweist, dass ihr zugehört habt: Alle im Kreis um den Stamm, jede Person mit einem Ohr an der Rinde, Augen zu. Nur eine Lampe leuchtet von unten in die Krone. Dann Foto."
+        },
+        "review": "auto_accept"
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Jeder Baum, den vier Menschen nicht umfassen können, geht. Die Eiche ist die beste Wahl."
+          }
+        },
+        {
+          "text": {
+            "de": "Alle stehen im Kreis um den Stamm, alle haben ein Ohr an der Rinde."
+          }
+        },
+        {
+          "text": {
+            "de": "Eine Person hält die Lampe tief und leuchtet nach oben. Ein Meter Abstand zum Fotografieren."
+          }
+        }
+      ],
+      "rewards": {
+        "items": [
+          "logbuch"
+        ],
+        "reveal": [
+          "antennenplatz"
+        ],
+        "chapter": "k3"
+      },
+      "props": [
+        {
+          "name": "QR-Code am Baum (Höhe 1,5 m)",
+          "kind": "marker",
+          "note": "LYK-E8MW; Plan B: Notfall-Code 7285"
+        },
+        {
+          "name": "Blechdose mit Logbuch-Seite in der Wurzelhöhle (optional)",
+          "kind": "hidden_object",
+          "note": "Ausdruck von Seite 114; nur zum Anfassen. Das Funkbuch enthält die Seite in jedem Fall."
+        }
+      ],
+      "notes": "Ohne Requisiten spielbar: Jeder dicke Baum am Weg reicht, nicht direkt an einer Böschung. Das Foto wird automatisch angenommen (auto_accept), die Spielleitung sieht es später im Dashboard. Fotos von Minderjährigen nur zur Spielauswertung verwenden und nach dem Event löschen. Dauer etwa 8 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "wind",
+          "volume": 0.6,
+          "from": "mid"
+        },
+        "approach": {
+          "near": "herzschlag"
+        }
+      }
+    },
+    {
+      "id": "antennenplatz",
+      "name": {
+        "de": "Der Antennenplatz"
+      },
+      "location": {
+        "lat": 50.816709,
+        "lon": 7.145853
+      },
+      "visibility": "hidden",
+      "offPath": true,
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-A2PV"
+        },
+        {
+          "type": "manual",
+          "code": "1648"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Ihr seid am Ausgangspunkt von Konrads Peilskizze. Die Funk-AG hat hier mit Kompass und Schrittzählen geübt. Moment, was war das? Ein Heulen? Das war ein Hund. Ganz sicher ein Hund. Mit sehr viel Hund-Gefühl."
+            },
+            "sfx": "wolf-heulen"
+          },
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Hinter euch knackt ein Ast. Ihr dreht euch um. Eure Lampen finden Stämme, Farn, Nebelfetzen. Sonst nichts. Aber das Laub raschelt noch einen Atemzug lang weiter, nachdem ihr stillsteht."
+            },
+            "sfx": "ast-knackt"
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Äh. Team? Ich habe auf eurem Kanal einen zweiten Träger. Heißt: Auf der Frequenz funkt noch jemand außer uns, ganz leise. Atmen, sozusagen. Es ist bestimmt der Wind. Seit wann atmet Wind im Takt?"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "group",
+            "text": {
+              "de": "Zusammenbleiben: Niemand sucht allein. Der Zielpunkt liegt abseits des Weges. Lampen auf den Boden richten, auf Wurzeln und Löcher achten, langsam gehen."
+            },
+            "ack": {
+              "de": "Wir gehen zusammen"
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Auf dem Platz steht ein verwitterter Pfahl mit einem Metallring. Daran hängt ein Stück Klebeband, mit Kugelschreiber beschriftet: eine einzelne Zahl."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Fünf! Dann habt ihr: Eins. Vier. Fünf. Das ist keine Zahl, das ist eine Frequenz! 145 Komma fünf, die Anruffrequenz im Zwei-Meter-Band. Auf der ruft jeder Funker, der niemanden erreicht. Die Nachtigall ruft dort seit dreißig Jahren. Ich stelle meinen Empfänger drauf ein. Und: Das Signal kommt jetzt von einem Hochsitz am Waldrand. Er ist neu auf eurer Karte."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Das Signal kratzt und rauscht. Es klingt, als suche es nach etwas."
+        },
+        "mid": {
+          "de": "Der Wald wird dichter. Zwischen den Stämmen liegt Nebel in Fetzen."
+        },
+        "near": {
+          "de": "Der Weg gabelt sich im Lampenschein. Neben euch steht ein Pfosten ohne Schild."
+        },
+        "here": {
+          "de": "Ihr seid am Ausgangspunkt der Peilung. Die Suche beginnt hier."
+        }
+      },
+      "task": {
+        "type": "find_location",
+        "prompt": {
+          "de": "Konrads Peilskizze: „Antennenplatz = Ausgangspunkt, dann 60 Meter genau nach Osten. Dort stand unser Mast.“\n\nOsten ist rechts, wenn ihr nach Norden schaut. Nehmt das Kompass-Symbol im Peiler oder den Kompass eures Handys. 60 Meter sind etwa 80 Schritte. Geht gemeinsam hin und drückt dort „Wir sind da“."
+        },
+        "location": {
+          "lat": 50.816709,
+          "lon": 7.146706
+        },
+        "radius": 20
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Osten ist rechts, wenn ihr nach Norden schaut. Norden zeigt euch der Kompass im Peiler."
+          },
+          "cost": {
+            "type": "time",
+            "amount": 60
+          }
+        },
+        {
+          "text": {
+            "de": "60 Meter sind etwa 80 normale Schritte. Zählt laut mit, abwechselnd."
+          },
+          "cost": {
+            "type": "time",
+            "amount": 150
+          }
+        },
+        {
+          "text": {
+            "de": "Der Antennenplatz ist eine freie Fläche. Sucht das Knicklicht."
+          },
+          "cost": {
+            "type": "time",
+            "amount": 300
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "f3"
+        ]
+      },
+      "props": [
+        {
+          "name": "Knicklicht am Zielpunkt, 60 m östlich vom Ausgangspunkt",
+          "kind": "marker",
+          "note": "Auf Augenhöhe an einen Pfosten oder Ast hängen. Zielpunkt muss auf einer begehbaren, freien Fläche liegen, nicht an Böschung oder Wasser."
+        },
+        {
+          "name": "QR-Code am Pfosten (Ausgangspunkt)",
+          "kind": "marker",
+          "note": "LYK-A2PV; Plan B: Notfall-Code 1648"
+        }
+      ],
+      "notes": "Das Rätsel ist ortsunabhängig: Der Zielpunkt liegt 60 m östlich vom Ausgangspunkt (im Format als Ort der Aufgabe gespeichert). Beim Umziehen des Spiels den Zielpunkt prüfen: freie Fläche, gut zu Fuß erreichbar, nicht in einer Sperrzone. Die Station liegt abseits des Weges, deshalb Knicklicht am Ziel. Ein Betreuer geht mit. Dauer etwa 12 Minuten.",
+      "sound": {
+        "approach": {
+          "mid": "wolf-heulen",
+          "near": "schritte-laub"
+        }
+      }
+    },
+    {
+      "id": "hochsitz",
+      "name": {
+        "de": "Der Hochsitz"
+      },
+      "location": {
+        "lat": 50.816034,
+        "lon": 7.147417
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-H9CX"
+        },
+        {
+          "type": "manual",
+          "code": "9473"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Der Hochsitz steht wie ein Storchenbein am Waldrand. Unter dem Dach brennt eine Sturmlaterne, der Docht frisch, das Glas noch warm. Und im Laub hinter euch bleibt jemand stehen. Ganz nah."
+            },
+            "sfx": "schritte-laub"
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Team, hört zu und dreht euch nicht um. Auf dem Kanal ist Atmung. Kein Rauschen, kein Wind: Atmung. Ich zähle eine mehr, als ihr Leute seid. Ich würde jetzt gerne sagen, rennt, aber ich sitze mit einer Teetasse im Haus. Also: Bleibt zusammen. Lampen hoch."
+            }
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Wenn ihr schreit, wecke ich den halben Ort. Also lasst es. Ich bin Anton Brandt, Revierförster. Seit dem Schlagbaum laufe ich hinter euch her, weil ich nicht wusste, wie man junge Leute anspricht, die mitten in der Nacht Beweise sammeln."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Sie haben uns verfolgt?!"
+                },
+                "reply": {
+                  "de": "Verfolgt klingt so böse. Ich war hinter euch. Mit Abstand. Ich bin nicht mehr der Jüngste, und ihr rennt."
+                }
+              },
+              {
+                "label": {
+                  "de": "Wer sind Sie?"
+                },
+                "reply": {
+                  "de": "Der, der die Marke unter die Bank gehängt hat. Und Konrads Seite neu in die Dose im Baum gelegt, damit sie nicht verrottet. Ich lege seit Wochen Spuren, weil ich es allein nicht mehr ausgehalten habe."
+                }
+              },
+              {
+                "label": {
+                  "de": "Sie senden das Signal!"
+                },
+                "reply": {
+                  "de": "Jedes Jahr, eine Nacht. Dreißig Jahre lang hat nie jemand geantwortet. Bis heute."
+                }
+              }
+            ]
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Brandt?! Der Förster, der mir vor drei Monaten die Tür vor der Nase zugemacht hat? Der mir letzte Woche gesagt hat, ich zertrampele die Pilze? Der ist euer Verfolger?"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Ich war Konrads Helfer. Zweiundzwanzig war ich. In der Nacht schickte er mich mit dem Fahrrad in die Mühlgasse, Türen einhämmern. Als ich zurückkam, war die Wetterwarte leer. Am Morgen stand in der Zeitung, er sei ein Dieb. Voss war mein Chef. Ich hatte Angst um meine Stelle. Also habe ich geschwiegen. Dreißig Jahre."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Und das Signal?"
+                },
+                "reply": {
+                  "de": "Jedes Jahr in dieser Nacht habe ich sein Rufzeichen gesendet. Falls er irgendwo zuhört. Oder sonst jemand."
+                }
+              },
+              {
+                "label": {
+                  "de": "Haben Sie Beweise?"
+                },
+                "reply": {
+                  "de": "Einen. Gleich. Ich habe ihn dreißig Jahre in der Schublade gehabt."
+                }
+              },
+              {
+                "label": {
+                  "de": "Warum sprechen Sie jetzt?"
+                },
+                "reply": {
+                  "de": "Weil vor drei Monaten eine junge Frau an meine Tür geklopft hat. Ich habe sie weggeschickt. Sie hat Konrads Augen. Seitdem schlafe ich schlecht."
+                }
+              }
+            ]
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Hier, das Funkjournal der Feuerwehr. Kopie aus dem Kreisarchiv, kurz nach dem Sturm. Und nehmt es Ilse Lindner nicht übel: Sie ist Voss’ Tochter. Sie glaubt, was in den Akten steht, weil sie glauben will, dass ihr Vater ein anständiger Mann war."
+            }
+          },
+          {
+            "kind": "document",
+            "item": "journal",
+            "title": {
+              "de": "Funkjournal der Feuerwehr"
+            },
+            "text": {
+              "de": "FREIWILLIGE FEUERWEHR\nFUNKJOURNAL · Nacht 24./25.10.1996\n(Kopie aus dem Kreisarchiv)\n\n23:12 Meldung Wetterwarte (Weidenbach): Pegel Mühlbach 3,90 m. Wehr gefährdet.\n\n23:47 Meldung Wetterwarte (Weidenbach): „Wehr bricht! Mühlgasse räumen! Ich wiederhole: Mühlgasse räumen!“ Alarm ausgelöst. 31 Anwohner aus den Häusern geholt.\n\n00:20 Wehr gebrochen. Mühlgasse überflutet. Keine Verletzten.\n\nRandnotiz, Handschrift: Anfrage des Ortsvorstehers Voss, den Eintrag 23:47 aus dem Gemeindebericht zu streichen: abgelehnt."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Team. Ich muss euch etwas sagen. Ich bin nicht einfach „die Funkerin vom Verein“. Konrad Weidenbach war mein Großvater. Meine Mutter hat nie über ihn gesprochen, nie. Ich bin vor drei Monaten hergezogen, um herauszufinden, warum. Es tut mir leid, dass ich es euch verschwiegen habe. Ich wollte, dass ihr unvoreingenommen sucht. Und ein bisschen hatte ich Angst."
+            }
+          },
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Brandt nimmt die Mütze ab. Dann setzt er sie wieder auf, als wäre nichts gewesen. „Den Rest kann ich nicht erzählen“, sagt er. „Den müsst ihr hören. Am Steg.“"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Herr Brandt, das mit den Pilzen nehme ich zurück."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Das Signal ist jetzt klar und laut. Es kommt von oben, vom Waldrand."
+        },
+        "mid": {
+          "de": "Ein dunkler Umriss auf Stelzen: ein Hochsitz. Darunter flackert etwas Kleines, Warmes."
+        },
+        "near": {
+          "de": "Eine Laterne brennt unter dem Dach des Hochsitzes. Niemand hat sie angezündet. Oder doch."
+        },
+        "here": {
+          "de": "Bleibt zusammen. Ihr seid da."
+        }
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Legt drei Papiere nebeneinander: Aktenvermerk, Logbuch-Seite und Funkjournal. Welche Behauptungen im Aktenvermerk von Voss sind widerlegt? (Mehrere sind richtig.)"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Weidenbach hat die Wetterwarte um 22:10 Uhr verlassen."
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Beim Ortsvorsteher ging nie eine Warnung vor dem Wehrbruch ein."
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Das Wehr brach in der Nacht zum 25. Oktober."
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Die Vereinskasse der Funk-AG (412 DM) fehlt."
+            },
+            "correct": false
+          }
+        ],
+        "shuffle": true
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Zwei von vier Behauptungen sind falsch. Prüft jede einzeln gegen Logbuch und Journal."
+          }
+        },
+        {
+          "text": {
+            "de": "Logbuch: dreimal angerufen, um 22:10 steht Voss selbst an der Tür. Journal: Meldungen aus der Wetterwarte um 23:12 und 23:47."
+          }
+        },
+        {
+          "text": {
+            "de": "Widerlegt sind die Aussagen über 22:10 Uhr und über die Warnung."
+          }
+        }
+      ],
+      "rewards": {
+        "items": [
+          "journal"
+        ],
+        "reveal": [
+          "muehlsteg"
+        ],
+        "chapter": "k4"
+      },
+      "props": [
+        {
+          "name": "QR-Code am Hochsitz",
+          "kind": "marker",
+          "note": "LYK-H9CX; Plan B: Notfall-Code 9473"
+        },
+        {
+          "name": "Sturmlaterne (LED) unter dem Hochsitz",
+          "kind": "other",
+          "note": "Nicht in den Hochsitz klettern lassen. Die Laterne am Fuß der Leiter aufstellen."
+        },
+        {
+          "name": "Darsteller Förster Brandt (optional, Betreuer in grüner Jacke)",
+          "kind": "other",
+          "note": "Tritt erst auf, wenn das Team angekommen ist. Ohne Darsteller läuft alles über die App."
+        }
+      ],
+      "notes": "Wendepunkt der Geschichte. Der Hochsitz ist Kulisse: Niemand klettert hinauf. Wer Brandt spielt, bleibt hinter dem Team, bis die Szene es verlangt, und tritt mit Abstand und freundlich auf (keine Verfolgungsjagd, kein Anfassen). Ältere Gruppen lieben diesen Moment, jüngere Teams brauchen vorher die Beruhigung durch Jule. Dauer etwa 15 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.4,
+          "from": "near"
+        },
+        "approach": {
+          "near": "schritte-laub",
+          "here": "herzschlag"
+        },
+        "solved": "donner"
+      }
+    },
+    {
+      "id": "muehlsteg",
+      "name": {
+        "de": "Der Mühlsteg"
+      },
+      "location": {
+        "lat": 50.815315,
+        "lon": 7.147133
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-M6DF"
+        },
+        {
+          "type": "manual",
+          "code": "2819"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Ein Donnerschlag, aus dem Nichts. Der Wind dreht, in der Luft liegt Regen, den es nicht gibt. Unten rauscht der Mühlbach, am anderen Ufer ragen Mauerreste aus dem Gras. Das ist die Stelle, an der das Wehr stand."
+            },
+            "sfx": "donner"
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Hier stand ich vor dreißig Jahren, an genau dieser Stelle. Dort drüben war das Wehr. Bleibt oben auf dem Platz, zum Wasser geht heute keiner. Ich habe etwas dabei: ein Lehrband. Konrad hat es um 23 Uhr 41 aufgenommen, kurz bevor er gefunkt hat. Ich habe es nie abgespielt. Jetzt hört zu."
+            }
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "konrad",
+            "text": {
+              "de": "Hier Nachtigall Eins, Wetterwarte. Es ist dreiundzwanzig Uhr einundvierzig. Das Wehr hält nicht mehr, ich rufe gleich die Feuerwehr. Wer auch immer das später hört: Die Kasse liegt nicht im Safe. Sie liegt, wo die Nachtigall singt. Kinder, ich mache jetzt eine Pause. Wie viele seid ihr?"
+            },
+            "sfx": "funk-knacken",
+            "responses": [
+              {
+                "label": {
+                  "de": "Wir sind alle da."
+                },
+                "reply": {
+                  "de": "Alle. Gut. Dann kann ich ruhig sein."
+                }
+              },
+              {
+                "label": {
+                  "de": "Wir hören zu."
+                },
+                "reply": {
+                  "de": "Das ist das Wichtigste. Mehr braucht ein Funker nicht."
+                }
+              },
+              {
+                "label": {
+                  "de": "Wer spricht da?"
+                },
+                "reply": {
+                  "de": "Einer, der zugehört hat, als niemand reden wollte."
+                }
+              }
+            ]
+          },
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Antworten passen so gut, dass es im Nacken kribbelt. Brandt hebt die Hand. „Er hat das Band gebaut, wie er unterrichtet hat: Frage, Pause, Antwort. Er wusste, was Kinder sagen.“"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Zwischen seinem Ruf und dem Bruch des Wehrs lag nicht viel Zeit. Er hat sie den Leuten in der Mühlgasse geschenkt, aus nichts als einem Funkspruch. Rechnet es nach, ihr habt das Journal. Am Pegelstein hier ist ein altes Zahlenschloss. Konrad hat seine Schlösser immer mit Zahlen gesichert, die ihm etwas bedeuteten."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Dreiunddreißig Minuten und einunddreißig Menschen. Zwei Wochen später kam eine Postkarte aus Bremen. Ein Wort: Nachtigall. Konrad war ein stiller Mann. Er hat nicht gegen Voss gekämpft, er ist einfach gegangen. Ich dachte, er will nicht gefunden werden, und dass ich ihn verrate, wenn ich rede. Falsch gedacht, glaube ich."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Fünf. Eins, vier, fünf, fünf. 145,5 – das ist der Schlüssel zum letzten Schloss, und ihr habt jetzt alle vier Teile. Mein Opa hat euch den Weg gebaut, damit jemand zuhört. Er hätte euch gemocht. Er mochte Leute, die nachfragen. Kommt hoch zur Wetterwarte, ihr seht das Licht. Und Brandt sagt, es gibt noch ein Nest in einer Kiefer, nur für Leute, die genau zugehört haben. Es ist neu auf eurer Karte. Wer in der Wetterwarte den Kasten öffnet, beendet das Spiel: Das Nest müsst ihr vorher besuchen."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Irgendwo ist Wasser. Und ein Rauschen, das nicht vom Wasser kommt."
+        },
+        "mid": {
+          "de": "Der Bach ist zu hören, bevor ihr ihn seht. Feuchte Kälte kriecht unter die Jacken."
+        },
+        "near": {
+          "de": "Der Wald öffnet sich: ein Holzsteg, ein Bach, am anderen Ufer Mauerreste im Gras."
+        },
+        "here": {
+          "de": "Bleibt hier oben auf dem Weg. Zum Wasser geht heute keiner."
+        }
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Am Aussichtsplatz hängt ein alter Pegelstein mit einem Zahlenschloss, vier Räder. Brandt sagt: „Die ersten beiden Ziffern: Wie viele Minuten lagen zwischen Konrads Notruf und dem Bruch des Wehrs? Die letzten beiden: Wie viele Anwohner hat der Notruf aus den Häusern geholt? Beides steht im Funkjournal der Feuerwehr.“"
+        },
+        "answers": [
+          "3331"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Im Funkjournal stehen drei Uhrzeiten und eine Zahl von Anwohnern."
+          }
+        },
+        {
+          "text": {
+            "de": "Notruf um 23:47, Wehr gebrochen um 00:20. Rechnet über Mitternacht."
+          }
+        },
+        {
+          "text": {
+            "de": "33 Minuten und 31 Anwohner: 3331."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "f4"
+        ],
+        "chapter": "k5"
+      },
+      "props": [
+        {
+          "name": "QR-Code am Geländer des Aussichtsplatzes",
+          "kind": "marker",
+          "note": "LYK-M6DF; Plan B: Notfall-Code 2819"
+        },
+        {
+          "name": "Pegelstein oder Pfosten mit Zahlenschloss (optional)",
+          "kind": "lock",
+          "note": "Code 3331"
+        },
+        {
+          "name": "Kassettenrekorder (optional)",
+          "kind": "other",
+          "note": "Nur als Requisite für Brandt, die Aufnahme kommt aus der App."
+        }
+      ],
+      "notes": "Der Platz muss mindestens 30 m vom Wasser entfernt liegen, die Teams dürfen weder zum Ufer noch auf einen Steg. Wenn kein Bach in der Nähe ist: Station an einen ruhigen Platz legen und die Sperrzone Wasser anpassen oder entfernen; der Text spricht dann von „einer Brücke“. Szene mit Tiefe: ruhig sprechen, Pausen lassen. Dauer etwa 12 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "sturm",
+          "volume": 0.5,
+          "from": "near"
+        },
+        "approach": {
+          "near": "donner"
+        }
+      }
+    },
+    {
+      "id": "nest",
+      "name": {
+        "de": "Das Nachtigallnest"
+      },
+      "location": {
+        "lat": 50.815719,
+        "lon": 7.146564
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-N5GJ"
+        },
+        {
+          "type": "manual",
+          "code": "6054"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "In einer alten Kiefer hängt ein Nistkasten, größer als alle anderen im Wald. Statt eines Einfluglochs sitzt eine kleine Metallklappe darin, mit einem einzelnen Zahlenrad. Darunter, mit einem Nagel eingeritzt: „Nur für die, die zuhören.“"
+            },
+            "sfx": "eule"
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Das Nachtigallnest. Brandt sagt, nur die Funk-AG kannte es. Das Rad hat nur eine Ziffer, also zehn Möglichkeiten, und jede falsche kostet euch Zeit. Aber ihr müsst nicht raten. Ihr tragt den Schlüssel in der Tasche."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Klappe fällt auf. Im Nest liegt eine Kompaktkassette in einem Gefrierbeutel. Auf dem Etikett steht in Konrads enger Handschrift: „Für die Nachtigallen. Erst nach der Kasse abspielen.“"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Sieben. Das war die Marke meiner Mutter. Marlene Weidenbach, vierzehn Jahre alt, Mitglied Nummer 7. Sie hat sie nie abgeholt. Brandt hat sie dreißig Jahre für sie aufgehoben und heute Nacht für uns unter die Bank gehängt."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Im Peiler zwitschert etwas. Zum ersten Mal klingt das Signal nach einem Vogel."
+        },
+        "mid": {
+          "de": "Ein zartes Zwitschern, genau im Rhythmus des Signals."
+        },
+        "near": {
+          "de": "Eine Kiefer. Hoch oben im Lampenkegel hängt ein Nistkasten."
+        },
+        "here": {
+          "de": "Ihr steht unter dem Nest."
+        }
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Das Schloss hat ein einziges Rad. Wer in der Funk-AG war, trug eine Nummer auf seiner Marke. Welche Nummer trägt die Messingmarke in eurem Funkbuch?"
+        },
+        "answers": [
+          "7"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Öffnet im Funkbuch die Fundstücke: die Messingmarke von Station 2."
+          }
+        },
+        {
+          "text": {
+            "de": "Auf der Vorderseite steht: NACHTIGALL · MITGLIED NR. …"
+          }
+        },
+        {
+          "text": {
+            "de": "Es ist die Sieben."
+          }
+        }
+      ],
+      "rewards": {
+        "points": 150,
+        "items": [
+          "kassette"
+        ]
+      },
+      "props": [
+        {
+          "name": "Nistkasten mit Einrad-Zahlenschloss (optional)",
+          "kind": "lock",
+          "note": "Code 7; darin eine Kassette (Attrappe) im Gefrierbeutel"
+        },
+        {
+          "name": "QR-Code am Baum",
+          "kind": "marker",
+          "note": "LYK-N5GJ; Plan B: Notfall-Code 6054"
+        }
+      ],
+      "notes": "Freiwillige Bonusstation, erscheint erst nach dem Mühlsteg. Das Spiel endet mit dem Finale, das Nest muss also vorher besucht werden (Jule sagt das). Wer es besucht, bekommt im Finale eine zusätzliche Nachricht mit Konrads Kassette. Dauer etwa 7 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.4,
+          "from": "near"
+        },
+        "approach": {
+          "near": "eule"
+        },
+        "solved": "kiste-auf"
+      }
+    },
+    {
+      "id": "wetterwarte",
+      "name": {
+        "de": "Die Wetterwarte"
+      },
+      "location": {
+        "lat": 50.817023,
+        "lon": 7.144645
+      },
+      "final": true,
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-W2BK"
+        },
+        {
+          "type": "manual",
+          "code": "3371"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Wetterwarte ist ein Backsteinhäuschen mit Blechdach, einem Mast und zwei Fenstern. In einem brennt Licht. Auf der Bank davor glimmt eine Feuerschale, neben der Tür steht ein alter Werkzeugkasten aus Metall. Er hat ein Zahlenschloss mit vier Rädern."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Ich sehe euch! Ich winke. Seht ihr mich? Ich winke wirklich sehr. Ihr habt die Wetterwarte erreicht. Hinter diesem Schloss liegt, was vor dreißig Jahren verschwand. Ich bin ziemlich sicher, dass ich mich gleich sehr schlecht benehme und weine."
+            }
+          },
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Der Kasten stand die ganze Zeit hier, hinter dem Ofen. Voss hat die Wetterwarte auseinandergenommen, aber den Werkzeugkasten hat er nie angefasst. Wer rechnet schon mit einem Werkzeugkasten? Ich habe ihn dreißig Jahre bewacht und nie geöffnet. Ich hatte versprochen, dass die Funk-AG das macht. Ihr seid jetzt die Funk-AG. Die Zahl kennt ihr: die Frequenz, auf der die Nachtigall immer gerufen hat."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Er ist offen. Er ist wirklich offen. Opa ist vor vier Jahren in Bremen gestorben, ohne je zu erzählen, was hier passiert ist. Heute habe ich es erfahren, von euch. Gebt mir einen Moment."
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "jule",
+            "text": {
+              "de": "Schaut danach in euer Funkprotokoll. Je nachdem, was ihr unterwegs gefunden habt, schicke ich euch noch etwas."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Auf dem Hügel brennt ein Licht. Es flackert nicht. Es wartet."
+        },
+        "mid": {
+          "de": "Ein Backsteinhaus mit Blechdach, ein Mast mit roten Lämpchen. Das Signal ist so laut, dass der Peiler zittert."
+        },
+        "near": {
+          "de": "Hinter dem Fenster bewegt sich ein Schatten. Er winkt."
+        },
+        "here": {
+          "de": "Ihr seid an der Wetterwarte. Geht hinein."
+        }
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Das Schloss hat vier Räder. Der Schlüssel ist die Anruffrequenz, auf der die Nachtigall seit dreißig Jahren ruft. Setzt eure vier Teile in der richtigen Reihenfolge ein."
+        },
+        "answers": [
+          "1455"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Euer Schlüsselbund zeigt vier Ziffern an festen Plätzen. Die Reihenfolge ist vorgegeben."
+          }
+        },
+        {
+          "text": {
+            "de": "Die Frequenz heißt 145,5. Lasst das Komma weg: vier Ziffern, vier Räder."
+          }
+        },
+        {
+          "text": {
+            "de": "Eins, vier, fünf, fünf."
+          }
+        }
+      ],
+      "rewards": {
+        "points": 200
+      },
+      "props": [
+        {
+          "name": "Werkzeugkasten aus Metall mit Zahlenschloss",
+          "kind": "box",
+          "note": "Code 1455; darin Umschlag mit Spielgeld oder Schokotalern und für jede Person eine Urkunde „Mitglied der Funk-AG Nachtigall“"
+        },
+        {
+          "name": "Feuerschale oder Teelichter (optional)",
+          "kind": "other",
+          "note": "Nur mit Aufsicht und Löschmittel. Alternativ Laternen."
+        },
+        {
+          "name": "Betreuer als Jule am Fenster (optional)",
+          "kind": "other",
+          "note": "Winkt den Teams zu und reicht zum Abschluss heißen Tee."
+        },
+        {
+          "name": "QR-Code an der Tür der Wetterwarte",
+          "kind": "marker",
+          "note": "LYK-W2BK; Plan B: Notfall-Code 3371"
+        }
+      ],
+      "notes": "Finale: Die Station öffnet sich erst mit allen vier Fragmenten. Hier endet das Spiel, danach geht das Team gemeinsam zum Sammelpunkt (Richtungspfeil in der App). Ruhige Atmosphäre schaffen, kein Gedränge von mehreren Teams. Bei Bedarf Teams abwechselnd aufrufen. Dauer etwa 10 Minuten.",
+      "sound": {
+        "ambience": {
+          "audio": "lagerfeuer",
+          "volume": 0.6,
+          "from": "near"
+        },
+        "approach": {
+          "near": "glocke",
+          "here": "funk-knacken"
+        },
+        "solved": "kiste-auf"
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "weg-zusammen",
+      "when": [
+        {
+          "station_solved": "bank"
+        },
+        {
+          "station_solved": "schaukasten"
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "eiche"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Beide Spuren führen an denselben Ort: zur alten Eiche am Hohlweg. Auf der Marke steht „Für den, der zuhört“, und die Funk-AG nannte diese Eiche den Hörbaum. Funker führen Logbuch, und Voss schreibt „Zeugen: keine“. Ich wette einen Tee, dass in dem Baum etwas steckt. Die Eiche ist jetzt auf eurer Karte. Over."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "frequenz-ahnung",
+      "when": [
+        {
+          "fragments_collected": 3
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "hochsitz"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Neu auf eurer Karte: ein Hochsitz am Waldrand. Das Signal kommt jetzt von dort, gleiche Frequenz, nur lauter. Ich schwöre, ich habe mich nicht bewegt. Passt auf euch auf."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nest-erscheint",
+      "when": [
+        {
+          "station_solved": "muehlsteg"
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "nest"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Neu auf eurer Karte: das Nachtigallnest. Es hängt in einer Kiefer und hat ein Zahlenrad mit genau einer Ziffer. Brandt behauptet, er wisse nicht, was drin ist. Er grinst dabei."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "jule-nervoes",
+      "when": [
+        {
+          "elapsed": 4800
+        }
+      ],
+      "then": [
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Hier Jule. Ich habe die Thermoskanne gerade zum dritten Mal auf- und wieder zugeschraubt, nur um etwas zu tun. Das Signal wird lauter, die Lampe flackert und der Tee ist kalt genug, um damit Fieber zu messen. Ich will keinen Druck machen. Okay, doch: Druck. Bitte ein bisschen schneller."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "zeit-warnung",
+      "when": [
+        {
+          "elapsed": 7800
+        }
+      ],
+      "then": [
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Nachtigall an Team: Noch zwanzig Minuten bis zum Zeitlimit. Lasst alles liegen, was nicht zur Wetterwarte führt, und kommt hoch. Ich halte euch den Tee warm. Over."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "kassette-abspielen",
+      "when": [
+        {
+          "station_solved": "wetterwarte"
+        },
+        {
+          "has_item": "kassette"
+        }
+      ],
+      "then": [
+        {
+          "add_points": 100
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Die Kassette! Brandt hat einen Rekorder geholt, wir haben sie abgespielt. Konrad, ruhig wie immer: „Hier Nachtigall Eins. Wenn ihr das hört, habt ihr zugehört. Ich war nicht tapfer, ich habe nur den Funkknopf gedrückt. Die Tapferen waren die, die mit dem Rad durch die Gasse gefahren sind. Danke, Anton. Marlene: Die Nummer 7 gehört dir. QRT.“ Ich weine. Brandt auch, aber er schwört, es sind Pilzsporen."
+            }
+          }
+        }
+      ],
+      "else": [
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Eine Sache bleibt offen: Konrad hat noch ein Band hinterlegt, in einem Nistkasten mit einem einzelnen Zahlenrad. Brandt sagt, nur wer genau zugehört hat, findet es. Vielleicht beim nächsten Mal. Jetzt gibt es erst einmal Tee. Ernsthaft, diesmal echten."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": {
+      "gameMasterPhone": "+49 170 0000000",
+      "emergencyNumber": "112",
+      "notes": {
+        "de": "Bei einer Verletzung: SOS-Taste drücken und bei der Person bleiben. In jedem Team geht ein Betreuer immer hinter der Gruppe. Rettungsfahrzeuge erreichen uns an der Zufahrt am Schlagbaum und am Forstweg unterhalb der Wetterwarte. Gesperrt sind die Kreisstraße im Süden, der Mühlbach im Osten und die Böschung am Hohlweg. Wem es zu gruselig wird, sagt es: Abbrechen ist jederzeit in Ordnung. Es ist nur eine Geschichte."
+      }
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval": 900,
+      "grace": 300
+    },
+    "sos": {
+      "smsFallback": "+49 170 0000000",
+      "lora": false
+    },
+    "requireSupervisor": true,
+    "requiredGear": [
+      {
+        "de": "Taschenlampe oder Stirnlampe für jede Person"
+      },
+      {
+        "de": "Warnweste für jede Person"
+      },
+      {
+        "de": "Handy, voll geladen"
+      },
+      {
+        "de": "Wetterfeste Jacke und feste Schuhe"
+      },
+      {
+        "de": "Ein Betreuer mit Erste-Hilfe-Set je Team"
+      }
+    ]
+  },
+  "sound": {
+    "ambience": {
+      "audio": "wald-nacht",
+      "volume": 0.35
+    },
+    "ui": {
+      "arrival": "schritte-laub",
+      "solved": "schloss-klick",
+      "wrong": "ast-knackt",
+      "chapter": "glocke",
+      "radio": "funk-knacken",
+      "hint": "eule",
+      "key": "kiste-auf"
+    }
+  },
+  "media": [
+    {
+      "id": "wald-nacht",
+      "type": "audio",
+      "src": "media/lib/wald-nacht.ogg",
+      "alt": {
+        "de": "Wald bei Nacht"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "wind",
+      "type": "audio",
+      "src": "media/lib/wind.ogg",
+      "alt": {
+        "de": "Wind in den Bäumen"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "lagerfeuer",
+      "type": "audio",
+      "src": "media/lib/lagerfeuer.ogg",
+      "alt": {
+        "de": "Lagerfeuer"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "funkrauschen",
+      "type": "audio",
+      "src": "media/lib/funkrauschen.ogg",
+      "alt": {
+        "de": "Funkrauschen"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "sturm",
+      "type": "audio",
+      "src": "media/lib/sturm.ogg",
+      "alt": {
+        "de": "Sturm mit Regen und fernem Donner"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "eule",
+      "type": "audio",
+      "src": "media/lib/eule.ogg",
+      "alt": {
+        "de": "Ruf eines Waldkauzes"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "donner",
+      "type": "audio",
+      "src": "media/lib/donner.ogg",
+      "alt": {
+        "de": "Donnerschlag"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "schritte-laub",
+      "type": "audio",
+      "src": "media/lib/schritte-laub.ogg",
+      "alt": {
+        "de": "Schritte im Laub"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "ast-knackt",
+      "type": "audio",
+      "src": "media/lib/ast-knackt.ogg",
+      "alt": {
+        "de": "Ein Ast knackt"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "tuer-knarzt",
+      "type": "audio",
+      "src": "media/lib/tuer-knarzt.ogg",
+      "alt": {
+        "de": "Tür knarzt"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "kiste-auf",
+      "type": "audio",
+      "src": "media/lib/kiste-auf.ogg",
+      "alt": {
+        "de": "Holzkiste springt auf"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "schloss-klick",
+      "type": "audio",
+      "src": "media/lib/schloss-klick.ogg",
+      "alt": {
+        "de": "Schloss klickt"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "funk-knacken",
+      "type": "audio",
+      "src": "media/lib/funk-knacken.ogg",
+      "alt": {
+        "de": "Funkgerät knackt und rauscht"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "herzschlag",
+      "type": "audio",
+      "src": "media/lib/herzschlag.ogg",
+      "alt": {
+        "de": "Herzschlag"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "glocke",
+      "type": "audio",
+      "src": "media/lib/glocke.ogg",
+      "alt": {
+        "de": "Glockenschlag"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "wolf-heulen",
+      "type": "audio",
+      "src": "media/lib/wolf-heulen.ogg",
+      "alt": {
+        "de": "Heulen in der Ferne"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    }
+  ]
+}

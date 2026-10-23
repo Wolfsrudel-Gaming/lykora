@@ -33,13 +33,16 @@ void main() {
   final vectors = jsonDecode(_vectorsFile.readAsStringSync()) as Json;
   final gameFile = File.fromUri(_vectorsFile.absolute.uri.resolve(vectors['game'] as String));
   final baseGame = gameFile.readAsStringSync();
+  // Ein Fall kann ein eigenes Spiel nennen ("game", Pfad relativ zur Testfall-Datei).
+  String gameSource(Json c) =>
+      c['game'] == null ? baseGame : File.fromUri(_vectorsFile.absolute.uri.resolve(c['game'] as String)).readAsStringSync();
   final t0 = DateTime.parse(vectors['t0'] as String).millisecondsSinceEpoch;
   int at(num min) => t0 + (min * 60000).round();
 
   group('gemeinsame Engine-Testfälle', () {
     for (final c in (vectors['cases'] as List).cast<Json>()) {
       test(c['name'], () {
-        final json = jsonDecode(baseGame) as Json;
+        final json = jsonDecode(gameSource(c)) as Json;
         for (final p in (c['patch'] as List? ?? const []).cast<Json>()) {
           _applyPatch(json, p['path'] as String, p['value']);
         }

@@ -6,7 +6,8 @@ import { reduceTeam, type EngineAction, type TeamContext } from "../src/engine/t
 // Gemeinsame Testfälle mit der App, siehe spec/test-vectors/engine.json.
 const vectorsUrl = new URL("../../spec/test-vectors/engine.json", import.meta.url);
 const vectors = JSON.parse(readFileSync(vectorsUrl, "utf8"));
-const baseGame: Game = JSON.parse(readFileSync(new URL(vectors.game, vectorsUrl), "utf8"));
+const readGame = (path: string): Game => JSON.parse(readFileSync(new URL(path, vectorsUrl), "utf8"));
+const baseGame: Game = readGame(vectors.game);
 const T0 = Date.parse(vectors.t0);
 const at = (min: number) => T0 + min * 60_000;
 
@@ -33,7 +34,8 @@ export function applyPatch(target: any, path: string, value: unknown) {
 describe("gemeinsame Engine-Testfälle", () => {
   for (const c of vectors.cases) {
     it(c.name, () => {
-      const game: Game = structuredClone(baseGame);
+      // Ein Fall kann ein eigenes Spiel nennen ("game"), sonst gilt das Spiel der Datei.
+      const game: Game = c.game ? readGame(c.game) : structuredClone(baseGame);
       for (const p of c.patch ?? []) applyPatch(game, p.path, p.value);
       const ctx: TeamContext = {
         game,

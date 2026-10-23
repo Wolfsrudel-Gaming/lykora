@@ -18,8 +18,8 @@ function wizard(game: Game, patch: Partial<WizardChoices> = {}) {
 }
 
 describe("Vorlagen", () => {
-  it("es gibt vier, in der Reihenfolge der leeren Spiele-Liste", () => {
-    expect(TEMPLATES.map((t) => t.id)).toEqual(["kinder-schnitzeljagd", "nachtwanderung", "outdoor-escape", "leer"]);
+  it("es gibt fünf, in der Reihenfolge der leeren Spiele-Liste", () => {
+    expect(TEMPLATES.map((t) => t.id)).toEqual(["kinder-schnitzeljagd", "nachtwanderung", "outdoor-escape", "nachtigall", "leer"]);
   });
 
   for (const info of TEMPLATES) {

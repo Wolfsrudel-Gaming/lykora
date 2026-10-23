@@ -1,5 +1,5 @@
 {
-  "description": "Gemeinsame Testfälle für die Spiel-Engine. Server (TypeScript) und App (Dart) müssen alle Fälle gleich auswerten. Zeiten in Minuten ab Event-Start (T0). Aktionen: [Minute, Typ, Payload, Quelle?]. Erwartete Ergebnisse je Aktion als \"ok\" oder \"status:grund\".",
+  "description": "Gemeinsame Testfälle für die Spiel-Engine. Server (TypeScript) und App (Dart) müssen alle Fälle gleich auswerten. Zeiten in Minuten ab Event-Start (T0). Aktionen: [Minute, Typ, Payload, Quelle?]. Erwartete Ergebnisse je Aktion als \"ok\" oder \"status:grund\". Ein Fall kann mit \"game\" ein anderes Spiel nehmen (Pfad relativ zu dieser Datei).",
   "game": "../v0.1/examples/testspiel.json",
   "t0": "2027-10-19T18:00:00Z",
   "cases": [
@@ -205,6 +205,83 @@
         [5, "trigger", { "station": "baum", "method": "gps" }]
       ],
       "expect": { "solved": ["baum"] }
+    },
+    {
+      "name": "Nachtigall: schnelles Team löst alle neun Stationen samt Bonus",
+      "game": "../v0.1/examples/nachtigall-wetterwarte.json",
+      "actions": [
+        [0, "start", { }],
+        [2, "trigger", { "station": "schlagbaum", "method": "qr" }],
+        [5, "answer", { "station": "schlagbaum", "choice": [0,1,2] }],
+        [6, "trigger", { "station": "eiche", "method": "gps" }],
+        [8, "trigger", { "station": "bank", "method": "gps" }],
+        [9, "answer", { "station": "bank", "text": "MORSE" }],
+        [10, "hint", { "station": "bank", "level": 1 }],
+        [12, "answer", { "station": "bank", "text": " marke " }],
+        [14, "trigger", { "station": "schaukasten", "method": "qr" }],
+        [15, "answer", { "station": "schaukasten", "text": "1989" }],
+        [17, "trigger", { "station": "eiche", "method": "manual" }],
+        [18, "answer", { "station": "eiche", "upload": "foto-eiche" }],
+        [20, "trigger", { "station": "antennenplatz", "method": "gps" }],
+        [21, "answer", { "station": "antennenplatz", "location": { "lat": 50.816709, "lon": 7.145853, "accuracy": 5} }],
+        [24, "answer", { "station": "antennenplatz", "location": { "lat": 50.816759, "lon": 7.146706, "accuracy": 6} }],
+        [26, "trigger", { "station": "wetterwarte", "method": "qr" }],
+        [28, "trigger", { "station": "hochsitz", "method": "gps" }],
+        [30, "answer", { "station": "hochsitz", "choice": [0,1] }],
+        [32, "trigger", { "station": "muehlsteg", "method": "gps" }],
+        [34, "answer", { "station": "muehlsteg", "text": "3331" }],
+        [36, "trigger", { "station": "nest", "method": "gps" }],
+        [37, "answer", { "station": "nest", "text": "7" }],
+        [40, "trigger", { "station": "wetterwarte", "method": "qr" }],
+        [42, "answer", { "station": "wetterwarte", "text": "1455" }]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "rejected:hidden", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "rejected:fragments_missing", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok"],
+        "verdicts": [null, null, "correct", null, null, "wrong", null, "correct", null, "correct", null, "correct", null, "wrong", "correct", null, null, "correct", null, "correct", null, "correct", null, "correct"],
+        "solved": ["schlagbaum", "bank", "schaukasten", "eiche", "antennenplatz", "hochsitz", "muehlsteg", "nest", "wetterwarte"],
+        "fragments": ["f1", "f2", "f3", "f4"],
+        "items": ["ausschnitt", "morsekarte", "marke", "protokoll", "logbuch", "journal", "kassette"],
+        "revealed": ["bank", "schaukasten", "eiche", "antennenplatz", "hochsitz", "muehlsteg", "nest"],
+        "points": 1100,
+        "timePenalty": 120,
+        "hintsUsed": 1,
+        "wrongAnswers": 2,
+        "finishedAt": 42,
+        "messages": ["rule:weg-zusammen:then:1", "rule:frequenz-ahnung:then:1", "rule:nest-erscheint:then:1", "rule:kassette-abspielen:then:1"]
+      }
+    },
+    {
+      "name": "Nachtigall: langsames Team ohne Nest, Zeitregeln und Sonst-Zweig",
+      "game": "../v0.1/examples/nachtigall-wetterwarte.json",
+      "actions": [
+        [0, "start", { }],
+        [3, "trigger", { "station": "schlagbaum", "method": "gps" }],
+        [9, "answer", { "station": "schlagbaum", "choice": [0,1,2] }],
+        [15, "trigger", { "station": "schaukasten", "method": "gps" }],
+        [22, "answer", { "station": "schaukasten", "text": "1989" }],
+        [30, "trigger", { "station": "bank", "method": "gps" }],
+        [37, "answer", { "station": "bank", "text": "MARKE" }],
+        [45, "trigger", { "station": "eiche", "method": "gps" }],
+        [52, "answer", { "station": "eiche", "upload": "foto-eiche-2" }],
+        [58, "trigger", { "station": "antennenplatz", "method": "gps" }],
+        [70, "answer", { "station": "antennenplatz", "location": { "lat": 50.816709, "lon": 7.146706, "accuracy": 4} }],
+        [76, "trigger", { "station": "hochsitz", "method": "gps" }],
+        [82, "answer", { "station": "hochsitz", "choice": [0,1] }],
+        [95, "trigger", { "station": "muehlsteg", "method": "gps" }],
+        [110, "answer", { "station": "muehlsteg", "text": "3331" }],
+        [131, "trigger", { "station": "wetterwarte", "method": "qr" }],
+        [133, "answer", { "station": "wetterwarte", "text": "1455" }]
+      ],
+      "expect": {
+        "outcomes": ["ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok"],
+        "solved": ["schlagbaum", "bank", "schaukasten", "eiche", "antennenplatz", "hochsitz", "muehlsteg", "wetterwarte"],
+        "fragments": ["f1", "f2", "f3", "f4"],
+        "items": ["ausschnitt", "morsekarte", "marke", "protokoll", "logbuch", "journal"],
+        "points": 850,
+        "timePenalty": 0,
+        "finishedAt": 133,
+        "messages": ["rule:weg-zusammen:then:1", "rule:frequenz-ahnung:then:1", "rule:jule-nervoes:then:0", "rule:nest-erscheint:then:1", "rule:zeit-warnung:then:0", "rule:kassette-abspielen:else:0"]
+      }
     }
   ]
 }

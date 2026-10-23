@@ -6,7 +6,7 @@
 
 import type { Game } from "../types.ts";
 
-export type TemplateId = "leer" | "kinder-schnitzeljagd" | "nachtwanderung" | "outdoor-escape";
+export type TemplateId = "leer" | "kinder-schnitzeljagd" | "nachtwanderung" | "outdoor-escape" | "nachtigall";
 
 export interface TemplateInfo {
   id: TemplateId;
@@ -62,6 +62,19 @@ export const TEMPLATES: TemplateInfo[] = [
     night: false,
     localTasks: ["briefkasten"],
     load: () => import("./outdoor-escape.json").then(json),
+  },
+  {
+    id: "nachtigall",
+    title: "Beispielgeschichte: Nachtigall",
+    subtitle: "für Pfadfinder",
+    blurb: "9 Stationen, 5 Kapitel, Tonband von 1996, Wendepunkt und Bonusstation: das reichste Beispiel. Alle fünf Aufgabentypen, Regeln und Klangkulisse.",
+    ageGroups: "14–17 Jahre",
+    duration: "ca. 110 Min",
+    stations: 9,
+    night: true,
+    localTasks: ["antennenplatz", "muehlsteg"],
+    // dieselbe Datei wie das Beispiel im Format, damit es nur eine Fassung gibt
+    load: () => import("../../../../../spec/v0.1/examples/nachtigall-wetterwarte.json").then(json),
   },
   {
     id: "leer",
