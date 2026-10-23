@@ -3,9 +3,10 @@
 //
 // Startet den Server auf Port 3100 (Datenbank lykora_e2e, wird geleert), baut das Dashboard,
 // startet die Vite-Vorschau mit Proxy auf den Server und spielt mit Playwright einen Abend durch:
-// anmelden, Organisation anlegen, Spiel hochladen, Medien und Klänge, Event anlegen und starten,
-// ein Team per API beitreten lassen, Funk, Abriss der Live-Verbindung, Klang, Rückruf, SOS und
-// eine abgelaufene Sitzung. Bildschirmfotos landen in web/e2e/screenshots/.
+// anmelden, Organisation anlegen, Spiel importieren, im Baukasten ein Spiel aus der Vorlage bauen,
+// veröffentlichen und spielen (Abschnitt 3b), Medien und Klänge im Entwurf, Event anlegen und
+// starten, ein Team per API beitreten lassen, Funk, Abriss der Live-Verbindung, Klang, Rückruf, SOS
+// und eine abgelaufene Sitzung. Bildschirmfotos landen in web/e2e/screenshots/.
 //
 // Aufruf: node web/e2e/run.mjs [--no-build] [--keep] [--direkt]
 //   --no-build  vorhandenen Build in web/dist nutzen
@@ -18,7 +19,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { deflateSync } from "node:zlib";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -171,6 +172,16 @@ const now = (offsetSec = 0) => new Date(Date.now() + offsetSec * 1000).toISOStri
 let seq = 0;
 const cid = (p) => `${p}-${Date.now()}-${++seq}`;
 
+/** Luftlinie in Metern (Haversine), für die Orte im Baukasten. */
+function distM(a, b) {
+  const r = Math.PI / 180;
+  const h = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lon - a.lon) * r) / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** Abschnitte, die abgebrochen sind, ohne den ganzen Lauf anzuhalten (3b. Baukasten). */
+const brokenSections = [];
+
 // Stand der Klangbibliothek der Absprache, falls der Server sie noch nicht mitbringt.
 const LIBRARY_STUB = [
   ["wald-nacht", "Wald bei Nacht", "ambience", 48],
@@ -270,7 +281,8 @@ async function main() {
       const text = msg.text();
       // Fehlende Bibliotheksdateien, bewusst abgelehnte Anfragen und der gespielte Serverausfall (503) sind kein Fehler der Seite.
       if (/Failed to load resource/.test(text) && /401|404|400|409|503/.test(text)) return;
-      errors.push(`Konsole: ${text}`);
+      const url = msg.location()?.url;
+      errors.push(`Konsole: ${text}${url ? ` (${url})` : ""}`);
     });
     return { context, page };
   }
@@ -312,32 +324,390 @@ async function main() {
   const me = await api("GET", "/me", undefined, admin.token);
   const org = me.orgs.find((o) => o.name === "Pfadfinder Hennef");
 
-  // 3. Spiel hochladen
+  // 3. Spiel importieren (Expertenweg neben „+ Neues Spiel“); danach geht es in den Baukasten.
   await page.getByRole("link", { name: "Spiele" }).click();
-  await page.getByRole("button", { name: "Spiel hochladen" }).click();
+  await page.getByRole("button", { name: "Importieren" }).click();
   // Erst ein kaputtes Spiel: die Fehlerliste muss verständlich sein.
-  const broken = JSON.parse(readFileSync(join(root, "spec/v0.1/examples/testspiel.json"), "utf8"));
+  const example = JSON.parse(readFileSync(join(root, "spec/v0.1/examples/testspiel.json"), "utf8"));
+  const broken = structuredClone(example);
   delete broken.meta.title;
   broken.stations[1].sound.solved = "gibtsnicht";
   await page.locator('input[type="file"]').setInputFiles({ name: "kaputt.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(broken)) });
   await page.locator(".notice.error", { hasText: "Pflichtangabe „Titel“ fehlt" }).waitFor();
   check("Ungültiges Spiel zeigt deutsche Fehlerliste", true);
-  await page.locator('input[type="file"]').setInputFiles(join(root, "spec/v0.1/examples/testspiel.json"));
+  check("Fehlerhafte Datei lässt sich als Entwurf öffnen", await page.getByRole("button", { name: /Trotzdem als Entwurf öffnen/ }).isVisible());
+  // Der Baukasten verlangt eine echte Chip-Kennung (UID) statt „lyk-baum“, sonst ließe sich nicht veröffentlichen.
+  const sturmnacht = structuredClone(example);
+  sturmnacht.stations.find((s) => s.id === "baum").triggers.find((t) => t.type === "nfc").tag = "04:A1:B2:C3:D4:E5:F6";
+  await page.locator('input[type="file"]').setInputFiles({ name: "testspiel.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(sturmnacht)) });
   await page.getByText("Gültig: „Sturmnacht: Das verschwundene Funkgerät“").waitFor();
   await page.getByLabel("Kommentar zur Version (optional)").fill("Erste Fassung");
   await page.getByRole("button", { name: "Spiel speichern" }).click();
+  await page.waitForURL(/\/spiele\/[^/]+\/baukasten$/);
+  await page.locator(".editor-title").waitFor({ timeout: 20_000 });
+  check("Spiel importiert, weiter im Baukasten", (await page.locator(".editor-title").inputValue()) === "Sturmnacht: Das verschwundene Funkgerät");
+  const gameId = page.url().split("/spiele/")[1].split(/[/?]/)[0];
+  await page.goto(`${APP}/spiele/${gameId}`);
   await page.getByRole("heading", { name: "Sturmnacht: Das verschwundene Funkgerät" }).waitFor();
-  check("Spiel hochgeladen", true);
   await page.locator(".solution", { hasText: "Eule · Uhu" }).waitFor();
   check("Übersicht zeigt Lösungen", true);
   await shot(page, "spiel-uebersicht");
-  const gameId = page.url().split("/spiele/")[1].split(/[/?]/)[0];
   await page.getByRole("link", { name: "Spiele" }).first().click();
   await page.getByRole("link", { name: "Sturmnacht: Das verschwundene Funkgerät" }).waitFor();
   await shot(page, "spiele");
 
-  // 4. Medien: eigene Aufnahme hochladen und ins Spiel übernehmen
+  // 3b. Baukasten: ein Spiel aus der Vorlage bis zum Team in der App (design.md Abschnitt 10).
+  // Bricht ein Schritt ab, steht er in der Liste; die übrigen Abschnitte laufen trotzdem weiter.
+  const draftOf = (id) => api("GET", `/games/${id}/draft`, undefined, admin.token);
+  const saved = async (p = page) => {
+    // Erst nach Prüfung und lokaler Sicherung (300 ms) speichern, sonst bleibt die Sicherung neben dem Server-Stand liegen.
+    await p.waitForTimeout(500);
+    await p.keyboard.press("Control+s");
+    await p.locator(".save-status", { hasText: "Gespeichert" }).first().waitFor({ timeout: 10_000 });
+    await p.waitForTimeout(200);
+  };
+  const baukasten = async () => {
+    // 1. Neues Spiel aus Vorlage
+    await page.getByRole("link", { name: "Neues Spiel" }).click();
+    await page.getByRole("heading", { name: "Womit willst du anfangen?" }).waitFor();
+    await page.getByLabel(/Outdoor-Escape für Jugendliche/).check();
+    await page.getByRole("button", { name: "Weiter" }).click();
+    await page.getByLabel("Name des Spiels").fill("Agenten im Stadtpark");
+    await page.getByRole("button", { name: "Weiter" }).click();
+    await page.getByRole("heading", { name: "In welcher Welt spielt ihr?" }).waitFor();
+    check("Assistent: Spielwelt Agenten vorbelegt", await page.getByLabel(/^Agenten/).isChecked());
+    await page.getByRole("button", { name: "Weiter" }).click();
+    await page.getByRole("heading", { name: "Wer spielt mit?" }).waitFor();
+    check("Assistent: Zielgruppe 14–17 vorbelegt", await page.getByLabel("14–17 Jahre").isChecked());
+    await page.getByRole("button", { name: "Weiter" }).click();
+    await page.getByRole("heading", { name: "Wo wird gespielt?" }).waitFor();
+    await page.getByRole("button", { name: "Koordinaten …" }).click();
+    await page.getByLabel("Koordinaten", { exact: true }).fill("50.7374, 7.0982");
+    await page.getByRole("button", { name: "Übernehmen" }).click();
+    await page.locator('input[type="range"]').evaluate((el) => {
+      el.value = "400";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.getByText("Spielfeld: Kreis mit 400 m Radius").waitFor();
+    await page.getByRole("button", { name: "Weiter" }).click();
+    await page.getByRole("heading", { name: "Wie lange, und wer hilft im Notfall?" }).waitFor();
+    check(
+      "Assistent: 60 Minuten, Zeitlimit je Team, Telefon später",
+      (await page.getByText("Geplante Dauer: 60 Minuten").count()) === 1 && (await page.getByLabel(/^je Team/).isChecked()) && (await page.getByLabel("Telefon der Spielleitung").inputValue()) === "",
+    );
+    await page.getByRole("button", { name: "Spiel anlegen" }).click();
+    await page.waitForURL(/\/spiele\/[^/]+\/baukasten$/);
+    await toast(page, "Spiel angelegt");
+    const agentId = page.url().split("/spiele/")[1].split("/")[0];
+    const fresh = await api("GET", `/games/${agentId}`, undefined, admin.token);
+    let d = await draftOf(agentId);
+    check("Neues Spiel ohne Version, mit Entwurf", fresh.latest_version === null && d.revision >= 1, `Revision ${d.revision}`);
+    const bonn = { lat: 50.7374, lon: 7.0982 };
+    check("Sammelpunkt am gewählten Ort", distM(d.content.field.assemblyPoint.location, bonn) < 12);
+    check("6 Stationen innerhalb 400 m", d.content.stations.length === 6 && d.content.stations.every((s) => distM(s.location, bonn) < 400));
+    const qrCodes = d.content.stations.flatMap((s) => s.triggers.filter((t) => t.type === "qr").map((t) => t.code));
+    check("QR-Codes neu, zufällig und verschieden", qrCodes.every((c) => /^LYK-[A-HJ-NP-Z2-9]{4}$/.test(c)) && new Set(qrCodes).size === qrCodes.length, qrCodes.join(" "));
+    const nav = page.getByRole("navigation", { name: "Bereiche des Baukastens" });
+    await nav.getByRole("link", { name: /Sicherheit/ }).waitFor();
+    check("Übersicht: „✗ 1“ an Sicherheit (Telefon fehlt)", (await nav.getByRole("link", { name: /Sicherheit/ }).innerText()).includes("✗ 1"));
+    await shot(page, "baukasten-uebersicht");
+
+    // 2. Karte: Station verschieben, Station anlegen, Sperrzone zeichnen
+    await nav.getByRole("link", { name: /Karte & Stationen/ }).click();
+    const mapEl = page.locator(".ed-map-main .leaflet-container");
+    await mapEl.waitFor({ timeout: 15_000 });
+    await page.waitForTimeout(600);
+    const before = d.content.stations[1].location;
+    await page.getByTitle(/^Station 2: /).click();
+    const panel = page.locator(".ed-map-panel");
+    await panel.getByText("steht noch am Platz aus der Vorlage").waitFor();
+    for (let i = 0; i < 10; i++) await page.keyboard.press("Shift+ArrowRight");
+    await saved();
+    d = await draftOf(agentId);
+    const moved = distM(before, d.content.stations[1].location);
+    check("Karte: 10× Umschalt+Pfeil rechts ≈ 100 m nach Osten", moved > 95 && moved < 105 && d.content.stations[1].location.lon > before.lon, `${moved.toFixed(1)} m`);
+    check("Karte: Warnung „Platz aus der Vorlage“ an Station 2 verschwindet", (await panel.getByText("steht noch am Platz aus der Vorlage").count()) === 0);
+    await page.getByRole("button", { name: "+ Station", exact: true }).first().click();
+    let box = await mapEl.boundingBox();
+    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.56);
+    await page.locator("#neue-station-name").fill("Die Brücke");
+    await page.keyboard.press("Enter");
+    await panel.locator("h3", { hasText: "Die Brücke" }).waitFor();
+    // An eine freie Stelle 150 m südöstlich des Sammelpunkts, weg von Sperrzonen und GPS-Kreisen.
+    const coords = panel.locator(".ed-coords input");
+    await coords.fill(`${(bonn.lat - 150 / 111_195).toFixed(6)}, ${(bonn.lon + 150 / (111_195 * Math.cos((bonn.lat * Math.PI) / 180))).toFixed(6)}`);
+    await coords.press("Enter");
+    await saved();
+    d = await draftOf(agentId);
+    const bridge = d.content.stations.at(-1);
+    check(
+      "Karte: „Die Brücke“ als 7. Station mit GPS, QR und Notfall-Code",
+      d.content.stations.length === 7 && bridge.id === "die-bruecke" && ["gps", "qr", "manual"].every((t) => bridge.triggers.some((x) => x.type === t)),
+      `${bridge.id}: ${bridge.triggers.map((t) => t.type)}`,
+    );
+    await page.getByRole("button", { name: "Sperrzone" }).click();
+    await page.getByRole("menuitem", { name: /Vieleck zeichnen/ }).click();
+    box = await mapEl.boundingBox();
+    for (const [fx, fy] of [
+      [0.06, 0.82],
+      [0.16, 0.82],
+      [0.11, 0.94],
+    ]) {
+      await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+      await page.waitForTimeout(150);
+    }
+    await page.keyboard.press("Enter");
+    await panel.locator("h3", { hasText: "Sperrzone" }).waitFor();
+    await page.waitForTimeout(200);
+    await page.keyboard.type("Straße");
+    await panel.locator("select").first().selectOption("road");
+    await saved();
+    d = await draftOf(agentId);
+    const zone = d.content.field.restrictedZones[1];
+    check("Karte: Sperrzone „Straße“ als Vieleck mit 3 Ecken", zone?.area?.polygon?.length === 3 && zone.kind === "road", JSON.stringify({ name: zone?.name, kind: zone?.kind, ecken: zone?.area?.polygon?.length }));
+    await shot(page, "baukasten-karte");
+
+    // 3. Stationseditor: Rätsel mit Tipps, Funkspruch, neues Codeteil
+    await page.locator(".editor-nav .ed-st-link", { hasText: "Die Brücke" }).click();
+    await page.getByRole("heading", { level: 2, name: /Die Brücke/ }).waitFor({ timeout: 15_000 });
+    const st = page.locator('[data-objekt="die-bruecke"]');
+    await st.locator('[data-feld="task.type"] select').selectOption("text");
+    await st.getByLabel(/^Frage/).fill("Wie viele Bögen hat die Brücke?");
+    const answers = st.getByLabel(/^Richtige Antworten/);
+    for (const a of ["drei", "3"]) {
+      await answers.fill(a);
+      await answers.press("Enter");
+    }
+    while ((await st.getByRole("textbox", { name: /^Tipp \d/ }).count()) < 2) await st.locator(".st-hints").getByRole("button", { name: "Tipp", exact: true }).click();
+    await st.getByRole("textbox", { name: /^Tipp 1/ }).fill("Zählt die Bögen von unten.");
+    await st.getByRole("textbox", { name: /^Tipp 2/ }).fill("Es sind mehr als zwei.");
+    const cost = st.locator('[data-feld="hints.1.cost"]');
+    await cost.locator("select").selectOption("time");
+    await cost.locator('input[type="number"]').fill("2");
+    const arrival = st.locator('section.st-lane[data-feld="scene.arrival"]');
+    await arrival.getByRole("button", { name: "+ Block" }).click();
+    await page.getByRole("menuitem", { name: /Funkspruch/ }).click();
+    await arrival.locator("[data-block^='arrival-'] textarea").last().fill("Hier spricht die Zentrale. Zählt die Bögen der Brücke.");
+    const newPart = st.getByRole("button", { name: "neues Codeteil" });
+    if (!(await newPart.isVisible())) await st.locator("summary", { hasText: "Belohnung" }).click();
+    await newPart.click();
+    await saved();
+    d = await draftOf(agentId);
+    const b = d.content.stations.find((s) => s.id === "die-bruecke");
+    const finalCode = [...d.content.fragments].sort((x, y) => x.position - y.position).map((f) => f.value).join("");
+    check("Station: „Antwort eintippen“ mit den Antworten drei und 3", b.task?.type === "text" && JSON.stringify(b.task.answers) === '["drei","3"]', JSON.stringify(b.task));
+    check("Station: Tipp 2 kostet 2 Minuten", JSON.stringify(b.hints?.[1]?.cost) === '{"type":"time","amount":120}', JSON.stringify(b.hints));
+    check("Station: Funkspruch bei der Ankunft", b.scene?.arrival?.[0]?.kind === "radio");
+    check(
+      "Station: neues Codeteil 5, Finalcode 5-stellig, Finale folgt",
+      d.content.fragments.length === 5 && JSON.stringify(b.rewards?.fragments) === '["teil-5"]' && finalCode.length === 5 && d.content.stations.find((s) => s.final)?.task?.answers?.[0] === finalCode,
+      finalCode,
+    );
+    await shot(page, "baukasten-station");
+
+    // 4. Regel: Sobald „Die Brücke“ gelöst ist, funkt die Zentrale
+    await nav.getByRole("link", { name: /Regeln/ }).click();
+    await page.getByRole("heading", { name: "Regeln", level: 2 }).waitFor();
+    await page.getByRole("button", { name: /Neue Regel/ }).click();
+    await page.getByRole("menuitem", { name: "Leere Regel" }).click();
+    const card = page.locator("details.d-rule").last();
+    await card.getByLabel("Station", { exact: true }).selectOption("die-bruecke");
+    await card.getByLabel(/^Text/).fill("Gut gemacht, weiter zum Finale!");
+    await saved();
+    const sentence = await card.locator(".d-rule-sentence").innerText();
+    check("Regel: Satz nennt Station und Funkspruch", sentence.startsWith("Sobald „Die Brücke“ gelöst ist") && sentence.includes("Gut gemacht, weiter zum Finale!"), sentence);
+    d = await draftOf(agentId);
+    const rule = d.content.rules.at(-1);
+    check(
+      "Regel im Entwurf",
+      JSON.stringify(rule.when) === '[{"station_solved":"die-bruecke"}]' && (rule.then[0]?.message?.from ?? "hq") === "hq" && rule.then[0]?.message?.text?.de === "Gut gemacht, weiter zum Finale!",
+      JSON.stringify(rule),
+    );
+
+    // 5. Sicherheit: Telefon und Warnweste
+    await nav.getByRole("link", { name: /Sicherheit/ }).click();
+    await page.getByRole("heading", { name: "Sicherheit", level: 2 }).waitFor();
+    const phoneField = page.getByRole("textbox", { name: /Telefon der Spielleitung/ });
+    await phoneField.fill("+49 170 1234567");
+    await phoneField.blur();
+    await page.getByRole("button", { name: "+ Warnweste" }).click();
+    await page.waitForTimeout(600);
+    check("Sicherheit: ✓ in der Navigation", (await nav.getByRole("link", { name: /Sicherheit/ }).innerText()).includes("✓"));
+    check("Kopf: Veröffentlichen ohne Fehlerzahl", (await page.locator(".editor-head .count", { hasText: "✗" }).count()) === 0);
+
+    // 6. Rückgängig, Speichern und Konflikt mit einem zweiten Tab
+    await page.keyboard.press("Control+z");
+    await page.getByRole("button", { name: "+ Warnweste" }).waitFor();
+    await page.keyboard.press("Control+Shift+z");
+    await page.getByRole("button", { name: "+ Warnweste" }).waitFor({ state: "detached" });
+    await saved();
+    d = await draftOf(agentId);
+    check("Strg+Z und Strg+Umschalt+Z; gespeichert mit Warnweste", d.content.safety.requiredGear.some((g) => g.de === "Warnweste"));
+    const second = await page.context().newPage();
+    second.on("pageerror", (err) => errors.push(`Seitenfehler (Tab 2): ${err.message}`));
+    await second.goto(`${APP}/spiele/${agentId}/baukasten`);
+    await second.locator(".editor-title").waitFor({ timeout: 20_000 });
+    await second.locator(".editor-title").fill("Agenten im Stadtpark (Tab 2)");
+    await second.locator(".editor-title").press("Enter");
+    await saved(second);
+    await second.close();
+    await page.locator(".editor-title").fill("Agenten im Stadtpark (Tab 1)");
+    await page.locator(".editor-title").press("Enter");
+    await page.keyboard.press("Control+s");
+    const conflict = page.getByRole("dialog", { name: /hat den Entwurf auch geändert/ });
+    await conflict.waitFor();
+    await shot(page, "baukasten-konflikt");
+    await conflict.getByLabel(/^Stand von .* laden/).check();
+    const [backup] = await Promise.all([page.waitForEvent("download"), conflict.getByRole("button", { name: "Weiter" }).click()]);
+    check("Konflikt: eigener Stand als Datei gesichert", /-entwurf-.*\.json$/.test(backup.suggestedFilename()), backup.suggestedFilename());
+    await page.waitForTimeout(300);
+    check("Konflikt: Titel aus dem zweiten Tab steht", (await page.locator(".editor-title").inputValue()) === "Agenten im Stadtpark (Tab 2)");
+    await page.locator(".editor-title").fill("Agenten im Stadtpark");
+    await page.locator(".editor-title").press("Enter");
+    await saved();
+
+    // 7. Veröffentlichen
+    await nav.getByRole("link", { name: /Veröffentlichen/ }).click();
+    await page.getByText("Muss erledigt sein (0)").waitFor();
+    check("Checkliste: nichts mehr, was erledigt sein muss", true);
+    await page.getByLabel("Kommentar zur Version").fill("Erste Fassung");
+    await page.getByRole("button", { name: "Als Version 1 veröffentlichen" }).click();
+    const published = page.getByRole("dialog", { name: "Version 1 ist veröffentlicht" });
+    await published.waitFor();
+    await shot(page, "baukasten-veroeffentlichen");
+    await published.getByRole("button", { name: "Schließen" }).click();
+    const v1 = await api("GET", `/games/${agentId}`, undefined, admin.token);
+    check("Version 1 veröffentlicht, Entwurf ohne Änderungen", v1.latest_version === 1 && v1.draft?.changed === false);
+    const v1content = (await api("GET", `/games/${agentId}/versions/1`, undefined, admin.token)).content;
+    const { validateGame } = await import(pathToFileURL(join(root, "spec/validate.mjs")).href);
+    const v1check = validateGame(v1content);
+    check("Version 1 ist gültig und hat 7 Stationen", v1check.errors.length === 0 && v1content.stations.length === 7, v1check.errors.join(" | "));
+
+    // 8. Probelauf
+    await page.locator(".editor-head").getByRole("link", { name: "Probelauf" }).click();
+    const testRun = page.getByRole("dialog", { name: "Probelauf" });
+    await testRun.locator(".join-code").waitFor({ timeout: 15_000 });
+    const testCode = (await testRun.locator(".join-code").innerText()).trim();
+    check("Probelauf mit Event-Code und PIN", /^[A-Z0-9]{6}$/.test(testCode) && (await testRun.locator(".pin").innerText()).trim().length >= 4, testCode);
+    await testRun.getByRole("button", { name: "Stations-Codes zeigen" }).click();
+    const codes = page.getByRole("dialog", { name: "Stations-Codes" });
+    await codes.locator(".qr img").first().waitFor();
+    // 7 Stationen; „Toter Briefkasten“ hat keinen QR-Code (nur GPS und Notfall-Code).
+    check("Stations-Codes: 7 Stationen mit 6 QR-Codes", (await codes.locator(".pub-code").count()) === 7 && (await codes.locator(".qr img").count()) === 6);
+    await codes.getByRole("button", { name: "Schließen" }).click();
+    await testRun.getByRole("button", { name: "Schließen" }).last().click();
+    const orgEvents = await api("GET", `/orgs/${org.id}/events`, undefined, admin.token);
+    check("Probelauf als Test-Event", orgEvents.some((e) => e.test && e.join.code === testCode));
+
+    // 9. Event anlegen, Team spielt die veröffentlichte Version
+    await page.getByRole("link", { name: "Events" }).click();
+    await page.getByRole("link", { name: "Event anlegen" }).click();
+    await page.getByLabel("Spiel").selectOption({ label: "Agenten im Stadtpark" });
+    await page.getByLabel("Version").locator("option", { hasText: "Version 1" }).waitFor({ state: "attached" });
+    await page.getByLabel("Name des Events").fill("Agenten-Abend");
+    await page.getByRole("button", { name: "Event anlegen" }).click();
+    await page.locator(".join-code").waitFor();
+    const agentCode = (await page.locator(".join-code").innerText()).trim();
+    const agentPin = (await page.locator(".pin").innerText()).trim();
+    const agentEvent = page.url().split("/events/")[1].split(/[/?]/)[0];
+    const agents = await api("POST", "/join", { code: agentCode, device: "E2E", team: { name: "Falken", color: "blue", members: ["Kim"], supervisorPin: agentPin } });
+    const played = await api("GET", "/play/game", undefined, agents.token);
+    check("App lädt die Version: 7 Stationen, Kennung aus dem Titel", played.game.stations.length === 7 && played.game.id === "agenten-im-stadtpark", played.game.id);
+    await api("POST", `/events/${agentEvent}/start`, {}, admin.token);
+    await sleep(1500);
+    const manual = played.game.stations.find((s) => s.id === "die-bruecke").triggers.find((t) => t.type === "manual").code;
+    const synced = await api(
+      "POST",
+      "/play/sync",
+      {
+        deviceTime: now(),
+        actions: [
+          { id: cid("a"), type: "start", time: now(-0.6) },
+          { id: cid("a"), type: "trigger", time: now(-0.4), payload: { station: "die-bruecke", method: "manual", code: manual } },
+          { id: cid("a"), type: "answer", time: now(-0.2), payload: { station: "die-bruecke", text: "Drei" } },
+        ],
+      },
+      agents.token,
+    );
+    check("Engine: Start, Notfall-Code und Antwort angenommen", synced.outcomes.every((o) => o.status === "ok"), JSON.stringify(synced.outcomes));
+    check("Engine: „Die Brücke“ gelöst, die Regel funkt", JSON.stringify(synced.state.solved).includes("die-bruecke") && synced.messages.some((m) => m.body.includes("Gut gemacht, weiter zum Finale!")));
+
+    // 10. Nach dem Veröffentlichen ändern: geplantes Event umstellen, laufendes nicht
+    const planned = await api("POST", `/orgs/${org.id}/events`, { gameId: agentId, version: 1, name: "Agenten-Morgen" }, admin.token);
+    await page.goto(`${APP}/spiele/${agentId}/baukasten/stationen/einsatz`);
+    await page.getByRole("heading", { level: 2, name: /Einsatzort/ }).waitFor({ timeout: 20_000 });
+    await page.locator('[data-objekt="einsatz"]').getByLabel(/^Name/).first().fill("Einsatzort am Tor");
+    await saved();
+    d = await draftOf(agentId);
+    check("Station im Entwurf umbenannt", d.content.stations[0].name.de === "Einsatzort am Tor", JSON.stringify(d.content.stations[0].name));
+    await page.goto(`${APP}/spiele`);
+    await page.getByText("● Änderungen seit Version 1, noch nicht veröffentlicht").waitFor();
+    check("Liste: Änderungen seit Version 1", true);
+    await page.goto(`${APP}/spiele/${agentId}/baukasten/veroeffentlichen`);
+    await page.getByText("Station „Einsatzort am Tor“ geändert").waitFor();
+    await page.getByRole("button", { name: "Als Version 2 veröffentlichen" }).click();
+    const after = page.getByRole("dialog", { name: "Version 2 ist veröffentlicht" });
+    await after.waitFor();
+    const offered = await after.innerText();
+    check("Dialog bietet nur das geplante Event an", offered.includes("Agenten-Morgen") && !offered.includes("Agenten-Abend"));
+    await after.getByRole("button", { name: "Umstellen und schließen" }).click();
+    await toast(page, "jetzt Version 2");
+    const switched = await api("GET", `/events/${planned.id}`, undefined, admin.token);
+    check("Geplantes Event spielt Version 2, Code bleibt", switched.gameVersion === 2 && switched.join.code === planned.join.code);
+
+    // 11. Handy: Bereichsauswahl und Vor-Ort-Modus
+    const mobile = await newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, geolocation: { latitude: 50.7368, longitude: 7.0975, accuracy: 6 }, permissions: ["geolocation"] });
+    await mobile.context.addInitScript(([t, o]) => {
+      localStorage.setItem("lykora.token", t);
+      localStorage.setItem("lykora.org", o);
+    }, [admin.token, org.id]);
+    await mobile.page.goto(`${APP}/spiele/${agentId}/baukasten`);
+    await mobile.page.getByRole("link", { name: /Vor Ort arbeiten/ }).waitFor({ timeout: 20_000 });
+    check("Handy: Bereichsauswahl und „Vor Ort arbeiten“", (await mobile.page.locator(".editor-nav-select select, .editor-nav select").count()) > 0);
+    await mobile.page.goto(`${APP}/spiele/${agentId}/vor-ort`);
+    await mobile.page.getByRole("heading", { name: "Vor Ort" }).waitFor({ timeout: 15_000 });
+    await mobile.page.getByRole("button", { name: /Standort freigeben/ }).tap();
+    await mobile.page.getByRole("button", { name: /Station hier anlegen/ }).tap();
+    await mobile.page.getByRole("button", { name: "Sofort übernehmen" }).tap();
+    await mobile.page.locator("#vor-ort-name").fill("Am Tor");
+    await mobile.page.getByRole("dialog").getByRole("button", { name: "Speichern", exact: true }).tap();
+    await mobile.page.getByText("„Am Tor“ angelegt").waitFor();
+    await shot(mobile.page, "vor-ort");
+    await mobile.page.waitForTimeout(2500);
+    await mobile.page.locator(".save-status", { hasText: "Gespeichert" }).first().waitFor({ timeout: 10_000 });
+    d = await draftOf(agentId);
+    const here = d.content.stations.find((s) => s.id === "am-tor");
+    check("Vor Ort: neue Station am Standort, als vor Ort gesetzt gemerkt", !!here && distM(here.location, { lat: 50.7368, lon: 7.0975 }) < 5 && !!d.meta.onSite?.["am-tor"]);
+    await mobile.context.close();
+
+    // 12. Medien landen im Entwurf, nicht in einer neuen Version
+    await page.goto(`${APP}/spiele/${agentId}/medien`);
+    await page.waitForURL(/\/baukasten\/medien$/);
+    await page.locator('input[type="file"]').setInputFiles({ name: "Stimme.wav", mimeType: "audio/wav", buffer: wav(1, 260) });
+    const voice = page.locator(".media-row", { hasText: "Stimme.wav" });
+    await voice.getByRole("button", { name: "Ins Spiel übernehmen" }).click();
+    await voice.getByRole("button", { name: "Übernehmen", exact: true }).click();
+    await voice.getByText("Im Spiel als „stimme“").waitFor();
+    await saved();
+    const v2 = await api("GET", `/games/${agentId}`, undefined, admin.token);
+    d = await draftOf(agentId);
+    check("Medium im Entwurf, keine neue Version", v2.latest_version === 2 && d.content.media.some((m) => m.id === "stimme"));
+  };
+  try {
+    await baukasten();
+  } catch (err) {
+    brokenSections.push(`3b. Baukasten: ${err.message.split("\n")[0]}`);
+    console.log(`✗ Abschnitt 3b. Baukasten abgebrochen – ${err.message.split("\n")[0]}`);
+    await page.screenshot({ path: join(shots, "baukasten-abbruch.png"), fullPage: true }).catch(() => undefined);
+    await page.keyboard.press("Escape").catch(() => undefined);
+  }
+
+  // 4. Medien: eigene Aufnahme hochladen und in den Entwurf übernehmen (die alte Seite leitet in den Baukasten)
   await page.goto(`${APP}/spiele/${gameId}/medien`);
+  await page.waitForURL(/\/baukasten\/medien$/);
+  check("Alte Medien-Seite leitet in den Baukasten", true);
+  // Mit Expertenansicht, damit die Kennung im Spiel zu sehen ist.
+  await page.goto(`${APP}/spiele/${gameId}/baukasten/medien?experte=1`);
   await page.getByRole("heading", { name: "Hochladen" }).waitFor();
   await page.locator('input[type="file"]').setInputFiles([
     { name: "Tür knarzt.wav", mimeType: "audio/wav", buffer: wav(0.8, 220) },
@@ -348,32 +718,36 @@ async function main() {
   check("Zwei Dateien hochgeladen", true);
   const row = page.locator(".media-row", { hasText: "Tür knarzt.wav" });
   await row.getByRole("button", { name: "Ins Spiel übernehmen" }).click();
-  check("ID aus dem Dateinamen vorgeschlagen", (await row.getByLabel("ID im Spiel").inputValue()) === "tuer-knarzt");
+  check("Kennung aus dem Dateinamen vorgeschlagen", (await row.getByLabel("Kennung im Spiel").inputValue()) === "tuer-knarzt");
   await row.getByLabel("Urheber und Lizenz").fill("Aufnahme: Lykora-Team, CC0");
-  await row.getByRole("button", { name: /Neue Version mit/ }).click();
-  await toast(page, "„tuer-knarzt“ ist im Spiel");
+  await row.getByRole("button", { name: "Übernehmen", exact: true }).click();
+  await toast(page, "„Tür knarzt.wav“ ist im Spiel");
   await row.getByText("Im Spiel als „tuer-knarzt“").waitFor();
   const voiceRow = page.locator(".media-row", { hasText: "Stimme Försterin.wav" });
   await voiceRow.getByRole("button", { name: "Ins Spiel übernehmen" }).click();
-  check("ID mit Umlaut-Ersatz vorgeschlagen", (await voiceRow.getByLabel("ID im Spiel").inputValue()) === "stimme-foersterin");
+  check("Kennung mit Umlaut-Ersatz vorgeschlagen", (await voiceRow.getByLabel("Kennung im Spiel").inputValue()) === "stimme-foersterin");
   await voiceRow.getByLabel("Beschreibung").fill("Försterin Brandt spricht");
-  await voiceRow.getByRole("button", { name: /Neue Version mit/ }).click();
+  await voiceRow.getByRole("button", { name: "Übernehmen", exact: true }).click();
+  // In der Expertenansicht nennt das Abzeichen die Kennung, sonst die Beschreibung.
   await voiceRow.getByText("Im Spiel als „stimme-foersterin“").waitFor();
   const libRow = page.locator(".media-row", { hasText: "Wolf heult" });
   if (await libRow.count()) {
     await libRow.getByRole("button", { name: "Ins Spiel übernehmen" }).click();
-    await libRow.getByText("Im Spiel als „wolf-heulen“").waitFor();
+    await libRow.getByText(/^Im Spiel als/).waitFor();
     check("Bibliotheksklang ins Spiel übernommen", true);
   }
-  const afterMedia = await api("GET", `/games/${gameId}`, undefined, admin.token);
+  await saved();
+  const afterMedia = await draftOf(gameId);
   const tuer = afterMedia.content.media.find((m) => m.id === "tuer-knarzt");
-  check("media-Eintrag in neuer Version", !!tuer && /^media\/[0-9a-f]{64}\.wav$/.test(tuer.src) && tuer.credit === "Aufnahme: Lykora-Team, CC0", JSON.stringify(tuer));
+  check("media-Eintrag im Entwurf", !!tuer && /^media\/[0-9a-f]{64}\.wav$/.test(tuer.src) && tuer.credit === "Aufnahme: Lykora-Team, CC0", JSON.stringify(tuer));
+  check("Keine neue Version durch Medien", (await api("GET", `/games/${gameId}`, undefined, admin.token)).latest_version === 1);
   const audioRes = await fetch(`${SERVER}/${tuer.src}`, { headers: { range: "bytes=0-99" } });
   check("Hochgeladene Datei öffentlich mit Range abrufbar", audioRes.status === 206, String(audioRes.status));
   await shot(page, "medien", { fullPage: true });
 
-  // 5. Klänge zuordnen ohne JSON
-  await page.getByRole("link", { name: "Klänge zuordnen" }).click();
+  // 5. Klänge zuordnen ohne JSON, im Entwurf; danach als Version 2 veröffentlichen
+  await page.goto(`${APP}/spiele/${gameId}/klang`);
+  await page.waitForURL(/\/baukasten\/klang$/);
   const briefing = page.getByRole("region", { name: "Station Sicherheits-Briefing" });
   await briefing.getByLabel("Beim Lösen").selectOption("tuer-knarzt");
   await briefing.getByLabel("Atmosphäre", { exact: true }).selectOption("wald-nacht");
@@ -384,9 +758,15 @@ async function main() {
   const dialogue = chest.locator(".beat").filter({ has: page.locator(".label", { hasText: "Ankunft · Dialog · Försterin Brandt" }) });
   await dialogue.getByLabel("Aufnahme (z. B. Stimme)").selectOption("stimme-foersterin");
   await dialogue.getByLabel("Geräusch dazu").selectOption("lib:schritte-laub");
-  await page.getByRole("button", { name: "Als neue Version speichern" }).click();
-  await toast(page, "Klänge gespeichert");
+  await saved();
+  await shot(page, "klang-zuordnen");
+  await page.goto(`${APP}/spiele/${gameId}/baukasten/veroeffentlichen`);
+  await page.getByText("Muss erledigt sein (0)").waitFor();
+  await page.getByLabel("Kommentar zur Version").fill("Klänge zugeordnet");
+  await page.getByRole("button", { name: "Als Version 2 veröffentlichen" }).click();
+  await page.getByRole("dialog", { name: "Version 2 ist veröffentlicht" }).getByRole("button", { name: "Schließen" }).click();
   const afterSound = await api("GET", `/games/${gameId}`, undefined, admin.token);
+  check("Klänge als Version 2 veröffentlicht", afterSound.latest_version === 2);
   const bs = afterSound.content.stations.find((s) => s.id === "briefing").sound;
   check("Zuordnung im Spiel gespeichert", bs?.solved === "tuer-knarzt" && bs?.ambience?.from === "here", JSON.stringify(bs));
   const beat = afterSound.content.stations.find((s) => s.id === "schloss").scene.arrival[0];
@@ -395,9 +775,8 @@ async function main() {
     beat.audio === "stimme-foersterin" && beat.sfx === "schritte-laub" && afterSound.content.media.some((m) => m.id === "schritte-laub" && m.src === "media/lib/schritte-laub.ogg"),
     JSON.stringify({ audio: beat.audio, sfx: beat.sfx }),
   );
-  await shot(page, "klang-zuordnen");
 
-  await page.getByRole("link", { name: "Materialliste" }).click();
+  await page.goto(`${APP}/spiele/${gameId}/material`);
   await page.locator(".checklist", { hasText: "Schild mit Eule" }).waitFor();
   check("Materialliste aus den Requisiten", true);
   await shot(page, "materialliste");
@@ -407,7 +786,7 @@ async function main() {
   const hideout = latest.stations.find((st) => st.id === "versteck");
   hideout.visibility = "visible";
   hideout.task.review = "live";
-  await page.getByRole("link", { name: "Übersicht" }).click();
+  await page.goto(`${APP}/spiele/${gameId}`);
   await page.getByRole("tab", { name: "Neue Version" }).click();
   await page.getByRole("tab", { name: "Einfügen" }).click();
   await page.getByLabel("Spiel im JSON-Format").fill(JSON.stringify(latest, null, 2));
@@ -419,11 +798,15 @@ async function main() {
   await page.getByRole("tab", { name: /Versionen/ }).click();
   await page.getByRole("cell", { name: "Versteck mit Foto-Prüfung" }).waitFor();
   check("Neue Version per Einfügen gespeichert und im Verlauf", true);
+  const replaced = await draftOf(gameId);
+  check("Version aus Datei ersetzt auch den Entwurf", replaced.content.stations.find((st) => st.id === "versteck").visibility === "visible");
   await shot(page, "spiel-versionen");
 
   // 6. Event anlegen
   await page.getByRole("link", { name: "Events" }).click();
   await page.getByRole("link", { name: "Event anlegen" }).click();
+  await page.getByLabel("Spiel").selectOption({ label: "Sturmnacht: Das verschwundene Funkgerät" });
+  await page.getByLabel("Version").locator("option", { hasText: "Version 3" }).waitFor({ state: "attached" });
   await page.getByLabel("Name des Events").fill("Nachtwanderung Hennef");
   await page.getByLabel("Termin").fill("2027-10-19T19:30");
   await page.getByRole("button", { name: "Event anlegen" }).click();
@@ -739,7 +1122,9 @@ try {
 } finally {
   if (!args.has("--keep")) stopAll();
 }
+if (brokenSections.length) failed = true;
 console.log(`\n${checks.filter((c) => c.ok).length} Prüfungen bestanden${failed ? ", Lauf abgebrochen" : ""}. Bildschirmfotos: ${shots}`);
+for (const b of brokenSections) console.log(`Abgebrochen: ${b}`);
 for (const n of notes) console.log(`Hinweis: ${n}`);
-writeFileSync(join(shots, "ergebnis.json"), JSON.stringify({ checks, notes, failed }, null, 2));
+writeFileSync(join(shots, "ergebnis.json"), JSON.stringify({ checks, notes, brokenSections, failed }, null, 2));
 process.exit(failed ? 1 : 0);

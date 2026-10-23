@@ -177,7 +177,11 @@ export function createEditorStore(init: EditorInit): EditorStore {
     if (validateTimer) clearTimeout(validateTimer);
     validateTimer = setTimeout(() => {
       validateNow();
-      backup();
+      // Schon gespeichert (Strg+S direkt nach der Änderung): keine Sicherung zurücklassen.
+      const s = base.get();
+      if (s.game === s.saved.game && s.meta === s.saved.meta) {
+        if (init.localBackup !== false) clearBackup(s.gameId);
+      } else backup();
     }, VALIDATE_DELAY_MS);
     autosave?.schedule();
   };

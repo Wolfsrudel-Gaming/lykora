@@ -48,6 +48,8 @@ TypeScript-Typen: [`v0.1/game.d.ts`](v0.1/game.d.ts), erzeugt mit `npm run gener
 npm run validate -- pfad/zum/spiel.json
 ```
 
+Die Prüfung steckt in `spec/validate-core.mjs` (nur Ajv, ohne Node-Module) und läuft auch im Browser: `createValidator` liefert Schema- und Querverweis-Meldungen mit Pfad und Code, wie sie der Baukasten braucht; `validate.mjs` macht daraus die Zeichenketten der Kommandozeile. Ohne Datei prüft `npm run validate` die Beispiele und die Vorlagen des Baukastens.
+
 ## Versionierung
 
 Jede Datei nennt ihre Version in `format.version`. Neue Felder mit Standardwert sind eine kleine Version (0.1 → 0.2). Bis 1.0 können sich Felder noch ändern; ab 1.0 gelten inkompatible Änderungen nur mit neuer Hauptversion und Migrationsskript.

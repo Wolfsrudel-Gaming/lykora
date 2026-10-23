@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../src/lib/api.ts";
 import { RETRY_MS, SAVE_DEBOUNCE_MS, SAVE_MAX_MS, type DraftClient, type SaveBody } from "../src/lib/editor/autosave.ts";
-import { readBackup, writeBackup } from "../src/lib/editor/local.ts";
+import { backupDiffers, readBackup, writeBackup } from "../src/lib/editor/local.ts";
 import { createEditorStore, type EditorInit } from "../src/lib/editor/store.ts";
 import type { DraftDto, Game } from "../src/lib/editor/types.ts";
 
@@ -258,6 +258,24 @@ describe("Lokale Sicherung", () => {
     await vi.advanceTimersByTimeAsync(SAVE_DEBOUNCE_MS);
     expect(readBackup("g1")).toBeNull();
     store.close();
+  });
+
+  it("lässt keine Sicherung zurück, wenn vor der Sicherung gespeichert wurde", async () => {
+    const { client } = fakeClient();
+    const store = createEditorStore({ gameId: "g1", game: load(), revision: 3, validate: () => [], client });
+    store.update("Titel", (g) => void (g.meta.title = { de: "A" }));
+    await store.saveNow();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(readBackup("g1")).toBeNull();
+    store.close();
+  });
+
+  it("vergleicht Sicherungen ohne Rücksicht auf die Reihenfolge der Schlüssel", () => {
+    const g = load();
+    const reordered = JSON.parse(JSON.stringify(g, (_, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).reverse()) : v))) as Game;
+    expect(backupDiffers({ revision: 1, game: g, meta: { noZones: true, dismissed: [] }, at: "t" }, reordered, { dismissed: [], noZones: true })).toBe(false);
+    reordered.meta.title = { de: "Anders" };
+    expect(backupDiffers({ revision: 1, game: g, meta: {}, at: "t" }, reordered, {})).toBe(true);
   });
 
   it("sichert nicht über 4 MB und meldet es", () => {

@@ -14,7 +14,10 @@ export function EventsPage() {
   const s = useStore(session);
   const role = s.orgs.find((o) => o.id === s.orgId)?.role;
   const { data, error, loading, reload } = useLoad(() => (s.orgId ? api.events(s.orgId) : Promise.resolve([])), [s.orgId]);
-  const events = [...(data ?? [])].sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+  const all = [...(data ?? [])].sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+  // Probeläufe aus dem Baukasten stehen eingeklappt ganz unten und zählen nicht zu den echten Events.
+  const tests = all.filter((e) => e.test);
+  const events = all.filter((e) => !e.test);
   const live = events.filter((e) => e.status !== "ended" && e.status !== "draft");
   const planned = events.filter((e) => e.status === "draft");
   const ended = events.filter((e) => e.status === "ended");
@@ -32,36 +35,48 @@ export function EventsPage() {
       <ErrorNotice error={error} retry={reload} />
       {loading && !data ? (
         <Loading />
-      ) : events.length === 0 ? (
+      ) : all.length === 0 ? (
         <Empty>Noch keine Events. {can(role, "event.manage") ? "Lege ein Event aus einem Spiel an." : ""}</Empty>
       ) : (
         <>
           <EventGroup title="Laufend" events={live} supervisor={role === "supervisor"} />
           <EventGroup title="Geplant" events={planned} supervisor={role === "supervisor"} />
           <EventGroup title="Beendet" events={ended} supervisor={role === "supervisor"} />
+          {tests.length > 0 && (
+            <details class="stack events-tests">
+              <summary>
+                <h2>Probeläufe ({tests.length})</h2>
+              </summary>
+              <p class="small muted">Probeläufe aus dem Baukasten werden nach 7 Tagen gelöscht.</p>
+              <EventGroup title="Probeläufe" events={tests} supervisor={role === "supervisor"} hideTitle />
+            </details>
+          )}
         </>
       )}
     </div>
   );
 }
 
-function EventGroup({ title, events, supervisor }: { title: string; events: EventDto[]; supervisor: boolean }) {
+function EventGroup({ title, events, supervisor, hideTitle }: { title: string; events: EventDto[]; supervisor: boolean; hideTitle?: boolean }) {
   if (!events.length) return null;
   return (
     <section class="stack" aria-label={title}>
-      <h2>{title}</h2>
+      {!hideTitle && <h2>{title}</h2>}
       <div class="grid-3">
         {events.map((e) => (
           <article key={e.id} class="card event-card">
             <div class="row between">
-              <StatusBadge status={e.status} />
+              <span class="row">
+                <StatusBadge status={e.status} />
+                {e.test && <span class="badge">Probelauf</span>}
+              </span>
               <span class="mono small muted">{e.join.code}</span>
             </div>
             <h3>
               <Link to={href("event", { eventId: e.id })}>{e.name}</Link>
             </h3>
             <p class="muted small">
-              {text(e.gameTitle)} · Version {e.gameVersion}
+              {text(e.gameTitle)} · {e.gameVersion === null ? "Probestand" : `Version ${e.gameVersion}`}
             </p>
             <p class="small">{e.scheduledAt ? formatDateTime(e.scheduledAt) : e.startedAt ? `Gestartet ${formatDateTime(e.startedAt)}` : "Ohne Termin"}</p>
             <div class="row">

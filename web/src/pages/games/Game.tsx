@@ -1,4 +1,9 @@
-/** Spiel für Spielleitung und Autoren: Übersicht mit Lösungen, Versionen und neue Version. */
+/**
+ * Spiel für Spielleitung und Autoren: Übersicht mit Lösungen, Versionen und neue Version aus Datei.
+ * Paket E: Wiederherstellen lädt eine Version in den Entwurf statt sofort eine neue zu schreiben;
+ * eine Version aus einer Datei ersetzt auch den Entwurf (mit Warnung). Ohne Version gibt es nur den
+ * Entwurf im Baukasten.
+ */
 
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
@@ -11,6 +16,7 @@ import { api, errorText, notify, roleIn } from "../../lib/session.ts";
 import type { Game, GameDetail } from "../../lib/types.ts";
 import { ErrorNotice, Link, Loading, Tabs, confirm, useLoad, useTitle } from "../../ui/components.tsx";
 import { Icon } from "../../ui/icons.tsx";
+import { ExportDialog } from "./editor/publish/ExportDialog.tsx";
 import { GameNav } from "./GameNav.tsx";
 import { GameUpload } from "./GameUpload.tsx";
 
@@ -21,9 +27,23 @@ const WIN = { first_escape: "Wer zuerst im Ziel ist", most_points: "Meiste Punkt
 const LIMIT = { global: "für alle gemeinsam ab Start", per_team: "je Team ab dessen Start", none: "ohne Zeitlimit" } as const;
 const BOARD = { live: "live", end_only: "erst am Ende", live_hidden_last_minutes: "live, letzte Minuten verdeckt" } as const;
 
+/** Inhalt in den Entwurf laden (Version wiederherstellen, Datei): über den Baukasten-Zustand, damit Revision und Merker stimmen. */
+async function replaceDraft(gameId: string, content: Game, label: string): Promise<void> {
+  const { openEditor } = await import("../../lib/editor/store.ts");
+  const store = await openEditor(gameId);
+  try {
+    store.replace(content, store.get().meta, label);
+    await store.saveNow();
+    if (store.get().save.status !== "saved") throw new Error(store.get().save.error ?? "Der Entwurf konnte nicht gespeichert werden. Bitte im Baukasten nachsehen.");
+  } finally {
+    store.close();
+  }
+}
+
 export function GamePage({ gameId }: { gameId: string }) {
   const { data: game, error, loading, reload } = useLoad(() => api.game(gameId), [gameId]);
   const loc = useLocation();
+  const [exporting, setExporting] = useState(false);
   useTitle(game?.title ?? "Spiel");
   if (loading && !game) return <div class="page"><Loading /></div>;
   if (!game) return <div class="page"><ErrorNotice error={error} retry={reload} /></div>;
@@ -50,16 +70,22 @@ export function GamePage({ gameId }: { gameId: string }) {
   return (
     <div class="page stack loose">
       <GameNav gameId={gameId} title={game.title} current="game">
-        <span class="badge strong">Version {game.latest_version}</span>
+        {game.latest_version === null ? <span class="badge quiet">Entwurf</span> : <span class="badge strong">Version {game.latest_version}</span>}
+        {write && game.latest_version !== null && game.draft?.changed && <span class="badge quiet">Entwurf mit Änderungen</span>}
       </GameNav>
-      <div class="row no-print">
-        {can(role, "event.manage") && (
-          <Link to={href("eventNew", {}, { spiel: gameId })} class="btn primary">
+      <div class="row wrap no-print">
+        {write && (
+          <Link to={href("editor", { gameId })} class="btn primary">
+            <Icon name="edit" /> Im Baukasten bearbeiten
+          </Link>
+        )}
+        {can(role, "event.manage") && game.latest_version !== null && (
+          <Link to={href("eventNew", {}, { spiel: gameId })} class={`btn${write ? "" : " primary"}`}>
             <Icon name="plus" /> Event aus diesem Spiel
           </Link>
         )}
-        <button type="button" class="btn" onClick={() => saveJson(game.content, `${game.content.id}-v${game.latest_version}.json`)}>
-          <Icon name="download" /> JSON herunterladen
+        <button type="button" class="btn" onClick={() => setExporting(true)}>
+          <Icon name="download" /> Als Datei exportieren
         </button>
         {write && !game.archived && (
           <button type="button" class="btn" onClick={() => void archive()}>
@@ -74,28 +100,64 @@ export function GamePage({ gameId }: { gameId: string }) {
         tabs={[
           { id: "uebersicht", label: "Inhalt" },
           { id: "versionen", label: "Versionen", count: game.versions.length },
-          ...(write ? [{ id: "neu" as const, label: "Neue Version" }] : []),
+          ...(write ? [{ id: "neu" as const, label: "Neue Version aus Datei" }] : []),
         ]}
       />
       <div role="tabpanel" aria-labelledby={`tab-${tab}`}>
-        {tab === "uebersicht" && <Overview game={game.content} gameId={gameId} />}
+        {tab === "uebersicht" &&
+          (game.content ? (
+            <Overview game={game.content} gameId={gameId} />
+          ) : (
+            <section class="card stack tight">
+              <p>Dieses Spiel ist noch nicht veröffentlicht. Die Übersicht mit Lösungen zeigt die neueste Version; bis dahin gibt es nur den Entwurf.</p>
+              {write && (
+                <p>
+                  <Link to={href("editorSection", { gameId, section: "veroeffentlichen" })} class="btn">
+                    Zum Veröffentlichen
+                  </Link>
+                </p>
+              )}
+            </section>
+          ))}
         {tab === "versionen" && <Versions game={game} write={write} onChanged={reload} />}
-        {tab === "neu" && write && <NewVersion gameId={gameId} expectId={game.content.id} onSaved={reload} />}
+        {tab === "neu" && write && <NewVersion game={game} onSaved={reload} />}
       </div>
+      <ExportDialog gameId={gameId} latestVersion={game.latest_version} hasDraft={write && !!game.draft} open={exporting} onClose={() => setExporting(false)} />
     </div>
   );
 }
 
-/** Neue Version als Datei oder eingefügt; laufende Events behalten ihre. */
-function NewVersion({ gameId, expectId, onSaved }: { gameId: string; expectId: string; onSaved: () => void }) {
+/** Neue Version als Datei oder eingefügt; sie ersetzt auch den Entwurf. Laufende Events behalten ihre Version. */
+function NewVersion({ game, onSaved }: { game: GameDetail; onSaved: () => void }) {
+  const gameId = game.id;
+  const changed = !!game.draft?.changed && game.latest_version !== null;
   return (
-    <section class="card stack" aria-label="Neue Version hochladen">
-      <p class="small muted">Laufende und geplante Events behalten ihre Version. Neue Events nutzen die neueste.</p>
+    <section class="card stack" aria-label="Neue Version aus Datei">
+      <p class="small muted">Für Expertinnen und Experten: eine fertige Spieldatei als nächste Version. Laufende und geplante Events behalten ihre Version, neue Events nutzen die neueste.</p>
+      {changed && <p class="notice">Die Datei ersetzt auch deinen Entwurf. Änderungen seit Version {game.latest_version} gehen dabei verloren.</p>}
       <GameUpload
         submitLabel="Als neue Version speichern"
-        expectId={expectId}
+        expectId={game.content?.id}
         onSave={async (content, comment) => {
+          if (changed) {
+            const answer = await confirm({
+              title: "Entwurf ersetzen?",
+              body: (
+                <>
+                  <p>Die Datei ersetzt deinen Entwurf. Änderungen seit Version {game.latest_version} gehen verloren. Vorher als Datei sichern?</p>
+                  <p>
+                    <button type="button" class="btn small" onClick={() => void api.draft(gameId).then((d) => saveJson(d.content, `${game.content?.id ?? gameId}-entwurf.json`))}>
+                      <Icon name="download" /> Entwurf als Datei sichern
+                    </button>
+                  </p>
+                </>
+              ),
+              confirm: "Ersetzen und speichern",
+            });
+            if (!answer.ok) return;
+          }
           const v = await api.saveVersion(gameId, content, comment || undefined);
+          if (game.draft) await replaceDraft(gameId, content, `Version ${v.version} aus Datei geladen`);
           notify(`Version ${v.version} gespeichert`, "ok");
           setQuery({ tab: null });
           onSaved();
@@ -120,23 +182,30 @@ function Versions({ game, write, onChanged }: { game: GameDetail; write: boolean
   };
   const restore = async (version: number) => {
     const answer = await confirm({
-      title: `Version ${version} wiederherstellen?`,
-      body: <p>Der Inhalt von Version {version} wird als neue Version {(game.latest_version ?? 0) + 1} gespeichert. Nichts geht verloren.</p>,
-      confirm: "Wiederherstellen",
+      title: `Version ${version} in den Entwurf laden?`,
+      body: (
+        <p>
+          Version {version} wird dein Entwurf. Veröffentlichen, wenn es passt – erst dann entsteht eine neue Version.
+          {game.draft?.changed ? " Änderungen im Entwurf, die noch nicht veröffentlicht sind, gehen dabei verloren." : ""}
+        </p>
+      ),
+      confirm: "In den Entwurf laden",
     });
     if (!answer.ok) return;
     setBusy(version);
     try {
       const v = await api.gameVersion(game.id, version);
-      const saved = await api.saveVersion(game.id, v.content, `Wiederhergestellt aus Version ${version}`);
-      notify(`Version ${version} als Version ${saved.version} wiederhergestellt`, "ok");
+      await replaceDraft(game.id, v.content, `Version ${version} wiederhergestellt`);
+      notify(`Version ${version} ist jetzt dein Entwurf. Veröffentlichen, wenn es passt.`, "ok");
       onChanged();
+      navigate(href("editorSection", { gameId: game.id, section: "veroeffentlichen" }));
     } catch (err) {
       notify(errorText(err), "error");
     } finally {
       setBusy(null);
     }
   };
+  if (!game.versions.length) return <p class="empty">Noch keine Version. Versionen entstehen beim Veröffentlichen im Baukasten.</p>;
   return (
     <section class="card">
       <table class="table cards">
@@ -164,11 +233,11 @@ function Versions({ game, write, onChanged }: { game: GameDetail; write: boolean
               <td class="num">
                 <div class="row end">
                   <button type="button" class="btn small" disabled={busy !== null} onClick={() => void download(v.version)}>
-                    <Icon name="download" /> JSON
+                    <Icon name="download" /> Datei
                   </button>
-                  {write && v.version !== game.latest_version && (
+                  {write && (v.version !== game.latest_version || game.draft?.changed) && (
                     <button type="button" class="btn small" disabled={busy !== null} onClick={() => void restore(v.version)}>
-                      Wiederherstellen
+                      In den Entwurf laden
                     </button>
                   )}
                 </div>

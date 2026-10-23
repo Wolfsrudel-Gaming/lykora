@@ -1,0 +1,113 @@
+/*
+ * Paket B: Vor-Ort-Modus am Handy. Große Knöpfe (56 px) im Daumenbereich, Karte oben, Genauigkeit
+ * als Zahl, Balken und Wort (Farbe nur als Zusatz, kein Rot). Nur Tokens.
+ */
+
+.page.onsite {
+  max-width: 640px;
+  padding-top: 12px;
+  gap: 10px;
+}
+
+.onsite-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.onsite-head h1 {
+  margin: 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.onsite-head .save-status {
+  justify-self: end;
+  min-width: 0;
+}
+
+.onsite-title {
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.onsite-map .ed-map-wrap,
+.ed-map-wrap.onsite-map {
+  height: 42vh;
+  min-height: 240px;
+}
+
+.onsite-big {
+  min-height: 56px;
+  font-size: 16px;
+}
+
+.onsite-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.onsite-grid .btn {
+  white-space: normal;
+  text-align: center;
+}
+
+.onsite-gps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+}
+
+.onsite-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+}
+
+.onsite-bars i {
+  display: block;
+  width: 5px;
+  border-radius: 1px;
+  background: var(--line);
+}
+
+.onsite-bars i:nth-child(1) {
+  height: 6px;
+}
+
+.onsite-bars i:nth-child(2) {
+  height: 10px;
+}
+
+.onsite-bars i:nth-child(3) {
+  height: 14px;
+}
+
+.onsite-bars i:nth-child(4) {
+  height: 18px;
+}
+
+.onsite-bars.b1 i:nth-child(-n + 1),
+.onsite-bars.b2 i:nth-child(-n + 2),
+.onsite-bars.b3 i:nth-child(-n + 3),
+.onsite-bars.b4 i:nth-child(-n + 4) {
+  background: var(--accent);
+}
+
+.onsite-next select {
+  min-height: 48px;
+}
+
+.onsite-progress {
+  height: 10px;
+}
+
+.onsite .notice p {
+  margin: 0;
+}

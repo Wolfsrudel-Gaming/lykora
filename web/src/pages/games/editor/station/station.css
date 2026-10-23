@@ -1,0 +1,479 @@
+/*
+ * Paket C: Stationseditor, Rätsel-Tabelle und Vorschau. Nur Tokens aus tokens.css; Fehler tragen
+ * die Bernstein-Kante der Bausteine, Rot kommt hier nicht vor. Formular und Vorschau stehen
+ * nebeneinander, sobald der Inhaltsbereich breit genug ist (Container-Abfrage), sonst untereinander.
+ */
+
+.station-editor {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.station-editor h2:focus,
+.st-tasks h2:focus {
+  outline: none;
+}
+
+.st-pager {
+  gap: 8px;
+}
+
+.st-pager .btn {
+  max-width: 48%;
+  min-width: 0;
+}
+
+.st-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.st-form,
+.st-aside {
+  min-width: 0;
+}
+
+@container (min-width: 960px) {
+  .st-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .st-aside {
+    position: sticky;
+    top: calc(var(--editor-top) + var(--editor-head) + 12px);
+  }
+}
+
+.st-self-start {
+  justify-self: start;
+  align-self: flex-start;
+}
+
+.st-self-end {
+  align-self: end;
+}
+
+.st-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Auslöser */
+
+.st-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.st-chip {
+  min-height: var(--tap);
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.st-chip:hover,
+.st-chip.on {
+  border-color: var(--accent);
+}
+
+.st-subcard {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--ground);
+}
+
+.st-qr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.st-qr > .stack {
+  flex: 1 1 220px;
+}
+
+.st-qr .qr {
+  width: 160px;
+}
+
+.st-radius {
+  display: grid;
+  gap: 4px;
+}
+
+.st-radius input[type="range"] {
+  width: min(320px, 100%);
+}
+
+.st-radios legend {
+  margin-bottom: 4px;
+}
+
+.st-coords input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* Medienfeld */
+
+.st-media-row {
+  min-height: var(--tap);
+  gap: 8px;
+  min-width: 0;
+}
+
+.st-media-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-media .thumb {
+  width: 40px;
+  height: 40px;
+}
+
+/* Ablauf: Spuren, Blöcke, Rätsel */
+
+.st-lane {
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+
+.st-lane-title {
+  margin: 0;
+  font: 500 12px/1.3 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.st-beats .sortable-row {
+  align-items: start;
+}
+
+.st-beat {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--ground);
+  min-width: 0;
+}
+
+.st-beat-kind {
+  font-weight: 600;
+}
+
+.st-response,
+.st-option,
+.st-hint {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.st-option {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+}
+
+.st-option > .check {
+  min-height: var(--tap);
+}
+
+.st-menu-kind {
+  height: auto !important;
+  padding: 8px 10px !important;
+  white-space: normal;
+}
+
+.st-puzzle {
+  padding: 14px;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.st-details > summary {
+  min-height: var(--tap);
+}
+
+.st-code {
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.st-off {
+  opacity: 0.6;
+}
+
+.st-plain {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.st-sentence {
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  background: var(--accent-soft);
+}
+
+.st-prop {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 7em minmax(0, 1.4fr) minmax(0, 2fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.st-prop .ed-unit > input[type="number"] {
+  width: 100%;
+}
+
+@container (max-width: 720px) {
+  .st-response,
+  .st-hint,
+  .st-prop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .st-option {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+}
+
+/* Schmal: Griff und ↑/↓ teilen sich die linke Spalte, der Block bekommt die ganze Breite */
+@container (max-width: 560px) {
+  .st-sortable .sortable-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "griff block" "knoepfe block";
+    align-items: start;
+    gap: 4px;
+    padding: 2px;
+  }
+
+  .st-sortable .sortable-handle {
+    grid-area: griff;
+  }
+
+  .st-sortable .sortable-body {
+    grid-area: block;
+  }
+
+  .st-sortable .sortable-buttons {
+    grid-area: knoepfe;
+    flex-direction: column;
+  }
+
+  .st-lane {
+    padding-left: 6px;
+  }
+
+  .st-beat {
+    padding: 8px;
+  }
+
+  .st-puzzle {
+    padding: 10px;
+  }
+}
+
+/* Vorschau in der App */
+
+.st-preview {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.st-phone {
+  border: 2px solid var(--edge);
+  border-radius: 22px;
+  padding: 14px 12px 18px;
+  background: var(--ground);
+  min-height: 300px;
+}
+
+.st-phone-head {
+  margin: 0 0 10px;
+  font: 600 13px/1.2 var(--font-head);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.st-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.st-card p {
+  margin: 0;
+}
+
+.st-kicker {
+  font: 500 11px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.st-text {
+  font-family: var(--font-brand);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.st-phone.big .st-text {
+  font-family: var(--font-ui);
+  font-size: 20px;
+}
+
+.st-title {
+  font: 700 20px/1.2 var(--font-head);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.st-radio {
+  border-left: 3px solid var(--accent);
+}
+
+.st-chapter {
+  text-align: center;
+  padding: 28px 12px;
+}
+
+.st-document {
+  background: var(--raised);
+}
+
+.st-image {
+  width: 100%;
+  border-radius: var(--radius-small);
+}
+
+.st-fake {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-small);
+  color: var(--accent);
+  text-align: center;
+  font-weight: 600;
+}
+
+.st-fake.input {
+  border-color: var(--edge);
+  color: var(--muted);
+  text-align: left;
+  font-weight: 400;
+}
+
+.st-wheels {
+  font-size: 28px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-align: center;
+}
+
+.st-reward {
+  text-align: center;
+}
+
+.st-stamp {
+  justify-self: center;
+  padding: 6px 12px;
+  border: 3px solid var(--accent);
+  border-radius: var(--radius-small);
+  font: 700 18px/1.1 var(--font-head);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  transform: rotate(-4deg);
+}
+
+.st-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.st-marks .btn.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Rätsel-Tabelle */
+
+.st-filters .btn .num {
+  margin-left: 4px;
+  opacity: 0.8;
+}
+
+.st-task-row {
+  cursor: pointer;
+}
+
+.st-task-table td {
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.st-task-table td.solution {
+  overflow-wrap: anywhere;
+}
+
+.st-task-row:hover td {
+  background: var(--accent-soft);
+}
+
+.issue-inline {
+  font-size: 14px;
+}
+
+.issue-inline.error > span:first-child,
+.issue-inline.warning > span:first-child {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media print {
+  .st-filters,
+  .st-tasks .btn {
+    display: none;
+  }
+}
+
+.st-reward ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

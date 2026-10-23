@@ -1,0 +1,73 @@
+{
+  "format": { "name": "lykora-game", "version": "0.1" },
+  "id": "neues-spiel",
+  "meta": {
+    "title": { "de": "Neues Spiel" },
+    "languages": ["de"],
+    "ageGroups": ["10-13"],
+    "genre": "other",
+    "night": false,
+    "expectedDuration": 3600
+  },
+  "settings": {
+    "mode": "competitive",
+    "winCondition": "first_escape",
+    "time": { "limit": "per_team", "duration": 3600 },
+    "teamSize": { "min": 2, "max": 6 },
+    "wrongAnswer": { "type": "time", "amount": 30 },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        { "type": "time", "amount": 60 },
+        { "type": "time", "amount": 120 },
+        { "type": "time", "amount": 300 }
+      ]
+    },
+    "scoring": { "solvePoints": 100 },
+    "leaderboard": "live"
+  },
+  "field": {
+    "boundary": { "center": { "lat": 50.8155, "lon": 7.155 }, "radius": 300 },
+    "start": { "lat": 50.8155, "lon": 7.155 },
+    "assemblyPoint": { "id": "sammelpunkt", "name": { "de": "Sammelpunkt" }, "location": { "lat": 50.8155, "lon": 7.155 } }
+  },
+  "story": {
+    "intro": { "text": { "de": "Willkommen! Eure erste Station wartet ganz in der Nähe. Haltet zusammen und meldet euch, wenn ihr Hilfe braucht." } },
+    "outro": { "text": { "de": "Geschafft! Kommt zurück zum Sammelpunkt." } }
+  },
+  "characters": [
+    { "id": "zentrale", "kind": "hq", "name": { "de": "Zentrale" } },
+    { "id": "erzaehler", "kind": "narrator", "name": { "de": "Erzähler" } }
+  ],
+  "stations": [
+    {
+      "id": "start",
+      "name": { "de": "Start" },
+      "location": { "lat": 50.8155, "lon": 7.155 },
+      "triggers": [
+        { "type": "gps", "radius": 20 },
+        { "type": "qr", "code": "LYK-START" },
+        { "type": "manual", "code": "1000" }
+      ],
+      "scene": {
+        "arrival": [{ "kind": "radio", "speaker": "zentrale", "text": { "de": "Hier spricht die Zentrale. Schön, dass ihr da seid. Seid ihr bereit?" } }]
+      },
+      "task": {
+        "type": "choice",
+        "question": { "de": "Seid ihr bereit?" },
+        "options": [
+          { "text": { "de": "Ja, es kann losgehen!" }, "correct": true },
+          { "text": { "de": "Noch nicht, wir packen erst." }, "correct": false }
+        ],
+        "shuffle": false
+      },
+      "hints": [{ "text": { "de": "Sobald alle da sind, tippt auf „Ja, es kann losgehen!“." } }]
+    }
+  ],
+  "safety": {
+    "emergency": { "gameMasterPhone": "+49 000 0000000", "emergencyNumber": "112" },
+    "heartbeat": { "enabled": true, "interval": 900, "grace": 300 },
+    "requireSupervisor": true,
+    "requiredGear": [{ "de": "Geladenes Handy" }]
+  }
+}

@@ -64,7 +64,14 @@ export function keepOnlyBackup(gameId: string): void {
   }
 }
 
-/** Unterscheidet sich die Sicherung vom gegebenen Stand? */
+/** JSON mit sortierten Schlüsseln: Postgres (jsonb) liefert Objekte in anderer Reihenfolge zurück. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v,
+  );
+}
+
+/** Unterscheidet sich die Sicherung vom gegebenen Stand? Die Reihenfolge der Schlüssel zählt nicht. */
 export function backupDiffers(backup: LocalBackup, game: Game, meta: EditorMeta): boolean {
-  return JSON.stringify(backup.game) !== JSON.stringify(game) || JSON.stringify(backup.meta ?? {}) !== JSON.stringify(meta ?? {});
+  return canonical(backup.game) !== canonical(game) || canonical(backup.meta ?? {}) !== canonical(meta ?? {});
 }

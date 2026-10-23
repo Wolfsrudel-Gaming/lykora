@@ -5,25 +5,17 @@
  * hebt es 1,5 s hervor (.jump-flash). EditorShell ruft focusField nach dem Rendern.
  */
 
-import { location, navigate } from "../router.ts";
+import { href, location, navigate } from "../router.ts";
 import { editor } from "./store.ts";
 import type { FieldAddress, Section } from "./types.ts";
 
 export const FLASH_MS = 1500;
 
-/**
- * Pfad in den Baukasten. TODO(A2): auf href("editor…") umstellen, sobald router.ts die Routen
- * editor/editorSection/editorStation kennt; die Muster entsprechen contracts.md Abschnitt 2.
- */
+/** Pfad in den Baukasten (Routen editor, editorSection, editorStation). */
 export function editorPath(gameId: string, section: Section = "uebersicht", stationId?: string, query: Record<string, string | undefined> = {}): string {
-  const g = encodeURIComponent(gameId);
-  let path = `/spiele/${g}/baukasten`;
-  if (section === "stationen" && stationId) path += `/stationen/${encodeURIComponent(stationId)}`;
-  else if (section !== "uebersicht") path += `/${section}`;
-  const q = new URLSearchParams();
-  for (const [k, v] of Object.entries(query)) if (v) q.set(k, v);
-  const s = q.toString();
-  return s ? `${path}?${s}` : path;
+  if (section === "stationen" && stationId) return href("editorStation", { gameId, stationId }, query);
+  if (section !== "uebersicht") return href("editorSection", { gameId, section }, query);
+  return href("editor", { gameId }, query);
 }
 
 /** Ziel einer Adresse: Station mit ID → Stationsseite, sonst der Bereich mit objekt/feld als Suchparameter. */

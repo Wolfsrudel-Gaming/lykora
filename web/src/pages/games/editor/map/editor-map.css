@@ -1,0 +1,600 @@
+/*
+ * Paket B: Karte des Baukastens, Mini-Karte, Stationsliste und Seitenleiste. Ergänzt map.css
+ * aus dem Leitstand (Marker, Spielfeld, Sperrzonen). Nur Tokens; Rot gehört allein den Sperrzonen,
+ * Fehler am Marker tragen Bernstein und ✗. Leaflet positioniert Marker per transform – deshalb
+ * hier nie transform auf .leaflet-marker-icon.
+ */
+
+/* Bereich: Werkzeuge, Karte, Seitenleiste */
+
+.ed-map-tools {
+  gap: 6px;
+}
+
+.ed-map-tools .btn[aria-pressed="true"],
+.ed-menu.active > .btn {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.ed-split {
+  gap: 0;
+}
+
+.ed-split > .btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ed-split .ed-menu > .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0;
+  padding: 0 10px;
+}
+
+.ed-map-hint {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+}
+
+.ed-map-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.ed-map-main {
+  min-width: 0;
+}
+
+.ed-map-main .ed-map-wrap {
+  height: clamp(380px, calc(100vh - var(--editor-top, 56px) - var(--editor-head, 0px) - 260px), 860px);
+}
+
+.ed-map-panel {
+  position: sticky;
+  top: calc(var(--editor-top, 56px) + var(--editor-head, 0px) + 12px);
+  max-height: calc(100vh - var(--editor-top, 56px) - var(--editor-head, 0px) - 24px);
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.ed-map-panel h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ed-map-panel h4 {
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .ed-map-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ed-map-panel {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .ed-map-main .ed-map-wrap {
+    height: 55vh;
+    min-height: 300px;
+  }
+}
+
+.ed-layers {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  gap: 4px 16px;
+}
+
+.ed-layers .check {
+  min-height: 32px;
+}
+
+.ed-map-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ed-map-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.ed-map-item:hover,
+.ed-map-item:focus-visible {
+  background: var(--raised);
+  border-color: var(--line);
+}
+
+.ed-sym {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  font: 700 12px/1 var(--font-mono);
+}
+
+.ed-sym.assembly,
+.ed-sym.rescue {
+  border-color: var(--rescue);
+  background: var(--rescue);
+  color: var(--on-safety);
+}
+
+.ed-sym.zone {
+  border-color: var(--safety);
+  color: var(--text);
+}
+
+.ed-more > summary {
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+
+.ed-more > div {
+  margin-top: 8px;
+}
+
+.ed-shape {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ed-vertices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ed-coords input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ed-menu .menu-list.left {
+  left: 0;
+  right: auto;
+}
+
+.ed-menu .menu-list.right {
+  right: 0;
+  left: auto;
+}
+
+.ed-menu .menu-list button[aria-checked="true"]::before {
+  content: "✓";
+  margin-right: 8px;
+  color: var(--accent);
+}
+
+/* Karte: eigener Stapelkontext, damit Leaflets Ebenen nicht über Kopf und Menüs liegen */
+
+.ed-map-wrap {
+  isolation: isolate;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.ed-map-wrap.mini {
+  height: 240px;
+  min-height: 0;
+}
+
+.ed-map-wrap.drawing .leaflet-container {
+  cursor: crosshair;
+}
+
+.ed-map-wrap .leaflet-container:focus-visible,
+.ed-map-wrap .leaflet-marker-icon:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tape-a {
+  fill: var(--tape-a);
+}
+
+.tape-b {
+  fill: var(--tape-b);
+}
+
+/* Flächen und Linien */
+
+.lf-boundary.selected {
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.lf-zone.selected {
+  stroke-width: 5;
+}
+
+.lf-gps {
+  stroke: var(--accent);
+  stroke-width: 1;
+  fill: var(--accent);
+  fill-opacity: 0.08;
+}
+
+.lf-gps.selected {
+  stroke-width: 2;
+  fill-opacity: 0.16;
+}
+
+.lf-route {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  fill: none;
+  opacity: 0.75;
+}
+
+.lf-rule {
+  stroke: var(--edge);
+  stroke-width: 2;
+  stroke-dasharray: 1 6;
+  stroke-linecap: round;
+  fill: var(--edge);
+  fill-opacity: 0.06;
+}
+
+.lf-edit {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+
+.lf-draw {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 8 5;
+  fill: none;
+}
+
+.lf-draw.rubber {
+  stroke-width: 2;
+  opacity: 0.6;
+}
+
+.lf-me {
+  stroke: var(--accent-bright);
+  stroke-width: 1;
+  fill: var(--accent-bright);
+  fill-opacity: 0.12;
+}
+
+/* Stationen: Zustand als Zeichen am Marker, nicht nur als Farbe */
+
+.ed-station {
+  position: relative;
+}
+
+.ed-station.selected {
+  box-shadow:
+    0 0 0 3px var(--ground),
+    0 0 0 6px var(--accent);
+}
+
+.ed-station.template {
+  background: transparent;
+  border-style: dotted;
+}
+
+.ed-station.pending {
+  border-style: dashed;
+  background: var(--accent-soft);
+  animation: ed-pending 1.4s var(--ease) infinite;
+}
+
+.ed-station.faint {
+  opacity: 0.55;
+  font-size: 11px;
+}
+
+.ed-station .mk-flag,
+.ed-station .mk-tpl {
+  position: absolute;
+  top: -9px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  border-radius: 9px;
+  font: 700 11px/15px var(--font-mono);
+  font-style: normal;
+  text-align: center;
+}
+
+.ed-station .mk-flag {
+  right: -9px;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.ed-station.error .mk-flag {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.ed-station .mk-tpl {
+  left: -9px;
+  border: 1px solid var(--edge);
+  background: var(--surface);
+  color: var(--text);
+}
+
+@keyframes ed-pending {
+  50% {
+    box-shadow: 0 0 0 6px var(--accent-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-station.pending {
+    animation: none;
+  }
+}
+
+/* Punkte: Rettungsgrün mit weißer Kante wie im Leitstand */
+
+.mk-assembly .bg,
+.mk-rescue .bg {
+  fill: var(--rescue);
+  stroke: var(--on-safety);
+  stroke-width: 2;
+}
+
+.mk-assembly .fg,
+.mk-rescue .fg {
+  stroke: var(--on-safety);
+  stroke-width: 2;
+}
+
+.mk-rescue .fg.thick {
+  stroke-width: 4;
+}
+
+.mk-assembly .dot {
+  fill: var(--on-safety);
+}
+
+.mk-start .bg,
+.mk-supply .bg {
+  fill: var(--surface);
+  stroke-width: 2;
+}
+
+.mk-start .bg {
+  stroke: var(--accent);
+}
+
+.mk-start .fg {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.mk-supply .bg {
+  stroke: var(--rescue);
+}
+
+.mk-supply .fg {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.mk-start svg,
+.mk-supply svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mk-assembly.selected,
+.mk-rescue.selected,
+.mk-start.selected,
+.mk-supply.selected {
+  border-radius: 5px;
+  box-shadow:
+    0 0 0 3px var(--ground),
+    0 0 0 6px var(--accent);
+}
+
+/* Griffe: Ecken, Mittelpunkte, Radius, Mitte */
+
+.mk-handle {
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: grab;
+}
+
+.mk-handle.midpoint {
+  border-width: 1px;
+  background: var(--accent-soft);
+  cursor: copy;
+}
+
+.mk-handle.radius,
+.mk-handle.center,
+.mk-handle.drawn.first {
+  background: var(--accent);
+}
+
+.mk-handle.drawn {
+  cursor: crosshair;
+}
+
+.mk-handle-label {
+  position: absolute;
+  left: 20px;
+  top: -5px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: 600 12px/1.3 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.mk-me > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 3px solid var(--ground);
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 2px var(--accent-bright);
+}
+
+/* Mini-Karte */
+
+.ed-minimap {
+  min-width: 0;
+}
+
+/* Stationsliste (Navigation und Karte) */
+
+.ed-stationlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ed-st-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-small);
+}
+
+.ed-st-row.grabbed,
+.ed-st-row.drop {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.ed-st-handle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--muted);
+  font: 700 16px/1 var(--font-mono);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ed-st-handle:hover,
+.ed-st-handle:focus-visible,
+.ed-st-handle[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.ed-stationlist .ed-st-link {
+  display: flex;
+  /* Nummer und Zeichen stehen bei umbrochenen Namen auf der ersten Zeile */
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 6px 4px;
+  border-left: 0;
+  border-radius: var(--radius-small);
+  color: var(--text);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.ed-stationlist .ed-st-link:hover {
+  background: var(--surface);
+}
+
+.ed-stationlist .ed-st-link[aria-current="page"] {
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.ed-stationlist .station-no {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  color: var(--muted);
+}
+
+.ed-stationlist .station-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ed-stationlist .badge {
+  margin-left: 6px;
+}
+
+.ed-st-menu > .btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+}
+
+.ed-st-menu > .btn:hover,
+.ed-st-menu > .btn[aria-expanded="true"] {
+  border-color: var(--line);
+  background: var(--raised);
+}
+
+.ed-stationlist-help {
+  margin: 6px 0 0 6px;
+}
+
+.editor-nav .ed-stationlist-empty {
+  margin: 0 0 0 13px;
+}

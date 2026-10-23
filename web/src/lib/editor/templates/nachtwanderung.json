@@ -1,0 +1,904 @@
+{
+  "format": {
+    "name": "lykora-game",
+    "version": "0.1"
+  },
+  "id": "nachtwanderung",
+  "meta": {
+    "title": {
+      "de": "Nachtwanderung: Das Licht im Wald"
+    },
+    "summary": {
+      "de": "Im Wald leuchtet ein Licht, das niemand erklären kann. Sieben Stationen, drei Kapitel und eine Wächterin, die mehr weiß."
+    },
+    "languages": [
+      "de"
+    ],
+    "ageGroups": [
+      "10-13",
+      "14-17"
+    ],
+    "genre": "mystery",
+    "scareLevel": 1,
+    "night": true,
+    "expectedDuration": 5400
+  },
+  "settings": {
+    "mode": "time_trial",
+    "winCondition": "all_fragments_in_time",
+    "time": {
+      "limit": "per_team",
+      "duration": 6000
+    },
+    "teamSize": {
+      "min": 2,
+      "max": 6
+    },
+    "wrongAnswer": {
+      "type": "time",
+      "amount": 30
+    },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        {
+          "type": "time",
+          "amount": 60
+        },
+        {
+          "type": "time",
+          "amount": 120
+        },
+        {
+          "type": "time",
+          "amount": 300
+        }
+      ]
+    },
+    "scoring": {
+      "solvePoints": 100,
+      "speedBonus": false
+    },
+    "leaderboard": "end_only"
+  },
+  "field": {
+    "boundary": {
+      "center": {
+        "lat": 50.8155,
+        "lon": 7.155
+      },
+      "radius": 300
+    },
+    "start": {
+      "lat": 50.8155,
+      "lon": 7.155
+    },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": {
+        "de": "Sammelpunkt am Waldrand"
+      },
+      "location": {
+        "lat": 50.8155,
+        "lon": 7.155
+      }
+    },
+    "restrictedZones": [
+      {
+        "id": "strasse",
+        "name": {
+          "de": "Straße"
+        },
+        "kind": "road",
+        "warnDistance": 15,
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.813432,
+              "lon": 7.151015
+            },
+            {
+              "lat": 50.813432,
+              "lon": 7.158985
+            },
+            {
+              "lat": 50.813207,
+              "lon": 7.158985
+            },
+            {
+              "lat": 50.813207,
+              "lon": 7.151015
+            }
+          ]
+        }
+      }
+    ],
+    "rescuePoints": [
+      {
+        "id": "zufahrt",
+        "name": {
+          "de": "Zufahrt Parkplatz"
+        },
+        "location": {
+          "lat": 50.813701,
+          "lon": 7.155569
+        }
+      }
+    ]
+  },
+  "story": {
+    "intro": {
+      "text": {
+        "de": "Basislager an alle Teams. Seit Sonnenuntergang leuchtet tief im Wald ein Licht. Findet heraus, woher es kommt. Bleibt zusammen und haltet eure Lampen bereit."
+      }
+    },
+    "outro": {
+      "text": {
+        "de": "Das Licht ist eine alte Laterne, die die Wächterin jede Nacht anzündet, damit sich niemand verläuft. Ihr habt das Rätsel gelöst. Kommt zurück zum Sammelpunkt."
+      }
+    },
+    "hq": {
+      "name": {
+        "de": "Basislager"
+      }
+    },
+    "chapters": [
+      {
+        "id": "kapitel-1",
+        "title": {
+          "de": "Aufbruch"
+        },
+        "piece": {
+          "text": {
+            "de": "Die Nacht beginnt. Der Wald ist still."
+          }
+        }
+      },
+      {
+        "id": "kapitel-2",
+        "title": {
+          "de": "Die Spur"
+        },
+        "piece": {
+          "text": {
+            "de": "Zwischen den Bäumen flackert etwas."
+          }
+        },
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.5
+        }
+      },
+      {
+        "id": "kapitel-3",
+        "title": {
+          "de": "Das Licht"
+        },
+        "piece": {
+          "text": {
+            "de": "Das Licht ist ganz nah."
+          }
+        }
+      }
+    ]
+  },
+  "characters": [
+    {
+      "id": "zentrale",
+      "kind": "hq",
+      "name": {
+        "de": "Basislager"
+      },
+      "callSign": {
+        "de": "Basislager an Team"
+      }
+    },
+    {
+      "id": "erzaehler",
+      "kind": "narrator",
+      "name": {
+        "de": "Erzähler"
+      }
+    },
+    {
+      "id": "waechterin",
+      "kind": "npc",
+      "name": {
+        "de": "Die Wächterin"
+      },
+      "description": {
+        "de": "Eine alte Frau mit einem langen Mantel. Sie kennt jeden Weg im Wald, auch im Dunkeln."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "id": "teil-1",
+      "position": 1,
+      "value": "4"
+    },
+    {
+      "id": "teil-2",
+      "position": 2,
+      "value": "8"
+    },
+    {
+      "id": "teil-3",
+      "position": 3,
+      "value": "1"
+    },
+    {
+      "id": "teil-4",
+      "position": 4,
+      "value": "7"
+    }
+  ],
+  "items": [
+    {
+      "id": "seite",
+      "kind": "document",
+      "name": {
+        "de": "Seite aus dem Tagebuch"
+      },
+      "body": {
+        "de": "Jede Nacht zünde ich das Licht an. Wer es findet, braucht den Code aus vier Zahlen. Die letzte liegt dort, wo die Bäume eine Lichtung lassen."
+      }
+    },
+    {
+      "id": "laterne",
+      "kind": "object",
+      "name": {
+        "de": "Kleine Laterne"
+      },
+      "description": {
+        "de": "Eine Laterne, die nur leuchtet, wenn man ganz nah am Licht ist."
+      }
+    }
+  ],
+  "stations": [
+    {
+      "id": "briefing",
+      "name": {
+        "de": "Sicherheits-Briefing"
+      },
+      "location": {
+        "lat": 50.81577,
+        "lon": 7.155285
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-3NTA"
+        },
+        {
+          "type": "manual",
+          "code": "3001"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "chapter",
+            "title": {
+              "de": "Aufbruch"
+            },
+            "text": {
+              "de": "Kapitel I"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "group",
+            "text": {
+              "de": "Alle Lampen an, Warnwesten zu. Schaut nach: Hat jeder eine Lampe dabei?"
+            },
+            "ack": {
+              "de": "Alle bereit"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Basislager an Team. Bleibt auf den Wegen und zusammen. Bei Gefahr drückt ihr SOS."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Was tut ihr, wenn jemand aus dem Team verletzt ist?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "SOS drücken und bei der Person bleiben"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Weitergehen und später Bescheid sagen"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Die Person allein zurückschicken"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Denkt an das, was das Basislager gerade gesagt hat."
+          }
+        }
+      ],
+      "rewards": {
+        "points": 50,
+        "chapter": "kapitel-2"
+      }
+    },
+    {
+      "id": "hexenstein",
+      "name": {
+        "de": "Am Hexenstein"
+      },
+      "location": {
+        "lat": 50.816759,
+        "lon": 7.156993
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-3NTB"
+        },
+        {
+          "type": "manual",
+          "code": "3002"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Ein großer Stein liegt am Weg. Jemand hat Zeichen hineingeritzt."
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "dialogue",
+            "speaker": "waechterin",
+            "text": {
+              "de": "Ihr folgt dem Licht? Dann hört genau hin, was der Wald euch sagt."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Wer bist du?"
+                },
+                "reply": {
+                  "de": "Ich passe hier auf. Schon sehr lange."
+                }
+              },
+              {
+                "label": {
+                  "de": "Wohin führt das Licht?"
+                },
+                "reply": {
+                  "de": "Dorthin, wo ihr es am wenigsten erwartet."
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "task": {
+        "type": "text",
+        "question": {
+          "de": "Welcher Vogel ruft nachts im Wald „Huhu“?"
+        },
+        "answers": [
+          "Eule",
+          "Uhu"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Es ist ein Vogel, der nachts jagt."
+          }
+        },
+        {
+          "text": {
+            "de": "Er hat große Augen und kann den Kopf weit drehen."
+          }
+        },
+        {
+          "text": {
+            "de": "Er ruft „Huhu“."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-1"
+        ]
+      },
+      "props": [
+        {
+          "name": "Zeichen am Stein",
+          "kind": "marker",
+          "note": "Mit Kreide auf den Stein malen"
+        }
+      ]
+    },
+    {
+      "id": "brunnen",
+      "name": {
+        "de": "Der alte Brunnen"
+      },
+      "location": {
+        "lat": 50.81514,
+        "lon": 7.158274
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-3NTC"
+        },
+        {
+          "type": "manual",
+          "code": "3003"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Hier stand einmal ein Brunnen. Auf einem Brett daneben stehen Zahlen."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Welche dreistellige Zahl steht auf dem Brett am Brunnen?"
+        },
+        "input": "lock",
+        "answers": [
+          "247"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Leuchtet mit der Lampe auf das Brett."
+          }
+        },
+        {
+          "text": {
+            "de": "Die Zahl beginnt mit einer Zwei."
+          }
+        },
+        {
+          "text": {
+            "de": "Die letzte Ziffer ist eine Sieben."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-2"
+        ]
+      },
+      "props": [
+        {
+          "name": "Brett mit der Zahl 247",
+          "kind": "puzzle"
+        }
+      ]
+    },
+    {
+      "id": "muehle",
+      "name": {
+        "de": "Die Mühle"
+      },
+      "location": {
+        "lat": 50.814061,
+        "lon": 7.156566
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-3NTD"
+        },
+        {
+          "type": "manual",
+          "code": "3004"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "document",
+            "item": "seite",
+            "title": {
+              "de": "Seite aus dem Tagebuch"
+            },
+            "text": {
+              "de": "Jede Nacht zünde ich das Licht an. Wer es findet, braucht den Code aus vier Zahlen. Die letzte liegt dort, wo die Bäume eine Lichtung lassen."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Wer zündet jede Nacht das Licht an?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Die Wächterin"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Der Förster"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Niemand"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Lest die Tagebuchseite noch einmal."
+          }
+        },
+        {
+          "text": {
+            "de": "Ihr habt die Person am Hexenstein getroffen."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-3"
+        ],
+        "chapter": "kapitel-3"
+      },
+      "props": [
+        {
+          "name": "Tagebuchseite",
+          "kind": "document",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "id": "lichtung",
+      "name": {
+        "de": "Die Lichtung"
+      },
+      "location": {
+        "lat": 50.814421,
+        "lon": 7.154146
+      },
+      "triggers": [
+        {
+          "type": "qr",
+          "code": "LYK-3NTE"
+        },
+        {
+          "type": "manual",
+          "code": "3005"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Basislager an Team. Hier beginnt die Suche nach der Lichtung. Lauft los, euer Peiler zeigt die Richtung."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "find_location",
+        "prompt": {
+          "de": "Findet die Lichtung, auf der die letzte Zahl liegt."
+        },
+        "location": {
+          "lat": 50.814016,
+          "lon": 7.153434
+        },
+        "radius": 25
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Die Lichtung liegt nicht weit von hier."
+          }
+        },
+        {
+          "text": {
+            "de": "Geht Richtung Südwesten."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-4"
+        ]
+      }
+    },
+    {
+      "id": "versteck",
+      "name": {
+        "de": "Das Versteck"
+      },
+      "location": {
+        "lat": 50.81568,
+        "lon": 7.15258
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "manual",
+          "code": "3006"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Hinter einem Busch steht eine kleine Kiste. Darin liegt eine Laterne."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Wann leuchtet die kleine Laterne?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Wenn man ganz nah am Licht ist"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Immer"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Nie"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Schaut euch die Laterne genau an."
+          }
+        }
+      ],
+      "rewards": {
+        "points": 50,
+        "items": [
+          "laterne"
+        ]
+      }
+    },
+    {
+      "id": "finale",
+      "name": {
+        "de": "Das Licht am Ende"
+      },
+      "location": {
+        "lat": 50.816849,
+        "lon": 7.153292
+      },
+      "final": true,
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-3NTF"
+        },
+        {
+          "type": "manual",
+          "code": "3007"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Basislager an Team. Ihr seid am Licht. Setzt den Code aus allen vier Zahlen zusammen."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Gebt den Code aus allen vier Zahlen ein."
+        },
+        "input": "lock",
+        "answers": [
+          "4817"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Die Zahlen kommen in der Reihenfolge, in der ihr sie gefunden habt."
+          }
+        },
+        {
+          "text": {
+            "de": "Die erste Zahl gab es am Hexenstein."
+          }
+        }
+      ],
+      "props": [
+        {
+          "name": "Laterne mit Zahlenschloss",
+          "kind": "lock",
+          "note": "Code 4817"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "versteck-zeigen",
+      "when": [
+        {
+          "station_solved": "muehle"
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "versteck"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Neue Spur! Auf eurer Karte ist ein Versteck aufgetaucht."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "zeit-funk",
+      "when": [
+        {
+          "elapsed": 3600
+        }
+      ],
+      "then": [
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Noch 40 Minuten. Denkt an den Rückweg."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": {
+      "gameMasterPhone": "+49 000 0000000",
+      "emergencyNumber": "112"
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval": 900,
+      "grace": 300
+    },
+    "requireSupervisor": true,
+    "requiredGear": [
+      {
+        "de": "Lampe"
+      },
+      {
+        "de": "Warnweste"
+      },
+      {
+        "de": "Geladenes Handy"
+      }
+    ]
+  },
+  "sound": {
+    "ambience": {
+      "audio": "wind",
+      "volume": 0.35
+    }
+  },
+  "media": [
+    {
+      "id": "wald-nacht",
+      "type": "audio",
+      "src": "media/lib/wald-nacht.ogg",
+      "alt": {
+        "de": "Wald bei Nacht"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    },
+    {
+      "id": "wind",
+      "type": "audio",
+      "src": "media/lib/wind.ogg",
+      "alt": {
+        "de": "Wind in den Bäumen"
+      },
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      }
+    }
+  ]
+}

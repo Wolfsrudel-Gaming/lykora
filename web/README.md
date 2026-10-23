@@ -30,7 +30,7 @@ Einen anderen Server nimmt `LYKORA_SERVER=http://localhost:3100 npm run dev -w @
 
 ### Ende-zu-Ende-Lauf
 
-`web/e2e/run.mjs` spielt mit echtem Server und echtem Browser einen Abend durch: anmelden, Organisation anlegen, Spiel hochladen, Medien hochladen und ins Spiel übernehmen, Klänge und eine Stimme zuordnen, Event anlegen und starten, Teams per API beitreten lassen, Funk, Abriss und Neuaufbau der Live-Verbindung, Klangpult, Foto-Prüfung, Rückruf, SOS, Export, Mitglieder, Betreuer-Ansicht am Handy, die Spieler-Landeseite und eine abgelaufene Sitzung. Bildschirmfotos landen in `web/e2e/screenshots/`.
+`web/e2e/run.mjs` spielt mit echtem Server und echtem Browser einen Abend durch: anmelden, Organisation anlegen, Spiel importieren, im Baukasten ein Spiel aus einer Vorlage bauen, veröffentlichen, im Probelauf und mit einem Team spielen (Abschnitt „3b. Baukasten“), Medien hochladen und in den Entwurf übernehmen, Klänge und eine Stimme zuordnen und veröffentlichen, Event anlegen und starten, Teams per API beitreten lassen, Funk, Abriss und Neuaufbau der Live-Verbindung, Klangpult, Foto-Prüfung, Rückruf, SOS, Export, Mitglieder, Betreuer-Ansicht am Handy, die Spieler-Landeseite und eine abgelaufene Sitzung. Bildschirmfotos landen in `web/e2e/screenshots/`.
 
 ```sh
 createdb -h localhost -U lykora lykora_e2e      # einmalig; der Lauf leert die Datenbank
@@ -49,7 +49,9 @@ Das Skript nutzt Playwright aus `/opt/node-tools/node_modules/playwright` und Ch
 | `src/ui/` | Bausteine: Link, Dialog, Reiter, Meldungen, Symbole, QR-Code |
 | `src/pages/` | Seiten: Anmeldung, Organisation, Events, Event, Mitglieder, Konto, Join-Seite |
 | `src/pages/control/` | Leitstand und Betreuer-Ansicht: Karte, Teams, Warnungen, SOS, Team-Detail, Funk, Klangpult, Prüfungen, Rangliste, Logbuch |
-| `src/pages/games/` | Spiele: Hochladen und Prüfen, Übersicht, Versionen, Medien und Klänge, Klänge zuordnen, Materialliste |
+| `src/pages/games/` | Spiele: Liste, Assistent „Neues Spiel“, Importieren, Übersicht, Versionen, Materialliste |
+| `src/pages/games/editor/` | Baukasten: Rahmen, Karte, Stationen, Geschichte, Belohnungen, Regeln, Sicherheit, Medien, Klang, Einstellungen, Veröffentlichen mit Probelauf und Druck |
+| `src/lib/editor/` | Logik des Baukastens: Entwurf mit Verlauf und Speichern, Prüfung, Vorlagen (`templates/`), Umzug an den Ort, Druckdaten |
 | `src/styles/` | Design-Tokens (Nacht und Tag) und Grundgerüst, eigenes CSS ohne Framework |
 | `public/fonts/` | Atkinson Next, Atkinson Mono, Fraunces und Barlow Condensed aus `app/assets/fonts`, mit Lizenzen (OFL) |
 | `test/` | Vitest-Tests der Logik |
@@ -67,9 +69,19 @@ Lehnt der Server die Sitzung ab (401), geht es zur Anmeldung und danach zurück 
 
 ### Klänge
 
-- **Medien und Klänge** (`/spiele/<id>/medien`): eigene Aufnahmen, Bilder und Videos hochladen (mehrere, Ziehen und Ablegen, bis 30 MB je Datei), anhören und mit ID, Beschreibung und Urheber ins Spiel übernehmen. Dazu die mitgelieferte Klangbibliothek (CC0) zum Vorhören und Übernehmen.
-- **Klänge zuordnen** (`/spiele/<id>/klang`): Atmosphäre für Spiel, Kapitel und Stationen, Geräusche beim Annähern und Lösen, Ersatz für die Geräusche der App und je Szenen-Takt eine Aufnahme (z. B. die Stimme einer Figur) und ein Geräusch. Bibliotheksklänge kommen beim Speichern als media-Eintrag ins Spiel; gespeichert wird eine neue Version.
+- **Medien** (Baukasten-Bereich `/spiele/<id>/baukasten/medien`; die alte Adresse `/spiele/<id>/medien` leitet dorthin): eigene Aufnahmen, Bilder und Videos hochladen (mehrere, Ziehen und Ablegen, bis 30 MB je Datei), anhören und mit Beschreibung und Urheber in den Entwurf übernehmen. Dazu die mitgelieferte Klangbibliothek (CC0) zum Vorhören und Übernehmen.
+- **Klang** (`/spiele/<id>/baukasten/klang`, ebenso von `/spiele/<id>/klang`): Atmosphäre für Spiel, Kapitel und Stationen, Geräusche beim Annähern und Lösen, Ersatz für die Geräusche der App und je Szenen-Takt eine Aufnahme (z. B. die Stimme einer Figur) und ein Geräusch. Bibliotheksklänge kommen sofort als media-Eintrag in den Entwurf; eine Version entsteht erst beim Veröffentlichen.
 - **Klangpult** im Leitstand: Klänge aus dem Spiel und der Bibliothek live bei einem Team oder allen einspielen, mit Lautstärke und wahlweise einem Funkspruch (`POST /events/<id>/cues`).
+
+### Baukasten
+
+- **Neues Spiel** (`/spiele/neu`): sechs Schritte – Vorlage, Name, Spielwelt, Zielgruppe, Ort, Dauer und Notfall. Vier Vorlagen liegen als gültige Spiele in `src/lib/editor/templates/` (Bezugsort Hennef, Spielfeld 300 m); `relocate.ts` zieht sie an den gewählten Sammelpunkt und streckt die Abstände auf den Radius. QR- und Notfall-Codes werden neu gewürfelt. Ohne Telefon ist das Spiel angelegt, die Nummer steht dann in der Checkliste.
+- **Bereiche** (`/spiele/<id>/baukasten/<bereich>`, Stationen unter `…/stationen/<id>`): Karte & Stationen, Rätsel, Geschichte, Belohnungen, Regeln, Sicherheit, Medien, Klang, Einstellungen. Jede Änderung speichert sich 1,5 s später selbst (mit Revision; bearbeitet jemand anderes gleichzeitig, fragt ein Dialog), Strg+Z und Strg+Umschalt+Z gehen bis zu 200 Schritte zurück, und eine Sicherung im Browser überbrückt Netzausfälle. Die Prüfung läuft im Browser mit demselben Kern wie der Server (`@lykora/spec/validate-core.mjs`) und zeigt Meldungen am Feld, in der Navigation und in der Checkliste. Die Expertenansicht (`?experte=1`) zeigt Kennungen und Felder ohne eigenes Formular.
+- **Vor Ort** (`/spiele/<id>/vor-ort`): am Handy Stationen per GPS anlegen oder verschieben (10 s gemittelt), Stellen bestätigen, Sammel- und Rettungspunkte setzen.
+- **Entwurf statt Version**: Alles im Baukasten landet im Entwurf des Spiels. „Veröffentlichen“ (`…/baukasten/veroeffentlichen`) zeigt, was erledigt sein muss, was du prüfen solltest und was seit der letzten Version neu ist, und macht daraus eine Version; geplante Events lassen sich danach umstellen. Versionen wiederherstellen lädt sie in den Entwurf.
+- **Probelauf** (`?probelauf=1`): Test-Event aus dem Entwurf mit Code, PIN und allen Stations-Codes zum Scannen vom Bildschirm; nach 7 Tagen gelöscht. Probeläufe stehen in der Event-Liste unten eingeklappt.
+- **Drucken**: Stationsschilder im Format A5 (`?drucken=schilder`, ohne Notfall-Codes) und das Blatt für die Spielleitung mit Lösungen und Codes (`?drucken=blatt`).
+- **Spiele-Liste**: Zustand je Spiel (Entwurf, Version, Fehler und Hinweise des Entwurfs), Menü ⋯ mit Export (Version oder Entwurf), Duplizieren (neue Kennung und Codes) und Archivieren. „Importieren“ öffnet fehlerhafte Dateien auf Wunsch als Entwurf.
 
 ### Rechte
 

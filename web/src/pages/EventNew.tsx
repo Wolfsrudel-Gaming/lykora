@@ -1,7 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { formatDateTime, fromLocalInput } from "../lib/format.ts";
 import { href, navigate, useLocation } from "../lib/router.ts";
-import { api, errorText, notify, session } from "../lib/session.ts";
+import { can } from "../lib/roles.ts";
+import { api, errorText, notify, roleIn, session } from "../lib/session.ts";
 import { useStore } from "../lib/store.ts";
 import type { GameDetail } from "../lib/types.ts";
 import { Empty, ErrorNotice, Field, Link, Loading, useLoad, useTitle } from "../ui/components.tsx";
@@ -23,15 +24,18 @@ export function EventNewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const active = (games.data ?? []).filter((g) => !g.archived);
+  // Spiele ohne veröffentlichte Version stehen ausgegraut da (Entwürfe und Probeläufe sind keine Version).
+  const ready = active.filter((g) => g.latest_version !== null);
+  const chosen = active.find((g) => g.id === gameId);
 
   useEffect(() => {
-    if (!gameId && active[0]) setGameId(active[0].id);
+    if (!gameId && ready[0]) setGameId(ready[0].id);
   }, [games.data]);
 
   useEffect(() => {
     setDetail(null);
     setVersion("");
-    if (!gameId) return;
+    if (!gameId || chosen?.latest_version === null) return;
     let alive = true;
     api
       .game(gameId)
@@ -82,19 +86,26 @@ export function EventNewPage() {
         <Loading />
       ) : active.length === 0 ? (
         <Empty>
-          Es gibt noch kein Spiel. <Link to={href("games")}>Spiel hochladen</Link>
+          Es gibt noch kein Spiel. <Link to={href("games")}>Zu den Spielen</Link>
         </Empty>
       ) : (
         <form class="card stack" onSubmit={submit}>
           <Field label="Spiel">
             <select required value={gameId} onChange={(e) => setGameId(e.currentTarget.value)}>
               {active.map((g) => (
-                <option key={g.id} value={g.id}>
+                <option key={g.id} value={g.id} disabled={g.latest_version === null}>
                   {g.title}
+                  {g.latest_version === null ? " – erst veröffentlichen" : ""}
                 </option>
               ))}
             </select>
           </Field>
+          {chosen?.latest_version === null && (
+            <p class="notice">
+              „{chosen.title}“ ist noch nicht veröffentlicht. Events spielen immer eine veröffentlichte Version.{" "}
+              {can(roleIn(s.orgId), "game.write") && <Link to={href("editorSection", { gameId: chosen.id, section: "veroeffentlichen" })}>Erst veröffentlichen ›</Link>}
+            </p>
+          )}
           <Field label="Version" hint="Das Event behält diese Version, auch wenn das Spiel später geändert wird.">
             <select required value={version} disabled={!detail} onChange={(e) => setVersion(e.currentTarget.value)}>
               {(detail?.versions ?? []).map((v) => (

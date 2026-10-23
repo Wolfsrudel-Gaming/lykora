@@ -27,6 +27,10 @@ const GamePage = lazyPage(() => import("./pages/games/Game.tsx").then((m) => m.G
 const MediaPage = lazyPage(() => import("./pages/games/Media.tsx").then((m) => m.MediaPage));
 const SoundPage = lazyPage(() => import("./pages/games/Sound.tsx").then((m) => m.SoundPage));
 const MaterialsPage = lazyPage(() => import("./pages/games/Materials.tsx").then((m) => m.MaterialsPage));
+// Baukasten als eigener Chunk; Assistent und Vor-Ort-Modus kommen über das Verzeichnis der Bereiche.
+const EditorPage = lazyPage(() => import("./pages/games/editor/EditorShell.tsx").then((m) => m.EditorShell));
+const GameNewPage = lazyPage(() => import("./pages/games/editor/sections.ts").then((m) => m.PAGES.gameNew()));
+const OnSitePage = lazyPage(() => import("./pages/games/editor/sections.ts").then((m) => m.PAGES.onSite()));
 
 /** Startseite je nach Rolle: Events für die Spielleitung, Spiele für Autoren. */
 function homeRoute(): RouteName {
@@ -61,6 +65,15 @@ function Page({ match }: { match: Match }) {
       return <SoundPage gameId={p.gameId!} />;
     case "gameMaterials":
       return <MaterialsPage gameId={p.gameId!} />;
+    case "gameNew":
+      return <GameNewPage />;
+    case "onSite":
+      return <OnSitePage gameId={p.gameId!} />;
+    // Alle drei Baukasten-Adressen nutzen dieselbe Komponente, damit ein Bereichswechsel nicht neu lädt.
+    case "editor":
+    case "editorSection":
+    case "editorStation":
+      return <EditorPage gameId={p.gameId!} section={p.section ?? (p.stationId ? "stationen" : undefined)} stationId={p.stationId} />;
     case "members":
       return <MembersPage />;
     case "account":
@@ -93,7 +106,7 @@ function TopBar({ match }: { match: Match | null }) {
   const section = match?.name ?? "";
   const nav: { to: RouteName; label: string; active: boolean; show: boolean }[] = [
     { to: "events", label: "Events", active: ["events", "eventNew", "event", "control", "supervisor"].includes(section), show: can(role, "event.read") },
-    { to: "games", label: "Spiele", active: section.startsWith("game"), show: can(role, "game.read") },
+    { to: "games", label: "Spiele", active: section.startsWith("game") || section.startsWith("editor") || section === "onSite", show: can(role, "game.read") },
     { to: "members", label: "Mitglieder", active: section === "members", show: can(role, "org.manage") },
   ];
   return (

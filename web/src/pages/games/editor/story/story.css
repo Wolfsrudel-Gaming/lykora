@@ -1,0 +1,200 @@
+/*
+ * Paket D: Geschichte, Belohnungen, Regeln, Einstellungen, Medien und Klang. Nur Tokens aus
+ * tokens.css; Fehler tragen die Bernstein-Kante der Bausteine, Rot kommt hier nicht vor.
+ * Hier die gemeinsamen Teile (Kacheln, Karten, Sprungleiste) und die Geschichte.
+ */
+
+.d-section {
+  min-width: 0;
+}
+
+.d-section h2:focus,
+.d-section h3:focus {
+  outline: none;
+}
+
+.d-section h3 {
+  margin: 0;
+}
+
+.d-section .card > header {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Sprungleiste */
+
+.d-jumpbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Kacheln (Radiogruppe) */
+
+.d-tiles {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.d-tiles > legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.d-tile-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+}
+
+.d-tiles.compact .d-tile-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr));
+}
+
+.d-tile {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--raised);
+  cursor: pointer;
+}
+
+.d-tile:hover {
+  border-color: var(--edge);
+}
+
+.d-tile.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.d-tile:has(input:focus-visible) {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.d-tile-title {
+  font-weight: 600;
+}
+
+.d-checks {
+  gap: 4px 20px;
+}
+
+.d-expert {
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+/* Kapitel */
+
+.d-chapters .sortable-body {
+  padding: 4px 0 12px;
+}
+
+.d-chapter .menu {
+  margin-left: auto;
+}
+
+.d-roman {
+  font: 700 22px/1 var(--font-head);
+  color: var(--accent);
+  min-width: 2.5ch;
+}
+
+.d-rule-link {
+  overflow-wrap: anywhere;
+}
+
+/* Karten (Figuren, Gegenstände) */
+
+.d-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  align-items: start;
+}
+
+.d-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--raised);
+  padding: 12px;
+  min-width: 0;
+}
+
+.d-card .row.nowrap,
+.d-hq .row.nowrap {
+  gap: 12px;
+  align-items: center;
+}
+
+.d-card-form {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.d-hq {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-small);
+  padding: 12px;
+}
+
+.d-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  object-fit: cover;
+  font: 700 16px/1 var(--font-head);
+  color: var(--ground);
+}
+
+/* Medien und Klang: lange Namen in Abzeichen umbrechen statt die Seite zu verbreitern */
+
+.d-section .media-row .badge {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.d-group + .d-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.d-sound-ui {
+  margin-top: 12px;
+}
+
+/* Schmal: Knöpfe ↑/↓ unter den Eintrag, damit Bausteine die volle Breite behalten */
+
+@media (max-width: 600px) {
+  .d-section .sortable-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .d-section .sortable-buttons {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+/* Auswahllisten nicht über die ganze Breite ziehen; Inhalte bleiben lesbar */
+
+.d-section .ed-field select {
+  max-width: 30rem;
+}

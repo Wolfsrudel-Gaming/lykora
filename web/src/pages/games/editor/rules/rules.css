@@ -1,0 +1,112 @@
+/*
+ * Paket D: Regeln als Karten mit festen Zeilen SOBALD – UND – DANN – SONST. Unfertige Bausteine
+ * stehen gestrichelt da. Nur Tokens aus tokens.css.
+ */
+
+.d-rule > summary {
+  align-items: flex-start;
+  padding: 12px 14px;
+}
+
+.d-rule-sentence {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.d-line {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 6px 12px;
+  align-items: start;
+}
+
+.d-line-label {
+  padding-top: 10px;
+  font: 700 14px/1.2 var(--font-head);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.d-line-body {
+  min-width: 0;
+}
+
+.d-block {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--raised);
+  min-width: 0;
+}
+
+.d-block.d-unset {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
+.d-block-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.d-block-head .d-kind {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.d-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.d-sentence > .field {
+  flex: 1 1 220px;
+}
+
+.d-word {
+  padding-bottom: 12px;
+  color: var(--muted);
+}
+
+.d-points-input {
+  width: 8ch;
+}
+
+.d-missing {
+  color: var(--accent-bright);
+}
+
+.d-actions .sortable-body {
+  padding: 2px 0;
+}
+
+.d-add {
+  justify-self: start;
+  align-self: flex-start;
+}
+
+.d-also {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .d-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .d-line-label {
+    padding-top: 0;
+  }
+}

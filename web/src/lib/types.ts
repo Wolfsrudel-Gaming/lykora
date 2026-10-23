@@ -1,6 +1,7 @@
 /** Datenformen der Server-API, wie sie die Routen in server/src/routes liefern. */
 
 import type { Game, Text } from "@lykora/spec";
+import type { EditorMeta } from "./editor/types.ts";
 
 export type { Game, Text };
 
@@ -102,11 +103,8 @@ export interface GameVersion {
 
 // Entwürfe des Baukastens (server/src/routes/games.ts)
 
-/**
- * Merker des Baukastens (Vorlage, Vor-Ort, ausgeblendete Hinweise, Checkliste); nie Teil des Spiels.
- * TODO(A2): durch EditorMeta aus ./editor/types.ts ersetzen, sobald es die Datei gibt.
- */
-export type EditorMeta = Record<string, unknown>;
+/** Merker des Baukastens (Vorlage, Vor-Ort, ausgeblendete Hinweise, Checkliste); nie Teil des Spiels. */
+export type { EditorMeta };
 
 export interface DraftSummary {
   revision: number;

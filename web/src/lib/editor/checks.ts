@@ -219,3 +219,312 @@ const STATION_BASICS: Check = (g) => {
 
 // Paket A
 export const CHECKS: Check[] = [TEXT_FIELDS, ANSWERS, FRAGMENTS, FINALS, CODES, MEDIA_TYPES, SETTINGS, STATION_BASICS];
+
+// Paket C: Stationseditor – Sichtbarkeit, Rätsel und Szene (Hinweise; short_answer steht schon in ANSWERS)
+const STATION_FLOW: Check = (g) => {
+  const out: EditorIssue[] = [];
+  const all = stations(g);
+  const visible = new Set(all.filter(([s]) => s.visibility !== "hidden").map(([s]) => s.id));
+  const hintsOn = g.settings?.hints?.enabled !== false;
+  for (const [s, i] of all) {
+    const p = `/stations/${i}`;
+    const triggers = list(s.triggers).filter((t) => t && typeof t === "object");
+    const gps = triggers.find((t) => t.type === "gps");
+    if (typeof s.revealRadius === "number" && (s.visibility !== "hidden" || !gps || !(s.location || (gps.type === "gps" && gps.location)))) {
+      out.push(makeIssue(g, "reveal_radius_ineffective", `${p}/revealRadius`, "hint"));
+    }
+    list(s.rewards?.reveal).forEach((id, k) => {
+      if (id !== s.id && !visible.has(id)) return;
+      const target = all.find(([t]) => t.id === id)?.[0];
+      out.push(makeIssue(g, "reveal_visible", `${p}/rewards/reveal/${k}`, "hint", { name: target ? readName(target, g) : id }, { paramKey: id }));
+    });
+    const task = s.task as Task | undefined;
+    if (task?.type === "find_location" && triggers.length && triggers.every((t) => t.type === "gps")) out.push(makeIssue(g, "find_location_trigger", `${p}/triggers`, "hint"));
+    if (task?.type === "photo") {
+      if (task.review !== "auto_accept" && list(s.rewards?.fragments).length) out.push(makeIssue(g, "photo_fragment_manual", `${p}/rewards/fragments`, "hint"));
+      if (task.review === "after_game" || task.review === "vote") out.push(makeIssue(g, "photo_review_unsupported", `${p}/task/review`, "hint"));
+    }
+    if (task && hintsOn && !list(s.hints).length) out.push(makeIssue(g, "no_hints", `${p}/hints`, "hint"));
+    if (!s.story && !beats(s).length) out.push(makeIssue(g, "no_scene", `${p}/scene`, "hint"));
+  }
+  return out;
+};
+
+/** Name einer Station in der Spielsprache, sonst ihre Kennung. */
+function readName(s: Station, g: Game): string {
+  const lang = g.meta?.languages?.[0] ?? "de";
+  const name = s.name as unknown;
+  if (typeof name === "string") return name || s.id;
+  if (name && typeof name === "object") return (name as Record<string, string>)[lang] || Object.values(name as Record<string, string>)[0] || s.id;
+  return s.id;
+}
+
+CHECKS.push(STATION_FLOW);
+
+// Paket B: Karte und Sicherheit – Lage der Stationen zu Spielfeld und Sperrzonen, GPS-Radien, Punkte, Nachtspiel
+// (Import hier im Block, damit Anhänge der Pakete nicht im Kopf der Datei kollidieren)
+import { distanceM, distanceToArea, gpsCircle, gpsTrigger, insideArea, isArea, isPoint, stationPoint } from "./geo.ts";
+import { readText } from "./text.ts";
+
+const MAP: Check = (g, meta, lang) => {
+  const out: EditorIssue[] = [];
+  const field = g.field;
+  const zones = list(field?.restrictedZones).map((z, k): [typeof z, number] => [z, k]).filter(([z]) => z && typeof z === "object");
+  const zoneName = (z: (typeof zones)[number][0]) => readText(z.name as never, lang) || z.id || "ohne Namen";
+  /** Pfad des Orts einer Station: eigener Ort, sonst der Ort am GPS-Auslöser */
+  const placePath = (s: Station, i: number) => (isPoint(s.location) ? `/stations/${i}/location` : `/stations/${i}/triggers/${list(s.triggers).findIndex((t) => t?.type === "gps")}/location`);
+
+  for (const [z, k] of zones) {
+    const polygon = (z.area as { polygon?: unknown } | undefined)?.polygon;
+    if (Array.isArray(polygon) && polygon.length < 3) out.push(makeIssue(g, "zone_unfinished", `/field/restrictedZones/${k}/area/polygon`, "error"));
+  }
+  const boundary = isArea(field?.boundary) ? field!.boundary : null;
+  for (const [s, i] of stations(g)) {
+    const p = stationPoint(s);
+    if (!p) continue;
+    const at = placePath(s, i);
+    let inZone = false;
+    for (const [z] of zones) {
+      if (!isArea(z.area)) continue;
+      const d = distanceToArea(p, z.area);
+      const warn = typeof z.warnDistance === "number" ? z.warnDistance : 15;
+      if (d === 0) {
+        inZone = true;
+        out.push(makeIssue(g, "station_in_zone", at, "error", { zone: zoneName(z) }, { paramKey: z.id }));
+      } else if (d < warn) out.push(makeIssue(g, "station_near_zone", at, "warning", { zone: zoneName(z), n: warn, distance: Math.round(d) }, { paramKey: z.id }));
+    }
+    if (boundary && !inZone && !insideArea(p, boundary)) {
+      const center = "center" in boundary ? boundary.center : null;
+      out.push(
+        makeIssue(g, "station_outside_field", at, "warning", {}, {
+          fix: center
+            ? {
+                label: "Spielfeld vergrößern",
+                apply: (game) => {
+                  const b = game.field?.boundary;
+                  if (b && "center" in b) b.radius = Math.max(b.radius, Math.ceil((distanceM(center, p) + 20) / 10) * 10);
+                },
+                undoLabel: "Spielfeld vergrößert",
+              }
+            : undefined,
+        }),
+      );
+    }
+  }
+  // GPS-Radien: zu klein und Überschneidungen (eine Meldung je Paar, an der späteren Station)
+  const circles = stations(g)
+    .map(([s, i]) => ({ s, i, c: gpsCircle(s), k: list(s.triggers).findIndex((t) => t?.type === "gps") }))
+    .filter((x) => x.c);
+  for (const [n, b] of circles.entries()) {
+    const radius = gpsTrigger(b.s)?.radius;
+    if (typeof radius === "number" && radius < 15) out.push(makeIssue(g, "gps_radius_small", `/stations/${b.i}/triggers/${b.k}/radius`, "warning"));
+    for (const a of circles.slice(0, n)) {
+      if (distanceM(a.c!.center, b.c!.center) < a.c!.radius + b.c!.radius) {
+        out.push(makeIssue(g, "gps_overlap", `/stations/${b.i}/triggers/${b.k}`, "warning", { other: readText(a.s.name as never, lang) || a.s.id }, { paramKey: a.s.id }));
+      }
+    }
+  }
+  // Sammelpunkt
+  const ap = field?.assemblyPoint;
+  if (ap && typeof ap === "object") {
+    if (isPoint(ap.location)) {
+      for (const [z] of zones) if (isArea(z.area) && insideArea(ap.location, z.area)) out.push(makeIssue(g, "assembly_in_zone", "/field/assemblyPoint/location", "error", { zone: zoneName(z) }, { paramKey: z.id }));
+    }
+    if (!hasText(ap.name as never, lang)) out.push(makeIssue(g, "assembly_no_name", "/field/assemblyPoint/name", "hint"));
+  }
+  // Sicherheit (UX §12): Sperrzonen, Rettungspunkt, Ausrüstung bei Nacht
+  const night = g.meta?.night === true;
+  if (field && typeof field === "object" && !zones.length) {
+    if (night) out.push(makeIssue(g, "night_no_zones", "/field/restrictedZones", "warning"));
+    else if (!meta.noZones) {
+      out.push(
+        makeIssue(g, "no_zones", "/field/restrictedZones", "warning", {}, {
+          fix: { label: "Gibt es nicht", apply: (_game, m) => void (m.noZones = true), undoLabel: "Keine Sperrzonen nötig" },
+        }),
+      );
+    }
+  }
+  const offPath = stations(g).some(([s]) => s.offPath === true);
+  if (field && typeof field === "object" && (night || offPath) && !list(field.rescuePoints).length) out.push(makeIssue(g, "no_rescue_point", "/field/rescuePoints", "warning"));
+  if (night) {
+    const gear = list(g.safety?.requiredGear).map((t) => readText(t as never, lang).toLowerCase());
+    const missing = [["Lampe", /lampe|taschenlampe|stirnlampe|licht/], ["Warnweste", /weste/]].filter(([, re]) => !gear.some((x) => (re as RegExp).test(x))).map(([name]) => name as string);
+    if (missing.length) {
+      out.push(
+        makeIssue(g, "night_no_gear", "/safety/requiredGear", "warning", { missing: missing.join(" und ") }, {
+          fix: {
+            label: `${missing.join(" und ")} ergänzen`,
+            apply: (game) => {
+              if (!game.safety || typeof game.safety !== "object") return;
+              game.safety.requiredGear = [...list(game.safety.requiredGear), ...missing.map((m) => ({ [lang]: m }))];
+            },
+            undoLabel: `${missing.join(" und ")} zur Ausrüstung ergänzt`,
+          },
+        }),
+      );
+    }
+  }
+  // SMS-Rückfall: ausdrücklich dieselbe Nummer wie die Spielleitung – dann gibt es kein Gateway.
+  const phone = g.safety?.emergency?.gameMasterPhone;
+  const sms = g.safety?.sos?.smsFallback;
+  const digits = (v: unknown) => (typeof v === "string" ? v.replace(/\D/g, "") : "");
+  if (sms !== undefined && digits(sms) && digits(sms) === digits(phone)) out.push(makeIssue(g, "sms_fallback_missing", "/safety/sos/smsFallback", "hint"));
+  return out;
+};
+
+CHECKS.push(MAP);
+
+// Paket E: Vorlage (Station noch am Platz, Rätsel unverändert) und Größe der Medien
+// (Importe mit eigenem Namen, damit sie nicht mit denen der anderen Blöcke kollidieren)
+import { formatBytes as bytesText } from "../format.ts";
+import { distanceM as metersBetween, stationPoint as placeOfStation } from "./geo.ts";
+
+/** Grenze für die Summe der Medien eines Spiels; darüber dauert der Download vor dem Spiel zu lange. */
+export const MEDIA_LIMIT = 50 * 1024 * 1024;
+
+/** Größen der hochgeladenen Dateien nach src; die Prüfung kennt sie erst, wenn jemand sie geladen hat. */
+const mediaSizes = new Map<string, number>();
+
+/** Größen aus GET /games/:id/media übernehmen (Veröffentlichen); danach store.validateNow(). */
+export function setMediaSizes(files: { src: string; size: number }[]): void {
+  mediaSizes.clear();
+  for (const f of files) mediaSizes.set(f.src, f.size);
+}
+
+const TEMPLATE: Check = (g, meta) => {
+  const out: EditorIssue[] = [];
+  const t = meta.template;
+  if (t && typeof t === "object") {
+    for (const [s, i] of stations(g)) {
+      const origin = t.stations?.[s.id];
+      const p = placeOfStation(s);
+      if (origin && p && !meta.onSite?.[s.id] && metersBetween(origin, p) < 2) {
+        const gps = list(s.triggers).findIndex((tr) => tr?.type === "gps");
+        const at = s.location || gps < 0 ? `/stations/${i}/location` : `/stations/${i}/triggers/${gps}/location`;
+        out.push(makeIssue(g, "station_at_template", at, "warning"));
+      }
+      const task = t.tasks?.[s.id];
+      if (task && s.task && JSON.stringify(s.task) === task) out.push(makeIssue(g, "template_task_generic", `/stations/${i}/task`, "warning"));
+    }
+  }
+  let total = 0;
+  for (const m of list(g.media)) if (m && typeof m.src === "string") total += mediaSizes.get(m.src) ?? 0;
+  if (total > MEDIA_LIMIT) out.push(makeIssue(g, "media_too_large", "/media", "warning", { size: bytesText(total) }));
+  return out;
+};
+
+CHECKS.push(TEMPLATE);
+
+// Paket D: Regeln (unfertige Bausteine, Fallstricke der Engine), Geschichte, Spielwelt und Punkte
+// (Importe mit eigenem Namen, damit sie nicht mit denen der anderen Blöcke kollidieren)
+import { incompleteParts as unfinishedParts } from "./rules.ts";
+import { readText as textIn } from "./text.ts";
+
+type RuleAction = NonNullable<Game["rules"]>[number]["then"][number];
+
+/** Alle Dann- und Sonst-Aktionen aller Regeln. */
+const ruleActions = (g: Game): RuleAction[] => list(g.rules).flatMap((r) => [...list(r?.then), ...list(r?.else)]).filter((a) => a && typeof a === "object");
+
+const RULE_CHECKS: Check = (g, _meta, lang) => {
+  const out: EditorIssue[] = [];
+  const all = stations(g);
+  const visible = new Map(all.filter(([s]) => s.visibility !== "hidden").map(([s]) => [s.id, textIn(s.name as never, lang) || s.id]));
+  // Ins Inventar kommt nur, was eine Belohnung oder Regel vergibt; Schriftstücke aus Szenen zählen nicht.
+  const owned = new Set<unknown>([...all.flatMap(([s]) => list(s.rewards?.items)), ...ruleActions(g).map((a) => ("give_item" in a ? a.give_item : undefined))]);
+  const inScenes = new Set<unknown>(all.flatMap(([s]) => beats(s).map(([b]) => b.item)));
+  const fragments = list(g.fragments).length;
+  list(g.rules).forEach((r, i) => {
+    if (!r || typeof r !== "object") return;
+    const p = `/rules/${i}`;
+    for (const part of unfinishedParts(r, lang)) out.push(makeIssue(g, "incomplete_rule", `${p}/${part.path}`, "error", { missing: part.missing }));
+    list(r.when).forEach((c, j) => {
+      if (!c || typeof c !== "object") return;
+      const at = `${p}/when/${j}`;
+      if ("has_item" in c && c.has_item && !owned.has(c.has_item) && inScenes.has(c.has_item)) out.push(makeIssue(g, "rule_has_item_document", `${at}/has_item`, "warning"));
+      if ("fragments_collected" in c && typeof c.fragments_collected === "number" && c.fragments_collected > fragments) {
+        out.push(makeIssue(g, "rule_fragments_too_many", `${at}/fragments_collected`, "warning"));
+      }
+      if ("elapsed" in c || "near" in c) out.push(makeIssue(g, "rule_elapsed_near", at, "hint"));
+    });
+    for (const key of ["then", "else"] as const) {
+      list(r[key]).forEach((a, j) => {
+        if (!a || typeof a !== "object") return;
+        const at = `${p}/${key}/${j}`;
+        if ("reveal_station" in a && visible.has(a.reveal_station)) {
+          out.push(makeIssue(g, "rule_reveal_visible", `${at}/reveal_station`, "hint", { name: visible.get(a.reveal_station) }, { paramKey: a.reveal_station }));
+        }
+        if ("message" in a && (a.message?.from === "narrator" || a.message?.from === "npc")) {
+          out.push(
+            makeIssue(g, "rule_message_from", `${at}/message/from`, "hint", {}, {
+              fix: {
+                label: "Zentrale als Absender",
+                apply: (game) => {
+                  const m = game.rules?.[i]?.[key]?.[j];
+                  if (m && "message" in m) m.message.from = "hq";
+                },
+                undoLabel: "Funkspruch kommt von der Zentrale",
+              },
+            }),
+          );
+        }
+      });
+    }
+    if (list(r.else).length && r.once !== false) out.push(makeIssue(g, "rule_else_once", `${p}/else`, "hint"));
+    if (r.once === false) {
+      out.push(
+        makeIssue(g, "rule_repeat", `${p}/once`, "warning", {}, {
+          fix: {
+            label: "Einmal je Team",
+            apply: (game) => void delete game.rules?.[i]?.once,
+            undoLabel: "Regel gilt einmal je Team",
+          },
+        }),
+      );
+    }
+  });
+  return out;
+};
+
+const STORY_CHECKS: Check = (g, _meta, lang) => {
+  const out: EditorIssue[] = [];
+  const all = stations(g);
+  const actions = ruleActions(g);
+  const started = new Set<unknown>([...all.map(([s]) => s.rewards?.chapter), ...actions.map((a) => ("start_chapter" in a ? a.start_chapter : undefined))]);
+  // Kapitel I beginnt mit dem Spielstart.
+  list(g.story?.chapters).forEach((c, k) => {
+    if (k > 0 && c && typeof c.id === "string" && !started.has(c.id)) out.push(makeIssue(g, "chapter_never_starts", `/story/chapters/${k}`, "warning"));
+  });
+  const given = new Set<unknown>([...all.flatMap(([s]) => list(s.rewards?.items)), ...actions.map((a) => ("give_item" in a ? a.give_item : undefined)), ...all.flatMap(([s]) => beats(s).map(([b]) => b.item))]);
+  list(g.items).forEach((it, k) => {
+    if (it && typeof it.id === "string" && !given.has(it.id)) out.push(makeIssue(g, "item_never_given", `/items/${k}`, "warning"));
+  });
+  // Die Zentrale spricht immer (Funk, Tipps, Einsatzbefehl), der Erzähler über jedem Erzähltakt.
+  const speakers = new Set<unknown>(all.flatMap(([s]) => beats(s).map(([b]) => b.speaker)));
+  const narration = all.some(([s]) => beats(s).some(([b]) => b.kind === "narration"));
+  list(g.characters).forEach((c, k) => {
+    if (!c || typeof c.id !== "string" || c.kind === "hq" || speakers.has(c.id) || (c.kind === "narrator" && narration)) return;
+    out.push(makeIssue(g, "character_silent", `/characters/${k}`, "hint"));
+  });
+  const scare = g.meta?.scareLevel;
+  if (typeof scare === "number" && scare >= 2 && list(g.meta?.ageGroups).includes("6-9")) out.push(makeIssue(g, "scare_too_high", "/meta/scareLevel", "warning"));
+  if (g.meta?.night === true && g.settings?.scoring?.speedBonus === true) {
+    out.push(
+      makeIssue(g, "night_speed_bonus", "/settings/scoring/speedBonus", "warning", {}, {
+        fix: {
+          label: "Schnelligkeitspunkte aus",
+          apply: (game) => {
+            const s = game.settings?.scoring;
+            if (!s) return;
+            delete s.speedBonus;
+            if (!Object.keys(s).length) delete game.settings.scoring;
+          },
+          undoLabel: "Schnelligkeitspunkte ausgeschaltet",
+        },
+      }),
+    );
+  }
+  if (!textIn(g.story?.intro?.text as never, lang).trim()) out.push(makeIssue(g, "no_intro", "/story/intro/text", "hint"));
+  return out;
+};
+
+CHECKS.push(RULE_CHECKS, STORY_CHECKS);

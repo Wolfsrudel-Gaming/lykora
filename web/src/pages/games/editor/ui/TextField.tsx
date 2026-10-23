@@ -1,14 +1,48 @@
 /**
- * Paket A: Sprachtext an einem Pfad (Titel, Frage, Tipp …). Schreibt bei jeder Eingabe verschmolzen
- * in den Verlauf, berührt das Feld beim Verlassen; Pflichtfelder bleiben als leerer Text stehen.
+ * Paket A: Text an einem Pfad (Titel, Frage, Tipp …). Schreibt bei jeder Eingabe verschmolzen in
+ * den Verlauf, berührt das Feld beim Verlassen; Pflichtfelder bleiben als leerer Text stehen.
+ * Standard ist ein Sprachtext ({ de: "…" }); `plain` für reine Zeichenketten (Telefon, Codes,
+ * Notizen, Kachel-Adresse), die nicht durch writeText gehen.
  */
 
 import { useId } from "preact/hooks";
-import { useTextField } from "../../../../lib/editor/store.ts";
-import type { JsonPointer } from "../../../../lib/editor/types.ts";
+import { editor, useFieldValue, useIssuesAt, useTextField } from "../../../../lib/editor/store.ts";
+import type { EditorIssue, JsonPointer } from "../../../../lib/editor/types.ts";
 import { FieldFrame, describedBy, hasError, useFeld } from "./FieldFrame.tsx";
 
-export function TextField({
+export interface TextFieldProps {
+  path: JsonPointer;
+  label: string;
+  required?: boolean;
+  multiline?: boolean;
+  /** reine Zeichenkette statt Sprachtext */
+  plain?: boolean;
+  hint?: string;
+  placeholder?: string;
+  rows?: number;
+  maxLength?: number;
+  /** Eingabeart für Handys, z. B. "tel" */
+  inputMode?: "text" | "tel" | "numeric" | "url" | "email";
+}
+
+export function TextField(props: TextFieldProps) {
+  return props.plain ? <PlainText {...props} /> : <LangText {...props} />;
+}
+
+function LangText(props: TextFieldProps) {
+  const field = useTextField(props.path, `${props.label} geändert`, { required: props.required });
+  return <TextInput {...props} value={field.value} issues={field.issues} onInput={field.set} onBlur={field.blur} />;
+}
+
+function PlainText(props: TextFieldProps) {
+  const store = editor.get().current;
+  const raw = useFieldValue<unknown>(props.path);
+  const issues = useIssuesAt(props.path);
+  const set = (v: string) => store?.setField(props.path, v || (props.required ? "" : undefined), `${props.label} geändert`, { coalesce: true });
+  return <TextInput {...props} value={typeof raw === "string" ? raw : ""} issues={issues} onInput={set} onBlur={() => store?.touch(props.path)} />;
+}
+
+function TextInput({
   path,
   label,
   required,
@@ -17,34 +51,29 @@ export function TextField({
   placeholder,
   rows,
   maxLength,
-}: {
-  path: JsonPointer;
-  label: string;
-  required?: boolean;
-  multiline?: boolean;
-  hint?: string;
-  placeholder?: string;
-  rows?: number;
-  maxLength?: number;
-}) {
+  inputMode,
+  value,
+  issues,
+  onInput,
+  onBlur,
+}: TextFieldProps & { value: string; issues: EditorIssue[]; onInput: (v: string) => void; onBlur: () => void }) {
   const id = useId();
   const feld = useFeld(path);
-  const field = useTextField(path, `${label} geändert`, { required });
   const shared = {
     id,
-    value: field.value,
+    value,
     placeholder,
     maxLength,
-    "aria-invalid": hasError(field.issues) || undefined,
-    "aria-describedby": describedBy(id, !!hint, field.issues.length > 0),
-    onBlur: field.blur,
+    "aria-invalid": hasError(issues) || undefined,
+    "aria-describedby": describedBy(id, !!hint, issues.length > 0),
+    onBlur,
   };
   return (
-    <FieldFrame id={id} label={label} hint={hint} required={required} issues={field.issues} feld={feld}>
+    <FieldFrame id={id} label={label} hint={hint} required={required} issues={issues} feld={feld}>
       {multiline ? (
-        <textarea {...shared} rows={rows ?? 4} onInput={(e) => field.set(e.currentTarget.value)} />
+        <textarea {...shared} rows={rows ?? 4} onInput={(e) => onInput(e.currentTarget.value)} />
       ) : (
-        <input {...shared} onInput={(e) => field.set(e.currentTarget.value)} />
+        <input {...shared} inputMode={inputMode} onInput={(e) => onInput(e.currentTarget.value)} />
       )}
     </FieldFrame>
   );

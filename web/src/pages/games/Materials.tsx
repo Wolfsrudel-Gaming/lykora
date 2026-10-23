@@ -1,6 +1,7 @@
 /** Materialliste zum Packen und Aufbauen, druckfreundlich. */
 
 import { formatDate } from "../../lib/format.ts";
+import { ApiError } from "../../lib/api.ts";
 import { api } from "../../lib/session.ts";
 import type { MaterialItem } from "../../lib/types.ts";
 import { Empty, ErrorNotice, Loading, useLoad, useTitle } from "../../ui/components.tsx";
@@ -21,7 +22,15 @@ const KINDS: Record<string, string> = {
 
 export function MaterialsPage({ gameId }: { gameId: string }) {
   const game = useLoad(() => api.game(gameId), [gameId]);
-  const materials = useLoad(() => api.materials(gameId), [gameId]);
+  // Spiele ohne Version: Liste aus dem Entwurf des Baukastens.
+  const materials = useLoad(
+    () =>
+      api.materials(gameId).catch((e: unknown) => {
+        if (e instanceof ApiError && e.code === "no_version") return api.materials(gameId, "draft");
+        throw e;
+      }),
+    [gameId],
+  );
   useTitle(game.data ? `Material: ${game.data.title}` : "Material");
   if ((game.loading && !game.data) || (materials.loading && !materials.data)) return <div class="page"><Loading /></div>;
   if (!game.data || !materials.data) {
@@ -34,7 +43,7 @@ export function MaterialsPage({ gameId }: { gameId: string }) {
   const g = game.data;
   const { items, teamGear } = materials.data;
   // Nach Station gruppieren, in der Reihenfolge des Spiels.
-  const order = g.content.stations.map((s) => s.id);
+  const order = (g.content?.stations ?? []).map((s) => s.id);
   const groups = new Map<string, MaterialItem[]>();
   for (const item of [...items].sort((a, b) => order.indexOf(a.station ?? "") - order.indexOf(b.station ?? ""))) {
     const key = item.stationName ?? item.station ?? "Allgemein";
@@ -52,14 +61,14 @@ export function MaterialsPage({ gameId }: { gameId: string }) {
       <header class="print-only">
         <h1>Materialliste: {g.title}</h1>
         <p>
-          Version {g.latest_version} · gedruckt am {formatDate(Date.now())}
+          {g.latest_version ? `Version ${g.latest_version}` : "Entwurf"} · gedruckt am {formatDate(Date.now())}
         </p>
       </header>
       <p class="muted">
         {total} Teile an {groups.size} Stationen. Abhaken beim Packen und beim Abbau.
       </p>
       {items.length === 0 ? (
-        <Empty>Das Spiel nennt keine Requisiten. Requisiten stehen im Spiel unter stations[].props.</Empty>
+        <Empty>Das Spiel nennt keine Requisiten. Du trägst sie im Baukasten bei jeder Station unter „Aufbau“ ein.</Empty>
       ) : (
         <section class="card">
           <table class="table cards checklist">

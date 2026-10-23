@@ -29,14 +29,11 @@ export interface DraftClient {
   saveDraft(gameId: string, body: SaveBody): Promise<SaveResult>;
 }
 
-/**
- * Client über die Api-Klasse (api.draft, api.saveDraft). types.ts führt EditorMeta noch als
- * Record<string, unknown> (TODO(A2) dort); bis es die Typen aus editor/types.ts nimmt, bleibt der Cast.
- */
+/** Client über die Api-Klasse (api.draft, api.saveDraft). */
 export function draftClient(api: Api): DraftClient {
   return {
-    draft: (gameId) => api.draft(gameId).then((d) => ({ ...d, meta: (d.meta ?? {}) as EditorMeta })),
-    saveDraft: (gameId, body) => api.saveDraft(gameId, body as unknown as Parameters<Api["saveDraft"]>[1]),
+    draft: (gameId) => api.draft(gameId).then((d) => ({ ...d, meta: d.meta ?? {} })),
+    saveDraft: (gameId, body) => api.saveDraft(gameId, body),
   };
 }
 

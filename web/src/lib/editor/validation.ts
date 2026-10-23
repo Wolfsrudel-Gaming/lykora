@@ -340,27 +340,35 @@ function shadowed(path: JsonPointer, schemaPaths: string[]): boolean {
 /**
  * Alle Meldungen zum Entwurf: Schema (zusammengefasst) → Querverweise → Baukasten-Prüfungen.
  * Querverweise und Baukasten-Fehler, die unter einem Schemafehler liegen, fallen weg (ein Problem, eine Meldung).
- * Läuft auch auf kaputten Entwürfen und wirft nicht.
+ * Ist ein Verweis noch leer (Regel ohne gewählte Station) und meldet der Baukasten dort selbst einen
+ * Fehler, ersetzt seine Meldung den Kennungs-Satz des Schemas. Läuft auch auf kaputten Entwürfen und wirft nicht.
  */
 export function validateDraft(game: Game, meta: EditorMeta): EditorIssue[] {
   const out: EditorIssue[] = [];
   const result = validate(game);
-  const schemaIssues = collapseSchemaIssues(result.schema, game).map((s) => fromSchema(s, game));
-  out.push(...schemaIssues);
-  const schemaPaths = schemaIssues.map((i) => i.at.path);
+  let schemaIssues = collapseSchemaIssues(result.schema, game).map((s) => fromSchema(s, game));
   // Bei unbekannter Formatversion ist nichts weiter prüfbar.
-  if (game && typeof game === "object" && !schemaIssues.some((i) => i.code === "formatVersion")) {
-    const refs = checkReferences(game);
-    for (const r of refs.errors) if (!shadowed(r.path, schemaPaths)) out.push(fromReference(r, game, "error"));
-    for (const r of refs.warnings) if (!shadowed(r.path, schemaPaths)) out.push(fromReference(r, game, "warning"));
+  const checkable = game && typeof game === "object" && !schemaIssues.some((i) => i.code === "formatVersion");
+  const checked: EditorIssue[] = [];
+  if (checkable) {
     const lang = game.meta?.languages?.[0] ?? "de";
     for (const check of CHECKS) {
       try {
-        for (const issue of check(game, meta, lang)) if (issue.severity !== "error" || !shadowed(issue.at.path, schemaPaths)) out.push(issue);
+        checked.push(...check(game, meta, lang));
       } catch {
         // Eine Prüfung, die an einem Entwurf scheitert, darf die anderen nicht mitreißen.
       }
     }
+    const own = new Set(checked.filter((i) => i.severity === "error").map((i) => i.at.path));
+    schemaIssues = schemaIssues.filter((i) => !(i.code === "pattern" && own.has(i.at.path) && getAt(game, i.at.path) === ""));
+  }
+  out.push(...schemaIssues);
+  const schemaPaths = schemaIssues.map((i) => i.at.path);
+  if (checkable) {
+    const refs = checkReferences(game);
+    for (const r of refs.errors) if (!shadowed(r.path, schemaPaths)) out.push(fromReference(r, game, "error"));
+    for (const r of refs.warnings) if (!shadowed(r.path, schemaPaths)) out.push(fromReference(r, game, "warning"));
+    for (const issue of checked) if (issue.severity !== "error" || !shadowed(issue.at.path, schemaPaths)) out.push(issue);
   }
   // Ein Finale, das nichts freischaltet, meldet der Baukasten als Fehler; die Kern-Warnung dazu entfällt.
   const finalHidden = new Set(out.filter((i) => i.code === "final_hidden_unreachable").map((i) => i.at.objectId));

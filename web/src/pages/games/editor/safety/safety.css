@@ -1,0 +1,75 @@
+/*
+ * Paket B: Bereich „Sicherheit“. Gruppen als Karten wie im übrigen Baukasten; nur Tokens.
+ */
+
+.ed-safety h3,
+.ed-safety h4 {
+  margin: 0;
+}
+
+.ed-safety .grid-2 {
+  align-items: start;
+}
+
+.ed-safety-point {
+  padding-bottom: 4px;
+}
+
+.ed-safety-item > summary {
+  gap: 8px;
+  list-style: none;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.ed-safety-item > summary::after {
+  content: "Bearbeiten ›";
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.ed-safety-item[open] > summary::after {
+  content: "Zuklappen";
+}
+
+.ed-safety-item > div {
+  padding: 4px 0 8px 30px;
+}
+
+.ed-gear-suggest {
+  gap: 6px;
+}
+
+.ed-time-sentence {
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+}
+
+.ed-tip {
+  border-left-color: var(--accent);
+}
+
+.ed-tip p {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .ed-safety-item > summary::after {
+    content: "Bearbeiten ›";
+    margin-left: auto;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  .ed-safety-item[open] > summary::after {
+    content: "Zuklappen";
+  }
+
+  .ed-safety-item > div {
+    padding-left: 0;
+  }
+}

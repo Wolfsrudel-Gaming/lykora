@@ -1,0 +1,462 @@
+/* Paket E: Veröffentlichen, Probelauf, Druckansichten, Assistent „Neues Spiel“ und Spiele-Liste. Nur Tokens. */
+
+/* Checkliste */
+
+.pub-list .issue-text strong {
+  font-weight: 700;
+}
+
+.pub-ideas > summary {
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Eingeklappt sichtbar als aufklappbar zeigen */
+.pub-ideas > summary::before {
+  content: "▸ ";
+}
+
+.pub-ideas[open] > summary::before {
+  content: "▾ ";
+}
+
+.pub-ideas > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pub-day {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pub-day li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.pub-day li + li {
+  border-top: 1px solid var(--line);
+}
+
+.pub-day .check {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.pub-day .check input {
+  flex: none;
+}
+
+.pub-diff {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.pub-diff li {
+  display: flex;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.pub-diff-mark {
+  width: 1.2em;
+  flex: none;
+  font: 700 14px/1.5 var(--font-mono);
+  color: var(--accent);
+}
+
+.pub-go {
+  gap: 12px;
+}
+
+.pub-go .btn.primary[aria-disabled="true"] {
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.pub-planned legend {
+  margin-bottom: 4px;
+}
+
+.pub-planned .check {
+  align-items: flex-start;
+}
+
+.pub-planned .check input {
+  margin-top: 4px;
+}
+
+/* Probelauf */
+
+.pub-test-join {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.pub-test-join > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.pub-test-join .kv {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.pub-test-join .kv dd + dt {
+  margin-top: 10px;
+}
+
+.pub-test-join .join-code {
+  font-size: clamp(28px, 7vw, 40px);
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .pub-test-join {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.pub-codes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.pub-code {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pub-code figure {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.pub-code h3 .num {
+  color: var(--accent);
+}
+
+/* Schilder und Blatt */
+
+.pub-signs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.pub-sign {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  padding: 20px;
+  border: 6px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.pub-sign p {
+  margin: 0;
+}
+
+.pub-sign-number {
+  font: 700 64px/1 var(--font-head);
+}
+
+.pub-sign-name {
+  font: 600 22px/1.2 var(--font-ui);
+}
+
+.pub-sign .qr {
+  width: min(280px, 100%);
+}
+
+.pub-sign-code strong {
+  white-space: nowrap;
+}
+
+.pub-sign-brand {
+  font: 600 14px/1 var(--font-brand);
+  color: var(--muted);
+}
+
+.pub-sheet .solution {
+  margin-top: 4px;
+}
+
+@page schild {
+  size: A5 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  .pub-signs {
+    display: block;
+  }
+
+  .pub-sign {
+    page: schild;
+    break-after: page;
+    height: 180mm;
+    align-content: center;
+    border-width: 4mm;
+  }
+
+  .pub-sign .qr {
+    width: 90mm;
+    padding: 0;
+  }
+
+  .pub-sign-number {
+    font-size: 48pt;
+  }
+}
+
+/* Assistent „Neues Spiel“ */
+
+.wizard {
+  max-width: 1100px;
+}
+
+.wizard-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.wizard-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.wizard-steps li.current {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.wizard-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--edge);
+  border-radius: 50%;
+  font: 700 12px/1 var(--font-mono);
+}
+
+.wizard-steps li.current .wizard-dot,
+.wizard-steps li.done .wizard-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.wizard-steps li.current .wizard-dot {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+@media (max-width: 640px) {
+  .wizard-steps li:not(.current) .wizard-step-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.wizard-body h2 {
+  margin: 0;
+}
+
+.wizard-body legend {
+  padding: 0;
+  margin-bottom: var(--gap);
+}
+
+.wizard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.wizard-cards.five {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+
+.wizard-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ground);
+}
+
+.wizard-card.chosen {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.wizard-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  cursor: pointer;
+  width: 100%;
+}
+
+.wizard-choice input {
+  margin-top: 4px;
+}
+
+.wizard-card-title {
+  font: 700 18px/1.2 var(--font-head);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wizard-peek {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.wizard-peek ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.wizard-paste .field {
+  flex: 1 1 260px;
+}
+
+.wizard-map-wait {
+  min-height: 260px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.wizard input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.wizard-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* Spiele-Liste */
+
+.games .menu {
+  position: relative;
+}
+
+.games .menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 950;
+  min-width: 260px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  box-shadow: 0 8px 24px var(--shade);
+}
+
+.games .menu-list button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.games .menu-list button:hover,
+.games .menu-list button:focus-visible {
+  background: var(--raised);
+}
+
+.games .menu-list button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.games-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.games-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.games-templates .card {
+  justify-content: space-between;
+}
+
+.games-templates h3 {
+  margin: 0;
+  font: 700 18px/1.2 var(--font-head);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wizard-map {
+  height: clamp(280px, 50vh, 460px);
+  min-height: 0;
+}
+
+.games-list.card {
+  padding: 0 16px;
+}
+
+.pub-sheet .mono {
+  white-space: nowrap;
+}

@@ -7,6 +7,7 @@
 import { Fragment } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { saveJson } from "../../../lib/download.ts";
+import { jumpTo } from "../../../lib/editor/jump.ts";
 import { editor, useEditor, useTextField } from "../../../lib/editor/store.ts";
 import { readText } from "../../../lib/editor/text.ts";
 import type { EditorState } from "../../../lib/editor/types.ts";
@@ -27,6 +28,15 @@ export function publishCounter(issues: EditorState["issues"], dismissed: string[
     else if (i.severity === "warning") out.warnings++;
   }
   return out;
+}
+
+/** Rückgängig oder Wiederholen mit Meldung; springt zur betroffenen Stelle, wenn der Schritt eine kennt. */
+export function runHistory(what: "undo" | "redo"): void {
+  const store = editor.get().current;
+  const entry = what === "undo" ? store?.undo() : store?.redo();
+  if (!entry) return;
+  notify(`${what === "undo" ? "Rückgängig" : "Wiederholt"}: ${entry.label}`);
+  if (entry.focus) jumpTo(entry.focus);
 }
 
 export const SHORTCUTS: [string, string][] = [
@@ -81,12 +91,6 @@ export function EditorHeader({
       document.removeEventListener("keydown", onKey);
     };
   }, [menu]);
-
-  const run = (what: "undo" | "redo") => {
-    if (!store) return;
-    const entry = what === "undo" ? store.undo() : store.redo();
-    if (entry) notify(`${what === "undo" ? "Rückgängig" : "Wiederholt"}: ${entry.label}`);
-  };
 
   const exportDraft = () => {
     setMenu(false);
@@ -151,11 +155,11 @@ export function EditorHeader({
         <div class="editor-tools">
           {!narrow && <SaveStatus save={s.save} backup={s.backup} who={s.save.conflict?.updated_by?.name} onRetry={() => void store?.retrySave()} onConflict={onConflict} />}
           <span class="row nowrap" role="group" aria-label="Verlauf">
-            <button type="button" class="btn small" disabled={!undoTop} title={undoTop ? `Rückgängig: ${undoTop.label} (Strg+Z)` : "Nichts rückgängig zu machen"} aria-keyshortcuts="Control+Z" onClick={() => run("undo")}>
+            <button type="button" class="btn small" disabled={!undoTop} title={undoTop ? `Rückgängig: ${undoTop.label} (Strg+Z)` : "Nichts rückgängig zu machen"} aria-keyshortcuts="Control+Z" onClick={() => runHistory("undo")}>
               <span aria-hidden="true">↶</span>
               <span class="sr-only">Rückgängig{undoTop ? `: ${undoTop.label}` : ""}</span>
             </button>
-            <button type="button" class="btn small" disabled={!redoTop} title={redoTop ? `Wiederholen: ${redoTop.label} (Strg+Umschalt+Z)` : "Nichts zu wiederholen"} aria-keyshortcuts="Control+Shift+Z Control+Y" onClick={() => run("redo")}>
+            <button type="button" class="btn small" disabled={!redoTop} title={redoTop ? `Wiederholen: ${redoTop.label} (Strg+Umschalt+Z)` : "Nichts zu wiederholen"} aria-keyshortcuts="Control+Shift+Z Control+Y" onClick={() => runHistory("redo")}>
               <span aria-hidden="true">↷</span>
               <span class="sr-only">Wiederholen{redoTop ? `: ${redoTop.label}` : ""}</span>
             </button>

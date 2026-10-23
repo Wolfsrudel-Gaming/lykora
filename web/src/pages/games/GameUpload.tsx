@@ -57,11 +57,14 @@ export function GameUpload({
   submitLabel,
   expectId,
   onSave,
+  onDraft,
 }: {
   submitLabel: string;
   /** ID des bestehenden Spiels; weicht die neue ab, gibt es einen Hinweis */
   expectId?: string;
   onSave: (content: Game, comment: string) => Promise<void>;
+  /** Fehlerhafte Datei mit der Grundform eines Spiels trotzdem als Entwurf öffnen (Baukasten) */
+  onDraft?: (content: Game) => Promise<void>;
 }) {
   const [mode, setMode] = useState<"file" | "paste">("file");
   const [source, setSource] = useState("");
@@ -179,6 +182,23 @@ export function GameUpload({
         </p>
       )}
       {result && <ValidationList result={result} game={parsed} />}
+      {onDraft && result && !ok && (parsed as { format?: { name?: unknown } } | null)?.format?.name === "lykora-game" && (
+        <div class="row wrap">
+          <button
+            type="button"
+            class="btn"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void onDraft(parsed as Game)
+                .catch((err) => setProblem(errorText(err)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            Trotzdem als Entwurf öffnen und im Baukasten reparieren
+          </button>
+        </div>
+      )}
       {ok && game && (
         <form class="stack" onSubmit={save}>
           <p class="notice ok">

@@ -10,7 +10,7 @@ import { readText } from "../../../../lib/editor/text.ts";
 import type { Game, IdKind, JsonPointer } from "../../../../lib/editor/types.ts";
 import { Icon } from "../../../../ui/icons.tsx";
 import { IssueList } from "./IssueList.tsx";
-import { describedBy, hasError, useFeld } from "./FieldFrame.tsx";
+import { describedBy, hasError } from "./FieldFrame.tsx";
 
 export interface RefOption {
   value: string;
@@ -93,9 +93,9 @@ export function RefSelect(props: Props) {
   const { kind, label, hint, path, onCreate, required } = props;
   const id = useId();
   const options = useEditorSelect((s) => refOptions(s.game, kind, s.lang, s.expert), (a, b) => JSON.stringify(a) === JSON.stringify(b));
-  const issues = useIssuesAt(path ?? "/__kein_pfad__");
-  const feldOfPath = useEditorSelect((s) => (path ? (s.issues.length, path) : null));
-  const feld = props.feld ?? (feldOfPath ? feldFromPath(feldOfPath) : kind);
+  // Ohne Pfad gibt es keine Meldungen am Feld: ein Pfad, der nie vorkommt.
+  const issues = useIssuesAt(path ?? "/-");
+  const feld = props.feld ?? (path ? feldFromPath(path) : kind);
   const invalid = hasError(issues) || undefined;
   const describe = describedBy(id, !!hint, issues.length > 0);
 
