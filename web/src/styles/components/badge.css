@@ -1,0 +1,70 @@
+/* Kennzeichen */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  font: 700 12px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.badge.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.badge.strong {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.badge.safety {
+  background: var(--safety);
+  border-color: var(--safety);
+  color: var(--on-safety);
+}
+
+/* Rückruf: Sicherheitsrot mit einem Stück Absperrband am Rand, Schrift auf ruhigem Grund */
+.badge.recalled {
+  position: relative;
+  padding-left: 18px;
+  background: var(--safety);
+  border-color: var(--safety);
+  color: var(--on-safety);
+  overflow: hidden;
+}
+
+.badge.recalled::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10px;
+  background: repeating-linear-gradient(-45deg, var(--tape-b) 0 4px, var(--tape-a) 4px 8px);
+}
+
+.badge.quiet {
+  border-style: dashed;
+}
+
+/* IDs stehen so da, wie sie im Spiel geschrieben werden. */
+.badge.keep-case {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--ground);
+  box-shadow: 0 0 0 1px var(--edge);
+  flex: none;
+}

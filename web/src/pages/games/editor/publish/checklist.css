@@ -1,0 +1,161 @@
+/* Paket E: Veröffentlichen, Probelauf, Druckansichten, Assistent „Neues Spiel“ und Spiele-Liste. Nur Tokens. */
+
+/* Checkliste */
+
+.pub-list .issue-text strong {
+  font-weight: 700;
+}
+
+.pub-ideas > summary {
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Eingeklappt sichtbar als aufklappbar zeigen */
+.pub-ideas > summary::before {
+  content: "▸ ";
+}
+
+.pub-ideas[open] > summary::before {
+  content: "▾ ";
+}
+
+.pub-ideas > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pub-day {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pub-day li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.pub-day li + li {
+  border-top: 1px solid var(--line);
+}
+
+.pub-day .check {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.pub-day .check input {
+  flex: none;
+}
+
+.pub-diff {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.pub-diff li {
+  display: flex;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.pub-diff-mark {
+  width: 1.2em;
+  flex: none;
+  font: 700 14px/1.5 var(--font-mono);
+  color: var(--accent);
+}
+
+.pub-go {
+  gap: 12px;
+}
+
+.pub-go .btn.primary[aria-disabled="true"] {
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.pub-planned legend {
+  margin-bottom: 4px;
+}
+
+.pub-planned .check {
+  align-items: flex-start;
+}
+
+.pub-planned .check input {
+  margin-top: 4px;
+}
+
+/* Probelauf */
+
+.pub-test-join {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: center;
+}
+
+.pub-test-join > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.pub-test-join .kv {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.pub-test-join .kv dd + dt {
+  margin-top: 10px;
+}
+
+.pub-test-join .join-code {
+  font-size: clamp(28px, 7vw, 40px);
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .pub-test-join {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.pub-codes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.pub-code {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pub-code figure {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.pub-code h3 .num {
+  color: var(--accent);
+}
+

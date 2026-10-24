@@ -1,0 +1,51 @@
+/* Druckansichten */
+
+@media print {
+  :root,
+  :root[data-theme="day"] {
+    --ground: #fff;
+    --surface: #fff;
+    --raised: #f2f2f2;
+    --line: #bbb;
+    --text: #000;
+    --muted: #333;
+    --edge: #555;
+    --accent: #000;
+  }
+
+  .topbar,
+  .version-band,
+  .no-print,
+  .toasts {
+    display: none !important;
+  }
+
+  .page {
+    padding: 0;
+    max-width: none;
+  }
+
+  .card {
+    border: 0;
+    padding: 0;
+  }
+
+  .print-break {
+    break-before: page;
+  }
+
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+}

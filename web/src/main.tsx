@@ -1,6 +1,6 @@
 import { render } from "preact";
 import "./styles/tokens.css";
-import "./styles/app.css";
+import "./styles/index.css";
 import { App } from "./app.tsx";
 import { startRouter } from "./lib/router.ts";
 import { restoreSession } from "./lib/session.ts";

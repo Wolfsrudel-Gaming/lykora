@@ -1,0 +1,70 @@
+/* Ablage und Upload */
+
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 2px dashed var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:focus-within {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.dropzone.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.media-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.media-row .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.media-row .adopt {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .media-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .media-row .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+.thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+}
+
+.thumb svg {
+  width: 24px;
+  height: 24px;
+  color: var(--muted);
+}

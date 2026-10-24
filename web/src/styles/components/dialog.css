@@ -1,0 +1,33 @@
+/* Dialog im Seitendesign statt window.confirm */
+
+dialog.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+dialog.dialog::backdrop {
+  background: var(--shade);
+}
+
+dialog.dialog.safety {
+  border: 2px solid var(--safety);
+}
+
+dialog.dialog.safety::before {
+  content: "";
+  display: block;
+  height: 10px;
+  background: repeating-linear-gradient(-45deg, var(--tape-a) 0 12px, var(--tape-b) 12px 24px);
+}
+
+.dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

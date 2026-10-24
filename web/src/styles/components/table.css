@@ -1,0 +1,66 @@
+/* Tabellen; auf dem Handy werden Zeilen zu Karten */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font: 500 12px/1.3 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.table td.num,
+.table th.num {
+  text-align: right;
+}
+
+.table tr.selected td {
+  background: var(--accent-soft);
+}
+
+@media (max-width: 640px) {
+  .table.cards thead {
+    display: none;
+  }
+
+  .table.cards,
+  .table.cards tbody,
+  .table.cards tr,
+  .table.cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .table.cards tr {
+    border-bottom: 1px solid var(--line);
+    padding: 8px 0;
+  }
+
+  .table.cards td {
+    border: 0;
+    padding: 3px 0;
+    text-align: left;
+  }
+
+  .table.cards td[data-label]::before {
+    content: attr(data-label) " ";
+    font: 500 11px/1.3 var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 6px;
+  }
+}

@@ -1,0 +1,101 @@
+/* Spielübersicht */
+
+.station-card {
+  display: grid;
+  gap: 10px;
+}
+
+.station-card header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.station-card header h3 {
+  flex: 1 1 200px;
+  font-size: 20px;
+}
+
+.solution {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--raised);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* Klang-Zuordnung */
+
+.sound-grid {
+  display: grid;
+  gap: 10px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  align-items: end;
+}
+
+.sound-pick {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sound-pick select {
+  flex: 1;
+}
+
+/* Takte einer Szene im Klang-Formular */
+.beats {
+  margin-top: 8px;
+}
+
+.beat {
+  padding: 12px 0;
+}
+
+/* Speichern bleibt bei langen Formularen in Reichweite, sobald es etwas zu speichern gibt. */
+.save-bar.pending {
+  position: sticky;
+  bottom: 12px;
+  z-index: 10;
+  border-color: var(--edge);
+  box-shadow: 0 -6px 16px -8px var(--shade);
+}
+
+.save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+
+.save-row > .field {
+  flex: 1 1 220px;
+}
+
+.save-row > .row {
+  margin-left: auto;
+}
+
+.volume {
+  display: grid;
+  grid-template-columns: 1fr 52px;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--tap);
+}

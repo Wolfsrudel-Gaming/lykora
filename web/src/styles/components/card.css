@@ -1,0 +1,77 @@
+/* Flächen */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-width: 0;
+}
+
+.card > h2,
+.card > h3,
+.card > header {
+  margin-bottom: 12px;
+}
+
+.card.flat {
+  padding: 0;
+}
+
+.card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card-link:hover {
+  border-color: var(--accent);
+}
+
+.notice {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--edge);
+  background: var(--surface);
+  padding: 10px 14px;
+  border-radius: var(--radius-small);
+}
+
+.notice.error {
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.notice.ok {
+  border-left-color: var(--rescue);
+}
+
+.notice ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.empty {
+  color: var(--muted);
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.kv dt {
+  font: 500 12px/1.9 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

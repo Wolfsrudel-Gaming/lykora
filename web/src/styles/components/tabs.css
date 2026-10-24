@@ -1,0 +1,84 @@
+/* Reiter */
+
+/* Reiter brechen um, statt seitlich aus dem Bild zu rollen: Jeder Bereich bleibt sichtbar. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-label {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: 600 14px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.tabs button:hover {
+  color: var(--text);
+}
+
+.tabs button[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* Unterseiten als Reiter-Links (z. B. beim Spiel) */
+.tabs a {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+  font: 600 14px/1 var(--font-ui);
+  text-decoration: none;
+}
+
+.tabs a:hover {
+  color: var(--text);
+}
+
+.tabs a[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  font: 700 12px/1 var(--font-mono);
+}
+
+.count.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.count.safety {
+  background: var(--safety);
+  color: var(--on-safety);
+}

@@ -1,0 +1,9 @@
+.event-card {
+  display: grid;
+  gap: 6px;
+}
+
+.event-card h3 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
