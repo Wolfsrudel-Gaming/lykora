@@ -65,7 +65,7 @@
 }
 
 .clock.low .num {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Verbindung: Zustand über Form und Text, nicht nur Farbe */
@@ -455,7 +455,7 @@
 }
 
 .action-row.staff strong {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .action-row.rejected strong {
@@ -594,7 +594,7 @@
 
 .review-answer {
   font: 600 18px/1.3 var(--font-mono);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Logbuch */

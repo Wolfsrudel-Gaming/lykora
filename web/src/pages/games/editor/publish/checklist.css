@@ -72,7 +72,7 @@
   width: 1.2em;
   flex: none;
   font: 700 14px/1.5 var(--font-mono);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .pub-go {
@@ -156,6 +156,6 @@
 }
 
 .pub-code h3 .num {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 

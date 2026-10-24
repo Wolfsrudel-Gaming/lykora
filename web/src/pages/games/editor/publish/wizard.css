@@ -38,7 +38,7 @@
 .wizard-steps li.current .wizard-dot,
 .wizard-steps li.done .wizard-dot {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .wizard-steps li.current .wizard-dot {

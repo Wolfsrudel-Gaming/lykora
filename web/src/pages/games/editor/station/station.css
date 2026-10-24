@@ -218,7 +218,7 @@
 .st-code {
   font-size: 22px;
   letter-spacing: 0.12em;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .st-off {
@@ -321,7 +321,7 @@
   font: 600 13px/1.2 var(--font-head);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .st-card {
@@ -385,7 +385,7 @@
   padding: 8px 10px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-small);
-  color: var(--accent);
+  color: var(--accent-text);
   text-align: center;
   font-weight: 600;
 }
@@ -400,7 +400,7 @@
 .st-wheels {
   font-size: 28px;
   letter-spacing: 0.2em;
-  color: var(--accent);
+  color: var(--accent-text);
   text-align: center;
 }
 
@@ -416,7 +416,7 @@
   font: 700 18px/1.1 var(--font-head);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
   transform: rotate(-4deg);
 }
 
@@ -427,7 +427,7 @@
 }
 
 .st-marks .btn.on {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -461,7 +461,7 @@
 
 .issue-inline.error > span:first-child,
 .issue-inline.warning > span:first-child {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
 }
 

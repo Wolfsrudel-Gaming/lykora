@@ -106,7 +106,7 @@
 
 .d-roman {
   font: 700 22px/1 var(--font-head);
-  color: var(--accent);
+  color: var(--accent-text);
   min-width: 2.5ch;
 }
 

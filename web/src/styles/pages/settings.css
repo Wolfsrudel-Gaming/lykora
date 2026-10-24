@@ -144,7 +144,7 @@
 
 .update-steps li.current::before {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .update-progress.failed,

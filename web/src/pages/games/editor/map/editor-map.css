@@ -199,7 +199,7 @@
 .ed-menu .menu-list button[aria-checked="true"]::before {
   content: "✓";
   margin-right: 8px;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Karte: eigener Stapelkontext, damit Leaflets Ebenen nicht über Kopf und Menüs liegen */
@@ -345,7 +345,7 @@
   right: -9px;
   border: 1px solid var(--accent);
   background: var(--surface);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .ed-station.error .mk-flag {

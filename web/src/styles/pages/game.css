@@ -19,7 +19,7 @@
 
 .solution {
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: var(--accent-text);
   overflow-wrap: anywhere;
 }
 

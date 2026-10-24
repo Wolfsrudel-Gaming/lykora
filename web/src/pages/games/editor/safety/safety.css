@@ -25,7 +25,7 @@
 .ed-safety-item > summary::after {
   content: "Bearbeiten ›";
   margin-left: auto;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 14px;
 }
 
@@ -61,7 +61,7 @@
   .ed-safety-item > summary::after {
     content: "Bearbeiten ›";
     margin-left: auto;
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 14px;
   }
 

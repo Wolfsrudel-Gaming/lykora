@@ -181,7 +181,7 @@
 }
 
 .save-status.saved svg {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .save-status.offline,
