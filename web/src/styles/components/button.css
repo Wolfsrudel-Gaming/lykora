@@ -1,0 +1,311 @@
+/*
+ * Button: Varianten primary, secondary (Standard), ghost, link, danger, danger-quiet, safety;
+ * Größen sm, md (Standard), lg; Icon-Knopf; Laden. Zustände: hover, active, focus-visible, disabled, loading, selected.
+ * Alte Kurzformen (.btn.primary, .btn.ghost, .btn.safety, .btn.small) bleiben als Alias.
+ *
+ * Hover und Druck liegen als Überlagerung (--hover, --press) über der Fläche, damit sie auf jeder Variante passen.
+ */
+
+.btn {
+  --btn-bg: var(--raised);
+  --btn-fg: var(--text);
+  --btn-bd: var(--line);
+  --btn-bd-hover: var(--line-strong);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  min-width: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--btn-bd);
+  border-radius: var(--radius-md);
+  background-color: var(--btn-bg);
+  color: var(--btn-fg);
+  font: 600 var(--fs-15) / 1.2 var(--font-ui);
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-hover) var(--ease-out),
+    border-color var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-hover) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
+}
+
+.btn:hover,
+.btn.is-hover {
+  border-color: var(--btn-bd-hover);
+  background-image: linear-gradient(var(--hover), var(--hover));
+  text-decoration: none;
+}
+
+.btn:active,
+.btn.is-active {
+  background-image: linear-gradient(var(--press), var(--press));
+  transform: translateY(0.5px);
+}
+
+.btn svg,
+.btn .icon {
+  flex: none;
+}
+
+/* Fokus erzwingen (Entwurfsseite, Tests) */
+.btn.is-focus {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* Varianten */
+
+.btn--secondary {
+  --btn-bg: var(--raised);
+  --btn-fg: var(--text);
+  --btn-bd: var(--line);
+}
+
+.btn--primary,
+.btn.primary {
+  --btn-bg: var(--accent);
+  --btn-fg: var(--on-accent);
+  --btn-bd: transparent;
+  --btn-bd-hover: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.btn--primary:hover,
+.btn.primary:hover,
+.btn--primary.is-hover {
+  --btn-bg: var(--accent-hover);
+  background-image: none;
+}
+
+.btn--primary:active,
+.btn.primary:active,
+.btn--primary.is-active {
+  --btn-bg: var(--accent-press);
+  background-image: none;
+}
+
+.btn--ghost,
+.btn.ghost {
+  --btn-bg: transparent;
+  --btn-fg: var(--text);
+  --btn-bd: transparent;
+  --btn-bd-hover: transparent;
+}
+
+.btn--link {
+  --btn-bg: transparent;
+  --btn-fg: var(--accent-text);
+  --btn-bd: transparent;
+  --btn-bd-hover: transparent;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  font-weight: 400;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.btn--link:hover,
+.btn--link.is-hover {
+  background-image: none;
+  text-decoration-thickness: 2px;
+}
+
+.btn--link:active,
+.btn--link.is-active {
+  background-image: none;
+  transform: none;
+}
+
+.btn--danger {
+  --btn-bg: var(--danger-fill);
+  --btn-fg: var(--on-danger);
+  --btn-bd: transparent;
+  --btn-bd-hover: transparent;
+}
+
+.btn--danger-quiet {
+  --btn-bg: transparent;
+  --btn-fg: var(--danger);
+  --btn-bd: var(--danger-line);
+  --btn-bd-hover: var(--danger);
+}
+
+.btn--danger-quiet:hover,
+.btn--danger-quiet.is-hover {
+  background-image: linear-gradient(var(--danger-soft), var(--danger-soft));
+}
+
+/* Nur Rückruf und SOS-Bestätigung */
+.btn--safety,
+.btn.safety {
+  --btn-bg: var(--safety);
+  --btn-fg: var(--on-safety);
+  --btn-bd: var(--safety);
+  --btn-bd-hover: var(--safety);
+}
+
+.btn--safety:hover,
+.btn.safety:hover,
+.btn--safety.is-hover {
+  box-shadow: inset 0 0 0 2px var(--on-safety);
+}
+
+/* Umschalter (aria-pressed) und gewählte Knöpfe */
+.btn[aria-pressed="true"],
+.btn--selected {
+  --btn-bg: var(--accent-soft);
+  --btn-fg: var(--accent-text);
+  --btn-bd: var(--accent-line);
+  --btn-bd-hover: var(--accent-line);
+}
+
+/* Größen */
+
+.btn--sm,
+.btn.small {
+  min-height: var(--control-sm);
+  min-width: var(--control-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--type-label);
+}
+
+.btn--lg {
+  min-height: var(--control-lg);
+  min-width: var(--control-lg);
+  padding: 0 var(--space-5);
+  font-size: var(--fs-17);
+}
+
+.btn svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.btn--sm svg,
+.btn.small svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+/* Nur Symbol: quadratisch, Name steht im aria-label */
+.btn--icon {
+  padding: 0;
+  width: var(--control-md);
+}
+
+.btn--icon.btn--sm,
+.btn--icon.small {
+  width: var(--control-sm);
+}
+
+.btn--icon.btn--lg {
+  width: var(--control-lg);
+}
+
+.btn--icon.btn--sm svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.btn.block,
+.btn--block {
+  width: 100%;
+}
+
+.btn.wrap {
+  white-space: normal;
+  text-align: left;
+}
+
+/* Zähler im Knopf */
+.btn .count {
+  margin-right: calc(var(--space-1) * -1);
+}
+
+/* Laden: Klicks gesperrt, Text bleibt; der Spinner ersetzt das Symbol links, sonst steht er davor */
+.btn[aria-busy="true"] {
+  pointer-events: none;
+  cursor: progress;
+}
+
+.btn[aria-busy="true"] .spinner {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+}
+
+.btn--primary .spinner,
+.btn.primary .spinner,
+.btn--danger .spinner,
+.btn--safety .spinner {
+  border-color: transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+  opacity: 0.9;
+}
+
+/* Gesperrt: keine Deckkraft, sondern eigene Flächen; kein Hover, kein Druck */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  --btn-bg: var(--sunken);
+  --btn-fg: var(--text-disabled);
+  --btn-bd: var(--line);
+  cursor: not-allowed;
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn--ghost:disabled,
+.btn.ghost:disabled,
+.btn--link:disabled {
+  --btn-bg: transparent;
+  --btn-bd: transparent;
+}
+
+.btn:disabled:hover,
+.btn[aria-disabled="true"]:hover {
+  --btn-bd-hover: var(--line);
+}
+
+/* Knopf-Gruppe: dicht an dicht */
+.btn-group {
+  display: inline-flex;
+}
+
+.btn-group > .btn:not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.btn-group > .btn:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.btn-group > .btn:hover,
+.btn-group > .btn:focus-visible {
+  z-index: 1;
+}
+
+@media (forced-colors: active) {
+  .btn {
+    border-color: ButtonText;
+  }
+
+  .btn:disabled {
+    border-color: GrayText;
+  }
+}

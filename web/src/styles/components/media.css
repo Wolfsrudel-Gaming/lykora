@@ -1,0 +1,70 @@
+/* Ablage und Upload */
+
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone:focus-within {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+.dropzone.over {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.media-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+}
+
+.media-row .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.media-row .adopt {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .media-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .media-row .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+.thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+}
+
+.thumb svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  color: var(--muted);
+}

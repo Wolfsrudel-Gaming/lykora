@@ -1,0 +1,127 @@
+/*
+ * Meldungen: Stapel (höchstens 3), Statusicon, Text, optionale Aktion, Schließen und ein Streifen, der die
+ * Restzeit zeigt (hält bei Hover und Fokus an). Fehler bleiben, bis sie geschlossen werden.
+ * Desktop unten rechts, Handy oben mittig.
+ */
+
+.toasts {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  pointer-events: none;
+}
+
+.toast {
+  --t-color: var(--info);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--overlay);
+  color: var(--text);
+  box-shadow: var(--elev-2);
+  font: var(--type-dense);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: toast-in var(--dur-panel) var(--ease-out);
+}
+
+.toast.ok {
+  --t-color: var(--ok);
+}
+
+.toast.warn {
+  --t-color: var(--warn);
+}
+
+.toast.error {
+  --t-color: var(--danger);
+}
+
+.toast-icon {
+  color: var(--t-color);
+  display: grid;
+}
+
+.toast p {
+  padding-block: var(--space-1);
+  overflow-wrap: break-word;
+}
+
+.toast-title {
+  display: block;
+  font: var(--type-body-strong);
+}
+
+.toast-action {
+  white-space: nowrap;
+}
+
+/* Restzeit */
+.toast::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: var(--t-color);
+  transform-origin: left center;
+  animation: toast-time var(--toast-ms, 4000ms) linear forwards;
+}
+
+.toast.is-sticky::after {
+  display: none;
+}
+
+.toast:hover::after,
+.toast:focus-within::after,
+.toast.is-paused::after {
+  animation-play-state: paused;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(var(--space-2));
+    opacity: 0;
+  }
+}
+
+@keyframes toast-time {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (max-width: 639px) {
+  .toasts {
+    top: calc(env(safe-area-inset-top) + var(--space-2));
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .toast {
+    animation-name: toast-in-top;
+  }
+}
+
+@keyframes toast-in-top {
+  from {
+    transform: translateY(calc(var(--space-2) * -1));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast::after {
+    display: none;
+  }
+}

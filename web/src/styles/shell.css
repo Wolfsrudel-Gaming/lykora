@@ -1,0 +1,164 @@
+/* Rahmen der App */
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 6px var(--gutter);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topbar nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
+
+.topbar nav a:hover {
+  color: var(--text);
+}
+
+.topbar nav a[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.topbar .org {
+  flex: 0 1 220px;
+  min-width: 120px;
+}
+
+.topbar .menu-toggle {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .topbar .menu-toggle {
+    display: inline-flex;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .topbar nav,
+  .topbar .topbar-tools {
+    display: none;
+  }
+
+  .topbar.open nav,
+  .topbar.open .topbar-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .topbar.open nav a {
+    border-bottom: 0;
+    border-left: 3px solid transparent;
+  }
+
+  .topbar.open nav a[aria-current="page"] {
+    border-left-color: var(--accent);
+  }
+
+  .topbar .org {
+    flex: none;
+  }
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Knöpfe behalten ihre Breite; bei Platzmangel gibt die Auswahl der Organisation nach. */
+.topbar-tools .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Leitstand ab Tablet: genau eine Bildschirmhöhe, die Spalten rollen einzeln. */
+@media (min-width: 900px) {
+  .shell.fill {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .shell.fill .main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+.page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px var(--gutter) 48px;
+}
+
+.page.narrow {
+  max-width: 720px;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.page-head h1 {
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.crumbs a {
+  color: var(--muted);
+}

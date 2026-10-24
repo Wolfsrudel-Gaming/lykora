@@ -1,0 +1,165 @@
+/*
+ * Reiter und Segmentierung. Reiter laufen in einer Zeile (seitlich scrollbar, Ränder verblassen), nie in zwei.
+ * Zustände: default, hover, active (gewählt), focus-visible, disabled. Zähler (.count) sitzen im Reiter.
+ */
+
+.tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Randverlauf nur, wenn dort noch etwas liegt (data-* setzt Tabs) */
+.tabs[data-more-start="true"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--space-6));
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--space-6));
+}
+
+.tabs[data-more-end="true"] {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--space-6)), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - var(--space-6)), transparent 100%);
+}
+
+.tabs[data-more-start="true"][data-more-end="true"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--space-6), #000 calc(100% - var(--space-6)), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--space-6), #000 calc(100% - var(--space-6)), transparent 100%);
+}
+
+.tab-label {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs button,
+.tabs a {
+  flex: none;
+  scroll-snap-align: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: var(--type-label);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out),
+    border-color var(--dur-hover) var(--ease-out);
+}
+
+.tabs button:hover,
+.tabs a:hover,
+.tabs button.is-hover {
+  color: var(--text);
+  background-color: var(--hover);
+}
+
+.tabs button:active,
+.tabs a:active {
+  background-color: var(--press);
+}
+
+.tabs button[aria-selected="true"],
+.tabs a[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--accent-graphic);
+}
+
+.tabs button:focus-visible,
+.tabs a:focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+.tabs button:disabled,
+.tabs button[aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  background: none;
+}
+
+/* Zähler */
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--sunken);
+  color: var(--text);
+  font: var(--type-badge);
+}
+
+.count.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.count.safety {
+  background: var(--safety);
+  color: var(--on-safety);
+}
+
+/* Segmentierte Steuerung: 2 bis 4 Optionen, z. B. Ansicht umschalten */
+.segmented {
+  display: inline-flex;
+  gap: var(--space-px);
+  padding: var(--space-px);
+  border-radius: var(--radius-md);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-md) - var(--space-px));
+  background: transparent;
+  color: var(--muted);
+  font: var(--type-label);
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out);
+}
+
+.segmented button:hover {
+  color: var(--text);
+}
+
+.segmented button[aria-checked="true"],
+.segmented button[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--text);
+  box-shadow: var(--elev-1);
+}
+
+.segmented button:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.segmented button:focus-visible {
+  outline-offset: 0;
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@lykora/spec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lykora-Spielformat: JSON-Schema, Typen und Validator",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./validate.mjs"
+    },
+    "./validate-core.mjs": {
+      "types": "./validate-core.d.mts",
+      "default": "./validate-core.mjs"
+    },
+    "./v0.1/game.schema.json": "./v0.1/game.schema.json"
+  },
+  "scripts": {
+    "validate": "node validate.mjs",
+    "generate": "node generate.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^15.0.4"
+  }
+}

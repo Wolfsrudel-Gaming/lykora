@@ -1,0 +1,77 @@
+/* Leere und fehlerhafte Zustände. .empty ist die alte Einzeiler-Form (Empty), .empty-state die neue mit Symbol und Aktion. */
+
+.empty {
+  color: var(--muted);
+  padding: var(--space-6) var(--space-2);
+  text-align: center;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-4);
+  text-align: center;
+}
+
+.empty-state--inline {
+  padding: var(--space-6) var(--space-4);
+}
+
+.empty-state--page {
+  padding: var(--space-16) var(--space-4);
+}
+
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: var(--space-12);
+  height: var(--space-12);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  color: var(--subtle);
+}
+
+.empty-state--error .empty-state__icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.empty-state__title {
+  font: var(--type-subhead);
+  letter-spacing: var(--track-head);
+}
+
+.empty-state__text {
+  max-width: 52ch;
+  color: var(--muted);
+  font: var(--type-dense);
+}
+
+.empty-state__action {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.empty-state__details {
+  max-width: 52ch;
+  margin-top: var(--space-2);
+  text-align: left;
+  font: var(--type-caption);
+  color: var(--muted);
+}
+
+.empty-state__details pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  font: var(--type-mono);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}

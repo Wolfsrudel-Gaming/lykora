@@ -1,0 +1,24 @@
+/* Anmeldung */
+
+.login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px var(--gutter);
+}
+
+.login .card {
+  width: min(420px, 100%);
+  padding: 28px 24px;
+}
+
+.login .wordmark {
+  font-size: 34px;
+  margin-bottom: 4px;
+}
+
+.login .wordmark svg {
+  width: 36px;
+  height: 36px;
+}

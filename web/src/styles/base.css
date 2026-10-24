@@ -1,0 +1,195 @@
+/* Grundgerüst: Reset, Seitengrund, Überschriften, Fokus, Auswahl, Bildlaufleiste. Farben nur über Tokens (tokens.css). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Bildlaufleiste: schmal und leise, in beiden Themen */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+  /* Sprungziele und Fokus verschwinden nicht unter der Kopfzeile */
+  scroll-padding-top: calc(var(--bar-h) + var(--space-4));
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: var(--type-body);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Zeiger ändern nur Zielgrößen (--control-*), nie die Schrift: Das Layout springt sonst zwischen Maus und Finger. */
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+a {
+  color: var(--accent-text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  margin: 0;
+  text-wrap: balance;
+}
+
+h1 {
+  font: var(--type-title);
+  letter-spacing: var(--track-head);
+  text-transform: uppercase;
+}
+
+h2 {
+  font: var(--type-heading);
+  letter-spacing: var(--track-head);
+}
+
+h3 {
+  font: var(--type-subhead);
+  letter-spacing: var(--track-head);
+}
+
+h4 {
+  font: var(--type-body-strong);
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* Fokus: ein Ring für alles. Felder setzen ihren eigenen (form.css). */
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--text);
+}
+
+::placeholder {
+  color: var(--subtle);
+  opacity: 1;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Karten (Leaflet) bekommen einen eigenen Stapelkontext: Ihre Ebenen (200 bis 1000) überdecken sonst Menüs und Dialoge. */
+.leaflet-container {
+  isolation: isolate;
+}
+
+/* Bildlaufleiste für Browser ohne scrollbar-color */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+    background-clip: content-box;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* Nur für Screenreader sichtbar */
+.sr-only,
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+a.sr-only:focus {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-skip);
+  width: auto;
+  height: auto;
+  clip: auto;
+  clip-path: none;
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: var(--radius-md);
+  font: var(--type-label);
+}
+
+/* Kleine Hilfsklassen für Text */
+.muted {
+  color: var(--muted);
+}
+
+.subtle {
+  color: var(--subtle);
+}
+
+.small {
+  font-size: var(--fs-13);
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-pretty {
+  text-wrap: pretty;
+}

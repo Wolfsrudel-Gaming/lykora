@@ -1,0 +1,124 @@
+/* Layout-Helfer: Reihe, Stapel, Raster, Container */
+
+.row,
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.row.nowrap {
+  flex-wrap: nowrap;
+}
+
+.row.end {
+  justify-content: flex-end;
+}
+
+.row.between {
+  justify-content: space-between;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.stack.tight {
+  gap: var(--space-2);
+}
+
+.stack.loose {
+  gap: var(--space-6);
+}
+
+.stack--1 {
+  gap: var(--space-1);
+}
+
+.stack--2 {
+  gap: var(--space-2);
+}
+
+.stack--3 {
+  gap: var(--space-3);
+}
+
+.stack--4 {
+  gap: var(--space-4);
+}
+
+.stack--6 {
+  gap: var(--space-6);
+}
+
+.stack--8 {
+  gap: var(--space-8);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.grid-2 {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.grid-3 {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+/* 12 Spalten, ab md; darunter eine Spalte. Detailseiten: 8 + 4. */
+.grid-12 {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 960px) {
+  .grid-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .grid-12 > .col-4 {
+    grid-column: span 4;
+  }
+
+  .grid-12 > .col-6 {
+    grid-column: span 6;
+  }
+
+  .grid-12 > .col-8 {
+    grid-column: span 8;
+  }
+
+  .grid-12 > .col-12 {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Container: schmal 640 (Formulare), Seite 1120, breit 1440 (Leitstand, Baukasten). Titel liegen an der linken Kante. */
+.container {
+  width: 100%;
+  max-width: var(--w-page);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.container--narrow {
+  max-width: var(--w-narrow);
+}
+
+.container--wide {
+  max-width: var(--w-wide);
+}
+
+.min0 {
+  min-width: 0;
+}

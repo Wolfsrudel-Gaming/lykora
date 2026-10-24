@@ -1,0 +1,166 @@
+/*
+ * Kennzeichen: Badge (Zustand eines Objekts), Statuspunkt, TeamDot.
+ * Varianten neutral, accent, ok, warn, danger, info, safety, recalled. Status immer mit Text, Punkt optional (.badge-dot).
+ * Alte Kurzformen (.on, .strong, .quiet, .safety, .recalled, .keep-case) bleiben.
+ */
+
+.badge {
+  --b-bg: var(--raised);
+  --b-fg: var(--muted);
+  --b-bd: var(--line);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) + var(--space-px));
+  min-height: 20px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--b-bd);
+  border-radius: var(--radius-xs);
+  background: var(--b-bg);
+  color: var(--b-fg);
+  font: var(--type-badge);
+  letter-spacing: var(--track-badge);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-dot--hollow {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.badge--neutral {
+  --b-bg: var(--raised);
+  --b-fg: var(--muted);
+}
+
+.badge--accent,
+.badge.on {
+  --b-bg: var(--accent-soft);
+  --b-fg: var(--accent-text);
+  --b-bd: var(--accent-line);
+}
+
+.badge--ok {
+  --b-bg: var(--ok-soft);
+  --b-fg: var(--ok);
+  --b-bd: var(--ok-line);
+}
+
+.badge--warn {
+  --b-bg: var(--warn-soft);
+  --b-fg: var(--warn);
+  --b-bd: var(--warn-line);
+}
+
+.badge--danger {
+  --b-bg: var(--danger-soft);
+  --b-fg: var(--danger);
+  --b-bd: var(--danger-line);
+}
+
+.badge--info {
+  --b-bg: var(--info-soft);
+  --b-fg: var(--info);
+  --b-bd: var(--info-line);
+}
+
+/* Betont, aber neutral */
+.badge.strong {
+  --b-fg: var(--text);
+  --b-bd: var(--line-strong);
+}
+
+/* Ruhig: ohne Fläche */
+.badge.quiet,
+.badge--quiet {
+  --b-bg: transparent;
+}
+
+.badge--safety,
+.badge.safety {
+  --b-bg: var(--safety);
+  --b-fg: var(--on-safety);
+  --b-bd: var(--safety);
+}
+
+/* Rückruf: Sicherheitsrot mit einem Stück Absperrband am Rand, Schrift auf ruhigem Grund */
+.badge--recalled,
+.badge.recalled {
+  position: relative;
+  padding-left: calc(var(--space-2) + 10px);
+  --b-bg: var(--safety);
+  --b-fg: var(--on-safety);
+  --b-bd: var(--safety);
+  overflow: hidden;
+}
+
+.badge--recalled::before,
+.badge.recalled::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10px;
+  background: repeating-linear-gradient(-45deg, var(--tape-b) 0 4px, var(--tape-a) 4px 8px);
+}
+
+/* IDs stehen so da, wie sie im Spiel geschrieben werden. */
+.badge.keep-case {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Team: 12-px-Punkt mit Ring in Flächenfarbe und Außenlinie; veraltet = gestrichelter Ring */
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  flex: none;
+}
+
+.dot--stale {
+  box-shadow: none;
+  outline: 1px dashed var(--line-strong);
+  outline-offset: 0;
+  opacity: 0.6;
+}
+
+/* Verbindungs- und Statuspunkt mit Text daneben */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--subtle);
+  flex: none;
+}
+
+.status-dot--ok {
+  background: var(--ok);
+}
+
+.status-dot--warn {
+  background: var(--warn);
+}
+
+.status-dot--danger {
+  background: var(--danger);
+}
+
+.status-dot--info {
+  background: var(--info);
+}
+
+.status-dot--accent {
+  background: var(--accent);
+}

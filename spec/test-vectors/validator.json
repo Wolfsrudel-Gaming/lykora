@@ -1,0 +1,946 @@
+{
+  "description": "Erwartete Meldungen des Validators je verändertem Beispielspiel, erzeugt mit spec/validate.mjs vor dem Umbau auf validate-core.mjs (Stand 7cad635). Die Fälle selbst stehen in spec/validate-core.test.mjs; der Test belegt, dass die Zeichenketten unverändert bleiben. Nur bewusst neu erzeugen.",
+  "game": "../v0.1/examples/testspiel.json",
+  "cases": [
+    {
+      "name": "Formatversion falsch",
+      "errors": [
+        "Unbekannte Formatversion „0.2“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Kein Objekt / leer",
+      "errors": [
+        "Unbekannte Formatversion „undefined“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Pflichtfeld fehlt (safety)",
+      "errors": [
+        "/ must have required property 'safety'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Pflichtfeld fehlt (Station name)",
+      "errors": [
+        "/stations/0 must have required property 'name'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Feld",
+      "errors": [
+        "/stations/0 must NOT have additional properties"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "format.name falsch",
+      "errors": [
+        "/format/name must be equal to constant"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "ID-Muster (Großbuchstaben/Umlaut)",
+      "errors": [
+        "/stations/0/id must match pattern \"^[a-z0-9][a-z0-9_-]{0,63}$\""
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Sprachcode falsch",
+      "errors": [
+        "/meta/languages/0 must match pattern \"^[a-z]{2,3}(-[A-Z]{2})?$\""
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Sprache doppelt",
+      "errors": [
+        "/meta/languages must NOT have duplicate items (items ## 0 and 1 are identical)"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Keine Sprache",
+      "errors": [
+        "/meta/languages must NOT have fewer than 1 items"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Text: leeres Übersetzungsobjekt",
+      "errors": [
+        "/meta/title must be string",
+        "/meta/title must NOT have fewer than 1 properties",
+        "/meta/title must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Text: falscher Sprachschlüssel",
+      "errors": [
+        "/meta/title must be string",
+        "/meta/title must match pattern \"^[a-z]{2,3}(-[A-Z]{2})?$\"",
+        "/meta/title property name must be valid",
+        "/meta/title must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Text: Zahl statt Text",
+      "errors": [
+        "/stations/0/name must be string",
+        "/stations/0/name must be object",
+        "/stations/0/name must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Enum falsch (genre)",
+      "errors": [
+        "/meta/genre must be equal to one of the allowed values"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Typ falsch (scareLevel als Text)",
+      "errors": [
+        "/meta/scareLevel must be integer"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Maximum (scareLevel 5)",
+      "errors": [
+        "/meta/scareLevel must be <= 3"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Minimum (teamSize.min 0)",
+      "errors": [
+        "/settings/teamSize/min must be >= 1"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Dauer negativ",
+      "errors": [
+        "/settings/time/duration must be >= 0"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Dauer keine ganze Zahl",
+      "errors": [
+        "/settings/time/duration must be integer"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Koordinate außerhalb (lat 95)",
+      "errors": [
+        "/stations/0/location/lat must be <= 90"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Radius 0 (GPS-Auslöser)",
+      "errors": [
+        "/stations/1/triggers/0/radius must be > 0",
+        "/stations/1/triggers/0 must have required property 'code'",
+        "/stations/1/triggers/0 must NOT have additional properties",
+        "/stations/1/triggers/0/type must be equal to constant",
+        "/stations/1/triggers/0 must have required property 'tag'",
+        "/stations/1/triggers/0 must NOT have additional properties",
+        "/stations/1/triggers/0/type must be equal to constant",
+        "/stations/1/triggers/0 must have required property 'uuid'",
+        "/stations/1/triggers/0 must NOT have additional properties",
+        "/stations/1/triggers/0/type must be equal to constant",
+        "/stations/1/triggers/0 must have required property 'code'",
+        "/stations/1/triggers/0 must NOT have additional properties",
+        "/stations/1/triggers/0/type must be equal to constant",
+        "/stations/1/triggers/0 must have required property 'box'",
+        "/stations/1/triggers/0 must NOT have additional properties",
+        "/stations/1/triggers/0/type must be equal to constant",
+        "/stations/1/triggers/0 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Keine Stationen",
+      "errors": [
+        "/stations must NOT have fewer than 1 items"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Station ohne Auslöser",
+      "errors": [
+        "/stations/0/triggers must NOT have fewer than 1 items"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "QR-Auslöser ohne Code",
+      "errors": [
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1 must have required property 'tag'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'uuid'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'box'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "QR-Code leer",
+      "errors": [
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1/code must NOT have fewer than 1 characters",
+        "/stations/0/triggers/1 must have required property 'tag'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'uuid'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1/code must NOT have fewer than 1 characters",
+        "/stations/0/triggers/1 must have required property 'box'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Auslösertyp unbekannt",
+      "errors": [
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'tag'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'uuid'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'box'",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "BLE-UUID falsch",
+      "errors": [
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'tag'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1/uuid must match pattern \"^[0-9a-fA-F-]{32,36}$\"",
+        "/stations/0/triggers/1 must have required property 'code'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must have required property 'box'",
+        "/stations/0/triggers/1 must NOT have additional properties",
+        "/stations/0/triggers/1/type must be equal to constant",
+        "/stations/0/triggers/1 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Textaufgabe ohne Antworten",
+      "errors": [
+        "/stations/1/task must have required property 'answers'",
+        "/stations/1/task must have required property 'answers'",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'options'",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must have required property 'location'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Antwort leer",
+      "errors": [
+        "/stations/1/task/answers/0 must NOT have fewer than 1 characters",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task/answers/0 must NOT have fewer than 1 characters",
+        "/stations/1/task must have required property 'options'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must have required property 'location'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Auswahl mit nur einer Option",
+      "errors": [
+        "/stations/0/task must have required property 'answers'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must have required property 'answers'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task/options must NOT have fewer than 2 items",
+        "/stations/0/task must have required property 'prompt'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must have required property 'prompt'",
+        "/stations/0/task must have required property 'location'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Option ohne correct",
+      "errors": [
+        "/stations/0/task must have required property 'answers'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must have required property 'answers'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task/options/0 must have required property 'correct'",
+        "/stations/0/task must have required property 'prompt'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must have required property 'prompt'",
+        "/stations/0/task must have required property 'location'",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task must NOT have additional properties",
+        "/stations/0/task/type must be equal to constant",
+        "/stations/0/task must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Aufgabentyp unbekannt",
+      "errors": [
+        "/stations/1/task must have required property 'answers'",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'answers'",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'options'",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must have required property 'prompt'",
+        "/stations/1/task must have required property 'location'",
+        "/stations/1/task must NOT have additional properties",
+        "/stations/1/task/type must be equal to constant",
+        "/stations/1/task must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Fragmentwert leer",
+      "errors": [
+        "/fragments/0/value must NOT have fewer than 1 characters"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Fragmentposition 0",
+      "errors": [
+        "/fragments/0/position must be >= 1"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Dialog mit 4 Antworten",
+      "errors": [
+        "/stations/2/scene/arrival/0/responses must NOT have more than 3 items"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Takt-Art unbekannt",
+      "errors": [
+        "/stations/1/scene/beats/0/kind must be equal to one of the allowed values"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Polygon mit 2 Punkten",
+      "errors": [
+        "/field/restrictedZones/0/area/polygon must NOT have fewer than 3 items",
+        "/field/restrictedZones/0/area must have required property 'center'",
+        "/field/restrictedZones/0/area must have required property 'radius'",
+        "/field/restrictedZones/0/area must NOT have additional properties",
+        "/field/restrictedZones/0/area must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Kreis mit Radius 0",
+      "errors": [
+        "/field/boundary must have required property 'polygon'",
+        "/field/boundary must NOT have additional properties",
+        "/field/boundary must NOT have additional properties",
+        "/field/boundary/radius must be > 0",
+        "/field/boundary must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Sammelpunkt ohne Ort",
+      "errors": [
+        "/field/assemblyPoint must have required property 'location'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Telefonnummer falsch",
+      "errors": [
+        "/safety/emergency/gameMasterPhone must match pattern \"^\\+?[0-9 ()/-]{5,}$\""
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Lautstärke > 1",
+      "errors": [
+        "/sound/ambience/volume must be <= 1"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Strafe ohne Typ",
+      "errors": [
+        "/settings/wrongAnswer must have required property 'type'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Regel ohne Dann",
+      "errors": [
+        "/rules/0/then must NOT have fewer than 1 items"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Bedingung mit zwei Schlüsseln",
+      "errors": [
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must have required property 'fragments_collected'",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must have required property 'elapsed'",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must have required property 'near'",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must NOT have additional properties",
+        "/rules/0/when/0 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Aktion unbekannt",
+      "errors": [
+        "/rules/0/then/0 must have required property 'reveal_station'",
+        "/rules/0/then/0 must NOT have additional properties",
+        "/rules/0/then/0 must have required property 'give_item'",
+        "/rules/0/then/0 must NOT have additional properties",
+        "/rules/0/then/0 must have required property 'add_points'",
+        "/rules/0/then/0 must NOT have additional properties",
+        "/rules/0/then/0 must have required property 'message'",
+        "/rules/0/then/0 must NOT have additional properties",
+        "/rules/0/then/0 must have required property 'start_chapter'",
+        "/rules/0/then/0 must NOT have additional properties",
+        "/rules/0/then/0 must match exactly one schema in oneOf"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Medium ohne src",
+      "errors": [
+        "/media/0 must have required property 'src'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Medientyp falsch",
+      "errors": [
+        "/media/0/type must be equal to one of the allowed values"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Stations-ID",
+      "errors": [
+        "stations: ID „briefing“ ist doppelt"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Figuren-ID",
+      "errors": [
+        "characters: ID „zentrale“ ist doppelt",
+        "stations[schloss].scene.arrival: unbekannte Figur „brandt“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Fragment-ID",
+      "errors": [
+        "fragments: ID „f1“ ist doppelt",
+        "stations[schloss].rewards: unbekannte Fragment-ID „f2“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Item-ID",
+      "errors": [
+        "items: ID „uv-lampe“ ist doppelt",
+        "stations[schloss].scene.beats: unbekannte Item-ID „zettel“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Medien-ID",
+      "errors": [
+        "media: ID „wind“ ist doppelt",
+        "story.chapters[kapitel-3].ambience: unbekannte Medien-ID „sturm“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Kapitel-ID",
+      "errors": [
+        "story.chapters: ID „kapitel-1“ ist doppelt",
+        "stations[briefing].rewards: unbekannte Kapitel-ID „kapitel-2“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Regel-ID",
+      "errors": [
+        "rules: ID „versteck-freischalten“ ist doppelt"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Doppelte Sperrzonen-ID",
+      "errors": [
+        "field.restrictedZones: ID „strasse“ ist doppelt"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Intro)",
+      "errors": [
+        "story.intro: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Zentrale-Avatar)",
+      "errors": [
+        "story.hq.avatar: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Item-Bild)",
+      "errors": [
+        "items[uv-lampe].image: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Porträt)",
+      "errors": [
+        "characters[brandt].portrait: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Aufgabe)",
+      "errors": [
+        "stations[baum].task: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Takt-Bild)",
+      "errors": [
+        "stations[baum].scene.beats: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Klang zeigt auf Nicht-Audio",
+      "errors": [
+        "stations[baum].sound.solved: „bild“ ist kein Audio"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Klang unbekannt (Kapitel)",
+      "errors": [
+        "story.chapters[kapitel-3].ambience: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Figur",
+      "errors": [
+        "stations[baum].scene.beats: unbekannte Figur „niemand“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Item (Takt)",
+      "errors": [
+        "stations[schloss].scene.beats: unbekannte Item-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Fragment (Belohnung)",
+      "errors": [
+        "stations[baum].rewards: unbekannte Fragment-ID „f99“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Item (Belohnung)",
+      "errors": [
+        "stations[briefing].rewards: unbekannte Item-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Station (reveal)",
+      "errors": [
+        "stations[baum].rewards: unbekannte Stations-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Kapitel (Belohnung)",
+      "errors": [
+        "stations[briefing].rewards: unbekannte Kapitel-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Station (Regel wenn)",
+      "errors": [
+        "rules[versteck-freischalten]: unbekannte Stations-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Item (Regel)",
+      "errors": [
+        "rules[versteck-freischalten]: unbekannte Item-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekanntes Kapitel (Regel)",
+      "errors": [
+        "rules[versteck-freischalten]: unbekannte Kapitel-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "GPS ohne Ort",
+      "errors": [
+        "stations[baum]: GPS-Auslöser ohne Ort; Station oder Auslöser braucht location"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Fragment-Lücke",
+      "errors": [
+        "fragments: Positionen müssen lückenlos 1..3 sein, gefunden 1, 2, 4"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Zwei Finale-Stationen",
+      "errors": [
+        "stations: höchstens eine Finale-Station erlaubt"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Fragmente ohne Finale",
+      "errors": [
+        "stations: Fragmente ohne Finale-Station"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Warnung: versteckt ohne Freischaltung",
+      "errors": [],
+      "warnings": [
+        "stations[versteck]: versteckt, aber nichts schaltet sie frei (nur durch die Spielleitung erreichbar)"
+      ]
+    },
+    {
+      "name": "NICHT ERKANNT: keine Option richtig",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Fragment wird nie vergeben",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Finalcode passt nicht zu Fragmenten",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: QR-Code doppelt",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Stationsname leer",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Bild als Intro-Audio",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Audio als Takt-Bild",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: teamSize min > max",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Sammelpunkt außerhalb des Spielfelds",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: doppelte Rettungspunkt-ID",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Code-Schloss mit Buchstaben",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "NICHT ERKANNT: Zeitlimit ohne Dauer",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "Kein Spiel: Zeichenkette",
+      "errors": [
+        "Unbekannte Formatversion „undefined“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Kein Spiel: Liste",
+      "errors": [
+        "Unbekannte Formatversion „undefined“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Kein Spiel: leeres Objekt",
+      "errors": [
+        "Unbekannte Formatversion „undefined“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Nur das Format",
+      "errors": [
+        "/ must have required property 'id'",
+        "/ must have required property 'meta'",
+        "/ must have required property 'settings'",
+        "/ must have required property 'field'",
+        "/ must have required property 'stations'",
+        "/ must have required property 'safety'"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Mehrere Schemafehler zugleich",
+      "errors": [
+        "/meta must have required property 'title'",
+        "/stations/1/sound/ambience/volume must be <= 1",
+        "/stations/2/id must match pattern \"^[a-z0-9][a-z0-9_-]{0,63}$\""
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Gleiche Figur in zwei Takten (eine Meldung)",
+      "errors": [
+        "stations[briefing].scene.beats: unbekannte Figur „niemand“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Gleiche Figur in Ankunft und Takt (zwei Meldungen)",
+      "errors": [
+        "stations[briefing].scene.arrival: unbekannte Figur „niemand“",
+        "stations[briefing].scene.beats: unbekannte Figur „niemand“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Fragment-Lücke mehrfach",
+      "errors": [
+        "fragments: Positionen müssen lückenlos 1..3 sein, gefunden 1, 3, 5"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Drei Finale-Stationen",
+      "errors": [
+        "stations: höchstens eine Finale-Station erlaubt"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Versteckt mit Freischaltradius (keine Warnung)",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "name": "Sonst-Zweig auf unbekannte Station",
+      "errors": [
+        "rules[versteck-freischalten]: unbekannte Stations-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Takt-Audio unbekannt",
+      "errors": [
+        "stations[baum].scene.beats: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Takt-Geräusch kein Audio",
+      "errors": [
+        "stations[baum].scene.beats: „bild“ ist kein Audio"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Klang unbekannt (sound.ui)",
+      "errors": [
+        "sound.ui.radio: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Klang unbekannt (Annäherung)",
+      "errors": [
+        "stations[finale].sound.approach.here: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Klang unbekannt (Stations-Atmosphäre)",
+      "errors": [
+        "stations[baum].sound.ambience: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Outro)",
+      "errors": [
+        "story.outro: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Kapitel-Stück)",
+      "errors": [
+        "story.chapters[kapitel-1]: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Item-Symbol)",
+      "errors": [
+        "items[uv-lampe].icon: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Unbekannte Medien-ID (Stationsgeschichte)",
+      "errors": [
+        "stations[baum].story: unbekannte Medien-ID „gibtsnicht“"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "Querverweise an mehreren Stellen zugleich",
+      "errors": [
+        "stations[baum].scene.beats: unbekannte Figur „niemand“",
+        "stations[baum].rewards: unbekannte Fragment-ID „f99“",
+        "rules[versteck-freischalten]: unbekannte Stations-ID „nix“"
+      ],
+      "warnings": [
+        "stations[versteck]: versteckt, aber nichts schaltet sie frei (nur durch die Spielleitung erreichbar)"
+      ]
+    },
+    {
+      "name": "GPS-Auslöser mit eigenem Ort (gültig)",
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

@@ -1,0 +1,442 @@
+/* Entwurfsseite /_design: Abnahmefläche für Tokens und Bausteine. Nur Layout der Seite; die Bausteine tragen ihre eigenen Stile. */
+
+.ds {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--ground);
+}
+
+.ds-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-nav);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--gutter);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--elev-1);
+}
+
+.ds-bar .wordmark {
+  margin-right: var(--space-2);
+}
+
+.ds-bar__title {
+  font: var(--type-label);
+  color: var(--muted);
+}
+
+.ds-bar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-left: auto;
+}
+
+.ds-body {
+  display: grid;
+  gap: var(--space-6);
+  padding-block: var(--space-6) var(--space-16);
+}
+
+@media (min-width: 1280px) {
+  .ds-body {
+    grid-template-columns: 200px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.ds-nav {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ds-nav a {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  font: var(--type-label);
+  text-decoration: none;
+}
+
+.ds-nav a:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+@media (min-width: 1280px) {
+  .ds-nav {
+    position: sticky;
+    top: calc(var(--bar-h) + var(--space-6));
+    flex-direction: column;
+    gap: 0;
+    overflow: visible;
+  }
+
+  .ds-nav a {
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+}
+
+.ds-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.ds-section {
+  scroll-margin-top: calc(var(--bar-h) + var(--space-6));
+}
+
+.ds-section > header {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.ds-section > header p {
+  max-width: 72ch;
+  color: var(--muted);
+}
+
+.ds-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.ds-block {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ds-block > h3 {
+  font: var(--type-body-strong);
+  letter-spacing: 0;
+}
+
+.ds-note {
+  max-width: 72ch;
+  color: var(--muted);
+  font: var(--type-dense);
+}
+
+.ds-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+
+.ds-grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+}
+
+.ds-stage {
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.ds-stage--ground {
+  background: var(--ground);
+}
+
+.ds-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ds-label {
+  color: var(--subtle);
+  font: var(--type-eyebrow);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+}
+
+/* Matrix: Zustände als Spalten, Varianten als Zeilen */
+.ds-matrix {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.ds-matrix > .ds-label {
+  white-space: nowrap;
+}
+
+.ds-matrix > .ds-rowhead {
+  font: var(--type-mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Farben */
+.ds-swatch {
+  display: grid;
+  grid-template-rows: 56px auto;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.ds-swatch__chip {
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.18);
+}
+
+.ds-swatch__meta {
+  display: grid;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.ds-swatch__name {
+  font: var(--type-mono);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.ds-swatch__value {
+  font: var(--type-caption);
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+
+.ds-swatch__ratio {
+  font: var(--type-caption);
+  color: var(--muted);
+}
+
+.ds-pairs {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--type-dense);
+}
+
+.ds-pairs th,
+.ds-pairs td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ds-pairs th {
+  font: var(--type-label);
+  color: var(--muted);
+}
+
+.ds-pairs .sample {
+  display: inline-grid;
+  place-items: center;
+  min-width: 72px;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font: var(--type-body-strong);
+}
+
+.ds-pairs .pass {
+  color: var(--ok);
+}
+
+.ds-pairs .fail {
+  color: var(--danger);
+}
+
+/* Typografie */
+.ds-type {
+  display: grid;
+  grid-template-columns: minmax(0, 230px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: baseline;
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.ds-type > code {
+  font: var(--type-mono);
+  color: var(--muted);
+}
+
+.ds-type__spec {
+  display: block;
+  margin-top: var(--space-1);
+  font: var(--type-caption);
+  color: var(--subtle);
+}
+
+@media (max-width: 639px) {
+  .ds-type {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
+/* Abstand, Radius, Erhöhung, Bewegung */
+.ds-space {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ds-space > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--type-mono);
+  color: var(--muted);
+}
+
+.ds-space i {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-graphic);
+}
+
+.ds-tile {
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  padding: var(--space-4);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: var(--type-mono);
+  text-align: center;
+}
+
+.ds-motion {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ds-motion__track {
+  position: relative;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.ds-motion__ball {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-graphic);
+  transition: transform var(--ds-dur, 280ms) var(--ds-ease, var(--ease-out));
+}
+
+.ds-motion.is-on .ds-motion__ball {
+  transform: translateX(var(--ds-travel, 200px));
+}
+
+/* Elevation und Ebenen */
+.ds-elev {
+  display: grid;
+  place-items: center;
+  min-height: 88px;
+  border-radius: var(--radius-lg);
+  background: var(--overlay);
+  color: var(--muted);
+  font: var(--type-mono);
+}
+
+/* Layout-Demo: Container-Breiten und Container-Query */
+.ds-resize {
+  resize: horizontal;
+  overflow: auto;
+  min-width: 280px;
+  max-width: 100%;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+}
+
+.ds-bands {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ds-band {
+  display: grid;
+  place-items: center;
+  height: 40px;
+  margin-inline: auto;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--accent-text);
+  font: var(--type-mono);
+}
+
+/* Icons */
+.ds-icon {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ds-icon span {
+  font: var(--type-caption);
+  font-family: var(--font-mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.ds-icon__sizes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* z-Ebenen */
+.ds-z {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.ds-z div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  font: var(--type-mono);
+}
+
+.ds-z span {
+  color: var(--muted);
+}

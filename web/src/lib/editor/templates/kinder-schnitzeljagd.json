@@ -1,0 +1,580 @@
+{
+  "format": {
+    "name": "lykora-game",
+    "version": "0.1"
+  },
+  "id": "schnitzeljagd",
+  "meta": {
+    "title": {
+      "de": "Schnitzeljagd mit Eule Olga"
+    },
+    "summary": {
+      "de": "Eule Olga hat eine Schatzkiste versteckt. Fünf Stationen, drei Zahlen und eine Schatzkarte führen euch hin."
+    },
+    "languages": [
+      "de"
+    ],
+    "ageGroups": [
+      "6-9"
+    ],
+    "genre": "other",
+    "scareLevel": 0,
+    "night": false,
+    "expectedDuration": 2700
+  },
+  "settings": {
+    "mode": "cooperative",
+    "time": {
+      "limit": "none"
+    },
+    "teamSize": {
+      "min": 2,
+      "max": 6
+    },
+    "wrongAnswer": {
+      "type": "none"
+    },
+    "hints": {
+      "enabled": true,
+      "defaultCost": []
+    },
+    "scoring": {
+      "solvePoints": 100
+    },
+    "leaderboard": "end_only",
+    "map": {
+      "style": "treasure"
+    }
+  },
+  "field": {
+    "boundary": {
+      "center": {
+        "lat": 50.8155,
+        "lon": 7.155
+      },
+      "radius": 300
+    },
+    "start": {
+      "lat": 50.8155,
+      "lon": 7.155
+    },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": {
+        "de": "Treffpunkt am Eingang"
+      },
+      "location": {
+        "lat": 50.8155,
+        "lon": 7.155
+      }
+    }
+  },
+  "story": {
+    "intro": {
+      "text": {
+        "de": "Eule Olga hat eine Schatzkiste versteckt und braucht eure Hilfe. Sucht die Stationen, sammelt drei Zahlen und öffnet die Kiste!"
+      }
+    },
+    "outro": {
+      "text": {
+        "de": "Die Schatzkiste ist offen! Olga ist stolz auf euch. Kommt zurück zum Treffpunkt."
+      }
+    }
+  },
+  "characters": [
+    {
+      "id": "zentrale",
+      "kind": "hq",
+      "name": {
+        "de": "Zentrale"
+      }
+    },
+    {
+      "id": "erzaehler",
+      "kind": "narrator",
+      "name": {
+        "de": "Erzähler"
+      }
+    },
+    {
+      "id": "olga",
+      "kind": "npc",
+      "name": {
+        "de": "Eule Olga"
+      },
+      "description": {
+        "de": "Eine kluge alte Eule, die gern Rätsel stellt und auf alle Kinder aufpasst."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "id": "teil-1",
+      "position": 1,
+      "value": "3"
+    },
+    {
+      "id": "teil-2",
+      "position": 2,
+      "value": "7"
+    },
+    {
+      "id": "teil-3",
+      "position": 3,
+      "value": "1"
+    }
+  ],
+  "items": [
+    {
+      "id": "schatzkarte",
+      "kind": "document",
+      "name": {
+        "de": "Schatzkarte"
+      },
+      "body": {
+        "de": "Folgt den Stationen. An jeder bekommt ihr eine Zahl. Drei Zahlen öffnen die Schatzkiste."
+      }
+    }
+  ],
+  "stations": [
+    {
+      "id": "treffpunkt",
+      "name": {
+        "de": "Treffpunkt"
+      },
+      "location": {
+        "lat": 50.81586,
+        "lon": 7.155427
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-2KTA"
+        },
+        {
+          "type": "manual",
+          "code": "2001"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Auf einem Ast sitzt eine Eule mit großen gelben Augen. Sie zwinkert euch zu."
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "dialogue",
+            "speaker": "olga",
+            "text": {
+              "de": "Huhu! Ich bin Olga. Ich habe einen Schatz versteckt. Wollt ihr ihn finden?"
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Ja, unbedingt!"
+                },
+                "reply": {
+                  "de": "Wunderbar! Dann hört gut zu."
+                }
+              },
+              {
+                "label": {
+                  "de": "Was ist das für ein Schatz?"
+                },
+                "reply": {
+                  "de": "Das verrate ich erst, wenn ihr die Kiste öffnet."
+                }
+              }
+            ]
+          },
+          {
+            "kind": "document",
+            "item": "schatzkarte",
+            "title": {
+              "de": "Schatzkarte"
+            },
+            "text": {
+              "de": "Folgt den Stationen. An jeder bekommt ihr eine Zahl. Drei Zahlen öffnen die Schatzkiste."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Was macht ihr, wenn ihr euch verliert?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Stehen bleiben und rufen"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Allein weiterlaufen"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Sich verstecken"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Olga sagt: Zusammen ist man sicher."
+          },
+          "cost": {
+            "type": "none"
+          }
+        },
+        {
+          "text": {
+            "de": "Wer stehen bleibt, wird schneller gefunden."
+          },
+          "cost": {
+            "type": "none"
+          }
+        }
+      ],
+      "rewards": {
+        "items": [
+          "schatzkarte"
+        ]
+      },
+      "props": [
+        {
+          "name": "Schatzkarte",
+          "kind": "document",
+          "quantity": 1,
+          "note": "Eine je Team"
+        }
+      ]
+    },
+    {
+      "id": "hohler-baum",
+      "name": {
+        "de": "Der hohle Baum"
+      },
+      "location": {
+        "lat": 50.816489,
+        "lon": 7.157135
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-2KTB"
+        },
+        {
+          "type": "manual",
+          "code": "2002"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Hier steht ein dicker Baum. Olga wohnt manchmal in solchen Bäumen."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Was frisst eine Eule am liebsten?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Mäuse"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Bananen"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Nudeln"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Es ist ein kleines Tier."
+          },
+          "cost": {
+            "type": "none"
+          }
+        },
+        {
+          "text": {
+            "de": "Es piepst und hat einen langen Schwanz."
+          },
+          "cost": {
+            "type": "none"
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-1"
+        ]
+      }
+    },
+    {
+      "id": "spuren",
+      "name": {
+        "de": "Spuren im Boden"
+      },
+      "location": {
+        "lat": 50.814781,
+        "lon": 7.157847
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-2KTC"
+        },
+        {
+          "type": "manual",
+          "code": "2003"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "text": {
+              "de": "Hier ist die Zentrale. Seht ihr Spuren auf dem Boden? Wer war hier unterwegs?"
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "photo",
+        "prompt": {
+          "de": "Macht ein Foto von einer Spur, die ihr gefunden habt."
+        },
+        "review": "auto_accept"
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Schaut auf den Weg und in die Erde."
+          },
+          "cost": {
+            "type": "none"
+          }
+        },
+        {
+          "text": {
+            "de": "Auch Blätter oder Zweige können Spuren sein."
+          },
+          "cost": {
+            "type": "none"
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-2"
+        ]
+      }
+    },
+    {
+      "id": "am-bach",
+      "name": {
+        "de": "Am Bach"
+      },
+      "location": {
+        "lat": 50.813971,
+        "lon": 7.154146
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-2KTD"
+        },
+        {
+          "type": "manual",
+          "code": "2004"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "group",
+            "text": {
+              "de": "Zählt gemeinsam die großen Steine, die hier liegen. Bleibt dabei alle zusammen."
+            },
+            "ack": {
+              "de": "Wir zählen"
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Wie viele große Steine habt ihr gezählt?"
+        },
+        "input": "lock",
+        "answers": [
+          "12"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Zählt nur die Steine, die größer sind als eure Hand."
+          },
+          "cost": {
+            "type": "none"
+          }
+        },
+        {
+          "text": {
+            "de": "Es sind mehr als zehn."
+          },
+          "cost": {
+            "type": "none"
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-3"
+        ]
+      }
+    },
+    {
+      "id": "schatzkiste",
+      "name": {
+        "de": "Die Schatzkiste"
+      },
+      "location": {
+        "lat": 50.81604,
+        "lon": 7.153007
+      },
+      "final": true,
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "qr",
+          "code": "LYK-2KTE"
+        },
+        {
+          "type": "manual",
+          "code": "2005"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Da steht sie: eine Kiste mit einem Zahlenschloss. Habt ihr alle drei Zahlen?"
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "text": {
+              "de": "Hier ist die Zentrale. Die Kiste ist offen. Toll gemacht, Schatzsucher!"
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Stellt die drei Zahlen in der richtigen Reihenfolge ein."
+        },
+        "input": "lock",
+        "answers": [
+          "371"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Die erste Zahl gab es am hohlen Baum."
+          },
+          "cost": {
+            "type": "none"
+          }
+        }
+      ],
+      "props": [
+        {
+          "name": "Schatzkiste",
+          "kind": "box"
+        },
+        {
+          "name": "Zahlenschloss",
+          "kind": "lock",
+          "note": "Code 371"
+        }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": {
+      "gameMasterPhone": "+49 000 0000000",
+      "emergencyNumber": "112"
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval": 900,
+      "grace": 300
+    },
+    "requireSupervisor": true,
+    "requiredGear": [
+      {
+        "de": "Geladenes Handy"
+      }
+    ]
+  }
+}

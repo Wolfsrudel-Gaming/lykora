@@ -1,0 +1,92 @@
+/* Typo-Rollen als Klassen (Tokens: --type-*). Versalien nur für die Seiten-h1 und kurze Mono-Etiketten. */
+
+.t-display {
+  font: var(--type-display);
+}
+
+.t-clock {
+  font: var(--type-clock);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-stat {
+  font: var(--type-stat);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-title {
+  font: var(--type-title);
+  letter-spacing: var(--track-head);
+  text-transform: uppercase;
+}
+
+.t-heading {
+  font: var(--type-heading);
+  letter-spacing: var(--track-head);
+}
+
+.t-subhead {
+  font: var(--type-subhead);
+  letter-spacing: var(--track-head);
+}
+
+.t-lead {
+  font: var(--type-lead);
+}
+
+.t-body {
+  font: var(--type-body);
+}
+
+.t-body-strong {
+  font: var(--type-body-strong);
+}
+
+.t-dense {
+  font: var(--type-dense);
+}
+
+.t-label {
+  font: var(--type-label);
+}
+
+.t-caption {
+  font: var(--type-caption);
+  color: var(--muted);
+}
+
+.t-mono {
+  font: var(--type-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-eyebrow,
+.eyebrow,
+.label {
+  font: var(--type-eyebrow);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.t-badge {
+  font: var(--type-badge);
+  letter-spacing: var(--track-badge);
+  text-transform: uppercase;
+}
+
+/* Zahlen, Uhren, Kennungen: gleich breite Ziffern */
+.mono,
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zeilenlänge für Fließtext */
+.measure {
+  max-width: 72ch;
+}

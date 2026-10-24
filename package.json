@@ -1,0 +1,14 @@
+{
+  "name": "lykora",
+  "private": true,
+  "description": "Open-Source-Plattform für Outdoor-Escape-Spiele und Rallyes",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "workspaces": ["spec", "server", "web"],
+  "scripts": {
+    "validate": "node spec/validate.mjs spec/v0.1/examples/*.json web/src/lib/editor/templates/*.json",
+    "test": "npm test --workspaces",
+    "build": "npm run build -w @lykora/server && npm run build -w @lykora/web"
+  }
+}

@@ -1,0 +1,19 @@
+/* Tooltip: kurzer Hinweis am Auslöser, bei Hover (nach 400 ms) und Fokus, auf Touch bei langer Berührung */
+
+.tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  max-width: 240px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--text);
+  box-shadow: var(--elev-2);
+  font: var(--type-caption);
+  pointer-events: none;
+  animation: pop-in var(--dur-pop) var(--ease-out);
+}
+
+.tooltip[data-side="top"] {
+  animation-name: pop-in-up;
+}

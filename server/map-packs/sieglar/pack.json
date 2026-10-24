@@ -1,0 +1,33 @@
+{
+  "name": "sieglar",
+  "title": "DRK Ortsverein Troisdorf, Sieglar",
+  "center": {
+    "lat": 50.8070781,
+    "lon": 7.1337849
+  },
+  "radiusM": 800,
+  "zooms": [
+    14,
+    15,
+    16,
+    17,
+    18
+  ],
+  "minZoom": 14,
+  "maxZoom": 18,
+  "zoomRadiusM": {
+    "18": 450
+  },
+  "bounds": [
+    7.122413,
+    50.799892,
+    7.145157,
+    50.814265
+  ],
+  "attribution": "© OpenStreetMap-Mitwirkende",
+  "license": "ODbL-1.0",
+  "source": "tile.openstreetmap.org",
+  "createdAt": "2026-10-23T17:53:25Z",
+  "tileCount": 192,
+  "sizeBytes": 2953336
+}

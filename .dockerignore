@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.env
+.git
+docs
+server/data
+app
+apk
+web/e2e/screenshots

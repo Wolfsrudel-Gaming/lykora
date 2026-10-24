@@ -1,0 +1,83 @@
+/*
+ * Paket D: Belohnungen – Finalcode mit Karten je Codeteil, Kopplung des Finales, Gegenstände.
+ * Nur Tokens aus tokens.css.
+ */
+
+.d-code-row {
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  align-items: start;
+}
+
+.d-code-input {
+  font-size: 22px;
+  letter-spacing: 0.2em;
+}
+
+.d-split {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.d-split > legend {
+  padding: 0;
+  margin-bottom: 2px;
+}
+
+.d-parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+}
+
+.d-part {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--raised);
+  min-width: 0;
+}
+
+.d-part.invalid {
+  border-color: var(--accent);
+  border-left-width: 4px;
+}
+
+.d-part-value {
+  font: 700 28px/1.1 var(--font-mono);
+  text-align: center;
+  color: var(--accent-bright);
+  overflow-wrap: anywhere;
+}
+
+.d-couple {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.d-ok {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.d-points .field > label:first-child {
+  text-transform: none;
+  letter-spacing: 0;
+  font: 600 14px/1.3 var(--font-ui);
+  color: var(--text);
+}
+
+.d-uses {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}

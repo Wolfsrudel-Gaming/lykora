@@ -1,0 +1,774 @@
+{
+  "format": {
+    "name": "lykora-game",
+    "version": "0.1"
+  },
+  "id": "outdoor-escape",
+  "meta": {
+    "title": {
+      "de": "Outdoor-Escape: Die Übergabe"
+    },
+    "summary": {
+      "de": "Ein Agent ist verschwunden, die Übergabe steht kurz bevor. Sechs Stationen, ein toter Briefkasten und 60 Minuten Zeit."
+    },
+    "languages": [
+      "de"
+    ],
+    "ageGroups": [
+      "14-17"
+    ],
+    "genre": "agents",
+    "scareLevel": 0,
+    "night": false,
+    "expectedDuration": 3600
+  },
+  "settings": {
+    "mode": "competitive",
+    "winCondition": "first_escape",
+    "time": {
+      "limit": "per_team",
+      "duration": 3600
+    },
+    "teamSize": {
+      "min": 2,
+      "max": 5
+    },
+    "wrongAnswer": {
+      "type": "time",
+      "amount": 30
+    },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        {
+          "type": "time",
+          "amount": 60
+        },
+        {
+          "type": "time",
+          "amount": 120
+        },
+        {
+          "type": "time",
+          "amount": 300
+        }
+      ]
+    },
+    "scoring": {
+      "solvePoints": 100,
+      "streakBonus": 20
+    },
+    "leaderboard": "live_hidden_last_minutes"
+  },
+  "field": {
+    "boundary": {
+      "center": {
+        "lat": 50.8155,
+        "lon": 7.155
+      },
+      "radius": 300
+    },
+    "start": {
+      "lat": 50.8155,
+      "lon": 7.155
+    },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": {
+        "de": "Treffpunkt Einsatzleitung"
+      },
+      "location": {
+        "lat": 50.8155,
+        "lon": 7.155
+      }
+    },
+    "restrictedZones": [
+      {
+        "id": "bach",
+        "name": {
+          "de": "Bach"
+        },
+        "kind": "water",
+        "warnDistance": 15,
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.817299,
+              "lon": 7.151299
+            },
+            {
+              "lat": 50.817434,
+              "lon": 7.154431
+            },
+            {
+              "lat": 50.817613,
+              "lon": 7.154431
+            },
+            {
+              "lat": 50.817479,
+              "lon": 7.151299
+            }
+          ]
+        }
+      }
+    ],
+    "rescuePoints": [
+      {
+        "id": "zufahrt",
+        "name": {
+          "de": "Zufahrt Parkplatz"
+        },
+        "location": {
+          "lat": 50.813432,
+          "lon": 7.156139
+        }
+      }
+    ]
+  },
+  "story": {
+    "intro": {
+      "text": {
+        "de": "Zentrale Falke an alle Teams. Agent Kranich ist verschwunden. Er hat Hinweise hinterlassen, die nur ihr finden könnt. In 60 Minuten ist die Übergabe. Findet den Code, bevor es zu spät ist."
+      }
+    },
+    "outro": {
+      "text": {
+        "de": "Code korrekt. Die Übergabe ist gesichert, Agent Kranich ist in Sicherheit. Einsatz beendet, kommt zum Treffpunkt."
+      }
+    },
+    "hq": {
+      "name": {
+        "de": "Zentrale Falke"
+      }
+    },
+    "chapters": [
+      {
+        "id": "kapitel-1",
+        "title": {
+          "de": "Einsatzbefehl"
+        },
+        "piece": {
+          "text": {
+            "de": "Euer Auftrag beginnt."
+          }
+        }
+      },
+      {
+        "id": "kapitel-2",
+        "title": {
+          "de": "Die Übergabe"
+        },
+        "piece": {
+          "text": {
+            "de": "Jemand beobachtet euch."
+          }
+        }
+      }
+    ]
+  },
+  "characters": [
+    {
+      "id": "zentrale",
+      "kind": "hq",
+      "name": {
+        "de": "Zentrale Falke"
+      },
+      "callSign": {
+        "de": "Falke an Team"
+      }
+    },
+    {
+      "id": "erzaehler",
+      "kind": "narrator",
+      "name": {
+        "de": "Erzähler"
+      }
+    },
+    {
+      "id": "kontakt",
+      "kind": "npc",
+      "name": {
+        "de": "Der Kontakt"
+      },
+      "description": {
+        "de": "Trägt immer eine dunkle Mütze und spricht nur in kurzen Sätzen."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "id": "teil-1",
+      "position": 1,
+      "value": "2"
+    },
+    {
+      "id": "teil-2",
+      "position": 2,
+      "value": "9"
+    },
+    {
+      "id": "teil-3",
+      "position": 3,
+      "value": "1"
+    },
+    {
+      "id": "teil-4",
+      "position": 4,
+      "value": "5"
+    }
+  ],
+  "items": [
+    {
+      "id": "uv-lampe",
+      "kind": "object",
+      "name": {
+        "de": "UV-Lampe"
+      },
+      "description": {
+        "de": "Macht Schrift sichtbar, die im normalen Licht verborgen bleibt."
+      }
+    },
+    {
+      "id": "dossier-seite",
+      "kind": "document",
+      "name": {
+        "de": "Dossier-Seite"
+      },
+      "body": {
+        "de": "Toter Briefkasten aktiv. Nur mit UV-Licht zu finden. Letzte Ziffer dort hinterlegt. – K."
+      }
+    }
+  ],
+  "stations": [
+    {
+      "id": "einsatz",
+      "name": {
+        "de": "Einsatzort"
+      },
+      "location": {
+        "lat": 50.816219,
+        "lon": 7.155854
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "qr",
+          "code": "LYK-4ESA"
+        },
+        {
+          "type": "manual",
+          "code": "4001"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "chapter",
+            "title": {
+              "de": "Einsatzbefehl"
+            },
+            "text": {
+              "de": "Kapitel I"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Falke an Team. Agent Kranich hat hier sein Erkennungszeichen hinterlassen. Findet es."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Richtig. Nehmt die UV-Lampe aus dem Versteck mit, ihr werdet sie brauchen."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "text",
+        "question": {
+          "de": "Wie heißt das Tier, das Agent Kranich als Erkennungszeichen nutzt?"
+        },
+        "answers": [
+          "Kranich"
+        ],
+        "match": {
+          "maxTypos": 1
+        }
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Der Name steckt schon im Funkspruch."
+          }
+        },
+        {
+          "text": {
+            "de": "Es ist ein großer Vogel."
+          }
+        },
+        {
+          "text": {
+            "de": "Der Agent heißt wie sein Zeichen."
+          }
+        }
+      ],
+      "rewards": {
+        "items": [
+          "uv-lampe"
+        ],
+        "chapter": "kapitel-2"
+      },
+      "props": [
+        {
+          "name": "UV-Lampe",
+          "kind": "other",
+          "note": "Eine je Team im Versteck am Einsatzort"
+        }
+      ]
+    },
+    {
+      "id": "funkmast",
+      "name": {
+        "de": "Der Funkmast"
+      },
+      "location": {
+        "lat": 50.816489,
+        "lon": 7.157704
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "qr",
+          "code": "LYK-4ESB"
+        },
+        {
+          "type": "manual",
+          "code": "4002"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Ein alter Mast ragt in den Himmel. An einem Kasten hängt ein Zettel mit Funkregeln."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Welche beiden Regeln gelten im Funk?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "Kurz sprechen"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Erst zuhören, dann senden"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Alle gleichzeitig reden"
+            },
+            "correct": false
+          },
+          {
+            "text": {
+              "de": "Namen voll ausschreiben"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Es sind genau zwei richtige Antworten."
+          }
+        },
+        {
+          "text": {
+            "de": "Im Funk zählt jede Sekunde."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-1"
+        ]
+      }
+    },
+    {
+      "id": "lager",
+      "name": {
+        "de": "Das Lager"
+      },
+      "location": {
+        "lat": 50.81496,
+        "lon": 7.158131
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "qr",
+          "code": "LYK-4ESC"
+        },
+        {
+          "type": "manual",
+          "code": "4003"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "dialogue",
+            "speaker": "kontakt",
+            "text": {
+              "de": "Ihr seid spät. Die Kiste ist verschlossen. Der Code steht nicht da, wo man ihn sucht."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Wo dann?"
+                },
+                "reply": {
+                  "de": "Unter dem Licht, das man nicht sieht."
+                }
+              },
+              {
+                "label": {
+                  "de": "Wer bist du?"
+                },
+                "reply": {
+                  "de": "Das spielt keine Rolle."
+                }
+              }
+            ]
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "document",
+            "item": "dossier-seite",
+            "title": {
+              "de": "Dossier-Seite"
+            },
+            "text": {
+              "de": "Toter Briefkasten aktiv. Nur mit UV-Licht zu finden. Letzte Ziffer dort hinterlegt. – K."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Wie lautet der vierstellige Code des Zahlenschlosses?"
+        },
+        "input": "lock",
+        "answers": [
+          "7302"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Der Kontakt hat von unsichtbarem Licht gesprochen."
+          }
+        },
+        {
+          "text": {
+            "de": "Leuchtet mit der UV-Lampe auf die Kiste."
+          }
+        },
+        {
+          "text": {
+            "de": "Der Code beginnt mit einer Sieben."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-2"
+        ],
+        "items": [
+          "dossier-seite"
+        ]
+      },
+      "props": [
+        {
+          "name": "Kiste mit Zahlenschloss",
+          "kind": "lock",
+          "note": "Code 7302"
+        },
+        {
+          "name": "UV-Botschaft auf der Kiste",
+          "kind": "uv_message",
+          "note": "7302"
+        }
+      ]
+    },
+    {
+      "id": "beobachter",
+      "name": {
+        "de": "Der Beobachter"
+      },
+      "location": {
+        "lat": 50.813881,
+        "lon": 7.155569
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "qr",
+          "code": "LYK-4ESD"
+        },
+        {
+          "type": "manual",
+          "code": "4004"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Falke an Team. Ihr werdet beobachtet. Beweist, dass ihr vollständig seid."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "photo",
+        "prompt": {
+          "de": "Macht ein Foto von eurem ganzen Team mit dem Lager im Hintergrund."
+        },
+        "review": "live"
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Alle müssen auf dem Foto sein."
+          }
+        },
+        {
+          "text": {
+            "de": "Das Lager muss zu sehen sein."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-3"
+        ]
+      }
+    },
+    {
+      "id": "briefkasten",
+      "name": {
+        "de": "Toter Briefkasten"
+      },
+      "location": {
+        "lat": 50.814421,
+        "lon": 7.152865
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "manual",
+          "code": "4005"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Hier soll ein toter Briefkasten sein. Irgendwo in der Nähe ist die letzte Ziffer versteckt."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "find_location",
+        "prompt": {
+          "de": "Findet das Versteck mit der letzten Ziffer."
+        },
+        "location": {
+          "lat": 50.814016,
+          "lon": 7.152296
+        },
+        "radius": 20
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Das Versteck liegt nur wenige Schritte entfernt."
+          }
+        },
+        {
+          "text": {
+            "de": "Folgt dem Peiler nach Südwesten."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "teil-4"
+        ]
+      }
+    },
+    {
+      "id": "finale",
+      "name": {
+        "de": "Die Übergabe"
+      },
+      "location": {
+        "lat": 50.816309,
+        "lon": 7.153292
+      },
+      "final": true,
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 20
+        },
+        {
+          "type": "qr",
+          "code": "LYK-4ESF"
+        },
+        {
+          "type": "manual",
+          "code": "4006"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Falke an Team. Ihr seid am Übergabepunkt. Gebt den Code aus allen vier Ziffern ein."
+            }
+          }
+        ]
+      },
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Gebt den Code aus allen vier Codeteilen ein."
+        },
+        "input": "lock",
+        "answers": [
+          "2915"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Die Ziffern kommen in der Reihenfolge der Codeteile."
+          }
+        },
+        {
+          "text": {
+            "de": "Die erste Ziffer gab es am Funkmast."
+          }
+        }
+      ],
+      "props": [
+        {
+          "name": "Koffer mit Zahlenschloss",
+          "kind": "lock",
+          "note": "Code 2915"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "briefkasten-mit-uv",
+      "when": [
+        {
+          "station_solved": "lager"
+        },
+        {
+          "has_item": "uv-lampe"
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "briefkasten"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Falke an Team. Mit der UV-Lampe seht ihr jetzt den toten Briefkasten auf der Karte."
+            }
+          }
+        }
+      ],
+      "else": [
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Ohne UV-Lampe findet ihr den toten Briefkasten nicht. Holt sie am Einsatzort."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": {
+      "gameMasterPhone": "+49 000 0000000",
+      "emergencyNumber": "112"
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval": 900,
+      "grace": 300
+    },
+    "requireSupervisor": true,
+    "requiredGear": [
+      {
+        "de": "Geladenes Handy"
+      }
+    ]
+  }
+}

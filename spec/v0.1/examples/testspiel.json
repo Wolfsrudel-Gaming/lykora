@@ -1,0 +1,850 @@
+{
+  "$schema": "../game.schema.json",
+  "format": {
+    "name": "lykora-game",
+    "version": "0.1"
+  },
+  "id": "testspiel-garten",
+  "meta": {
+    "title": {
+      "de": "Sturmnacht: Das verschwundene Funkgerät",
+      "en": "Storm Night: The Missing Radio"
+    },
+    "summary": {
+      "de": "Die Funkstation der Bergwacht ist verstummt. Vier Stationen, ein Zugangscode und eine Försterin, die mehr weiß, als sie sagt."
+    },
+    "authors": [
+      "Lykora-Team"
+    ],
+    "languages": [
+      "de",
+      "en"
+    ],
+    "ageGroups": [
+      "10-13",
+      "adult"
+    ],
+    "genre": "rescue",
+    "scareLevel": 1,
+    "night": true,
+    "expectedDuration": 1800,
+    "license": "CC-BY-SA-4.0"
+  },
+  "settings": {
+    "mode": "competitive",
+    "winCondition": "first_escape",
+    "time": {
+      "limit": "per_team",
+      "duration": 2700
+    },
+    "teamSize": {
+      "min": 2,
+      "max": 5
+    },
+    "wrongAnswer": {
+      "type": "time",
+      "amount": 30
+    },
+    "hints": {
+      "enabled": true,
+      "defaultCost": [
+        {
+          "type": "time",
+          "amount": 60
+        },
+        {
+          "type": "time",
+          "amount": 120
+        },
+        {
+          "type": "time",
+          "amount": 300
+        }
+      ]
+    },
+    "scoring": {
+      "solvePoints": 100,
+      "speedBonus": false,
+      "tieBreak": "fewer_hints"
+    },
+    "leaderboard": "live_hidden_last_minutes"
+  },
+  "field": {
+    "boundary": {
+      "center": {
+        "lat": 50.8155,
+        "lon": 7.155
+      },
+      "radius": 300
+    },
+    "start": {
+      "lat": 50.8155,
+      "lon": 7.155
+    },
+    "assemblyPoint": {
+      "id": "sammelpunkt",
+      "name": {
+        "de": "Sammelpunkt Haupteingang"
+      },
+      "location": {
+        "lat": 50.8155,
+        "lon": 7.155
+      }
+    },
+    "restrictedZones": [
+      {
+        "id": "strasse",
+        "name": {
+          "de": "Straße"
+        },
+        "kind": "road",
+        "area": {
+          "polygon": [
+            {
+              "lat": 50.817,
+              "lon": 7.152
+            },
+            {
+              "lat": 50.8172,
+              "lon": 7.158
+            },
+            {
+              "lat": 50.8168,
+              "lon": 7.158
+            },
+            {
+              "lat": 50.8166,
+              "lon": 7.152
+            }
+          ]
+        },
+        "penalty": {
+          "type": "time",
+          "amount": 120
+        }
+      }
+    ],
+    "rescuePoints": [
+      {
+        "id": "rp1",
+        "name": {
+          "de": "Zufahrt Parkplatz"
+        },
+        "location": {
+          "lat": 50.815,
+          "lon": 7.154
+        }
+      }
+    ]
+  },
+  "story": {
+    "intro": {
+      "speaker": "hq",
+      "text": {
+        "de": "Nachtfalke an alle Teams. Seit 20 Uhr ist unsere Funkstation am Ahrenbach still. Das Funkgerät ist weg. Ohne Zugangscode bekommen wir es nicht wieder zum Laufen. Findet die drei Teile des Codes, bevor der Sturm kommt."
+      }
+    },
+    "hq": {
+      "name": {
+        "de": "Zentrale Nachtfalke"
+      }
+    },
+    "outro": {
+      "text": {
+        "de": "Das Funkgerät rauscht, dann eine Stimme: „Nachtfalke hört euch laut und klar.“ Die Station ist wieder auf Sendung. Gut gemacht, Team."
+      }
+    },
+    "chapters": [
+      {
+        "id": "kapitel-1",
+        "title": {
+          "de": "Funkstille"
+        }
+      },
+      {
+        "id": "kapitel-2",
+        "title": {
+          "de": "Die Spur im Wald"
+        }
+      },
+      {
+        "id": "kapitel-3",
+        "title": {
+          "de": "Das Signal"
+        },
+        "ambience": {
+          "audio": "sturm",
+          "volume": 0.5
+        }
+      }
+    ]
+  },
+  "fragments": [
+    {
+      "id": "f1",
+      "position": 1,
+      "value": "1"
+    },
+    {
+      "id": "f2",
+      "position": 2,
+      "value": "9"
+    },
+    {
+      "id": "f3",
+      "position": 3,
+      "value": "1"
+    }
+  ],
+  "items": [
+    {
+      "id": "uv-lampe",
+      "name": {
+        "de": "UV-Lampe"
+      },
+      "description": {
+        "de": "Zeigt Schrift, die im normalen Licht unsichtbar bleibt."
+      }
+    },
+    {
+      "id": "zettel",
+      "kind": "document",
+      "name": {
+        "de": "Zettel unter der Kiste"
+      },
+      "body": {
+        "de": "Funkgerät in Sicherheit gebracht. Code für den Koffer steht unter dem Licht, das man nicht sieht. – B."
+      }
+    }
+  ],
+  "stations": [
+    {
+      "id": "briefing",
+      "name": {
+        "de": "Sicherheits-Briefing"
+      },
+      "location": {
+        "lat": 50.8156,
+        "lon": 7.1552
+      },
+      "triggers": [
+        {
+          "type": "gps"
+        },
+        {
+          "type": "qr",
+          "code": "LYK-BRIEFING"
+        }
+      ],
+      "task": {
+        "type": "choice",
+        "question": {
+          "de": "Was tut ihr, wenn jemand verletzt ist?"
+        },
+        "options": [
+          {
+            "text": {
+              "de": "SOS drücken und bei der Person bleiben"
+            },
+            "correct": true
+          },
+          {
+            "text": {
+              "de": "Weiterspielen und später Bescheid sagen"
+            },
+            "correct": false
+          }
+        ]
+      },
+      "rewards": {
+        "points": 50,
+        "items": [
+          "uv-lampe"
+        ],
+        "chapter": "kapitel-2"
+      },
+      "scene": {
+        "arrival": [
+          {
+            "kind": "chapter",
+            "title": {
+              "de": "Funkstille"
+            },
+            "text": {
+              "de": "Kapitel I"
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Nachtfalke an Team. Bevor ihr loszieht: Im Wald gelten unsere Regeln. Bleibt zusammen, Lampen an, und bei Gefahr drückt ihr SOS."
+            },
+            "sfx": "funk-knacken"
+          },
+          {
+            "kind": "group",
+            "text": {
+              "de": "Alle Lampen an. Schaut euch an: Hat jeder eine Warnweste?"
+            },
+            "ack": {
+              "de": "Alle bereit"
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Gut. Nehmt die UV-Lampe aus dem Koffer mit, ihr werdet sie brauchen. Das letzte Signal kam vom alten Baum im Norden."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "near": {
+          "de": "Der Sammelplatz liegt direkt vor euch."
+        }
+      }
+    },
+    {
+      "id": "baum",
+      "name": {
+        "de": "Der alte Baum"
+      },
+      "location": {
+        "lat": 50.816,
+        "lon": 7.1565
+      },
+      "triggers": [
+        {
+          "type": "gps",
+          "radius": 25
+        },
+        {
+          "type": "nfc",
+          "tag": "lyk-baum"
+        },
+        {
+          "type": "manual",
+          "code": "4711"
+        }
+      ],
+      "story": {
+        "speaker": "hq",
+        "text": {
+          "de": "Hier wurde das Funkgerät zuletzt gesehen."
+        }
+      },
+      "task": {
+        "type": "text",
+        "question": {
+          "de": "Welches Tier ist auf dem Schild am Baum abgebildet?"
+        },
+        "answers": [
+          "Eule",
+          "Uhu"
+        ]
+      },
+      "hints": [
+        {
+          "text": {
+            "de": "Schaut auf Augenhöhe."
+          }
+        },
+        {
+          "text": {
+            "de": "Das Tier ist nachtaktiv."
+          }
+        },
+        {
+          "text": {
+            "de": "Es macht „Huhu“."
+          }
+        }
+      ],
+      "rewards": {
+        "fragments": [
+          "f1"
+        ]
+      },
+      "props": [
+        {
+          "name": "Schild mit Eule",
+          "kind": "hidden_object"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Hier wurde das Funkgerät zuletzt gesehen. Seht euch den Stamm genau an."
+            }
+          }
+        ],
+        "beats": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Die Rinde ist nass vom Regen. Auf Augenhöhe hängt ein verwittertes Holzschild. Ein Tier ist darauf eingebrannt."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Eule, richtig! Das erste Codeteil ist eine Eins. Weiter zur Kiste am Bach."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "mid": {
+          "de": "Das Signal wird stärker. Der Baum muss nah sein."
+        },
+        "near": {
+          "de": "Es knackt im Empfänger. Ihr seid ganz nah."
+        }
+      },
+      "sound": {
+        "ambience": {
+          "audio": "wald-nacht",
+          "volume": 0.7,
+          "from": "near"
+        },
+        "approach": {
+          "near": "eule"
+        },
+        "solved": "ast-knackt"
+      }
+    },
+    {
+      "id": "schloss",
+      "name": {
+        "de": "Die verschlossene Kiste"
+      },
+      "location": {
+        "lat": 50.8148,
+        "lon": 7.156
+      },
+      "triggers": [
+        {
+          "type": "gps"
+        },
+        {
+          "type": "qr",
+          "code": "LYK-SCHLOSS"
+        }
+      ],
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Leuchtet mit der UV-Lampe auf den Deckel. Wie lautet der Code?"
+        },
+        "answers": [
+          "372"
+        ]
+      },
+      "rewards": {
+        "fragments": [
+          "f2"
+        ],
+        "chapter": "kapitel-3"
+      },
+      "props": [
+        {
+          "name": "Kiste mit Zahlenschloss",
+          "kind": "lock",
+          "note": "Code 372"
+        },
+        {
+          "name": "UV-Botschaft auf dem Deckel",
+          "kind": "uv_message"
+        }
+      ],
+      "scene": {
+        "arrival": [
+          {
+            "kind": "dialogue",
+            "speaker": "brandt",
+            "text": {
+              "de": "Ihr sucht das Funkgerät? Ich habe heute Abend jemanden mit einer Lampe an dieser Kiste gesehen.",
+              "en": "Looking for the radio? I saw someone with a lamp at this box tonight."
+            },
+            "responses": [
+              {
+                "label": {
+                  "de": "Wer war das?"
+                },
+                "reply": {
+                  "de": "Zu dunkel. Aber die Person hat etwas unter die Kiste gelegt."
+                }
+              },
+              {
+                "label": {
+                  "de": "Danke, wir schauen nach."
+                },
+                "reply": {
+                  "de": "Passt auf euch auf. Der Bach ist rutschig."
+                }
+              }
+            ]
+          }
+        ],
+        "beats": [
+          {
+            "kind": "document",
+            "item": "zettel",
+            "title": {
+              "de": "Zettel unter der Kiste"
+            },
+            "text": {
+              "de": "Funkgerät in Sicherheit gebracht. Code für den Koffer steht unter dem Licht, das man nicht sieht. – B."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Die Kiste ist offen! Neuer Hinweis auf eurer Karte. Beeilt euch, der Wind frischt auf."
+            }
+          }
+        ]
+      },
+      "approach": {
+        "near": {
+          "de": "Ihr hört den Bach. Die Kiste steht am Ufer."
+        }
+      },
+      "sound": {
+        "ambience": {
+          "audio": "bach",
+          "volume": 0.6,
+          "from": "mid"
+        },
+        "solved": "kiste-auf"
+      }
+    },
+    {
+      "id": "versteck",
+      "name": {
+        "de": "Das Versteck"
+      },
+      "location": {
+        "lat": 50.8152,
+        "lon": 7.1575
+      },
+      "visibility": "hidden",
+      "triggers": [
+        {
+          "type": "gps"
+        },
+        {
+          "type": "box",
+          "box": "demo-box-1"
+        }
+      ],
+      "task": {
+        "type": "photo",
+        "prompt": {
+          "de": "Macht ein Teamfoto mit dem Fundstück."
+        },
+        "review": "auto_accept"
+      },
+      "rewards": {
+        "fragments": [
+          "f3"
+        ]
+      },
+      "scene": {
+        "arrival": [
+          {
+            "kind": "narration",
+            "speaker": "erzaehler",
+            "text": {
+              "de": "Zwischen zwei Felsen liegt ein Koffer. Daneben ein Fußabdruck und eine Feder."
+            }
+          }
+        ],
+        "afterSolve": [
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Das Foto ist angekommen. Ihr habt alle drei Teile. Bringt den Code zum Funkgerät!"
+            }
+          }
+        ]
+      },
+      "approach": {
+        "far": {
+          "de": "Ein schwaches Signal, irgendwo zwischen den Felsen."
+        },
+        "near": {
+          "de": "Da glitzert etwas zwischen den Steinen."
+        }
+      }
+    },
+    {
+      "id": "finale",
+      "name": {
+        "de": "Finale: das Funkgerät"
+      },
+      "location": {
+        "lat": 50.8155,
+        "lon": 7.155
+      },
+      "final": true,
+      "triggers": [
+        {
+          "type": "gps"
+        },
+        {
+          "type": "qr",
+          "code": "LYK-FINALE"
+        }
+      ],
+      "task": {
+        "type": "code",
+        "question": {
+          "de": "Gebt den Zugangscode aus allen Fragmenten ein."
+        },
+        "answers": [
+          "191"
+        ]
+      },
+      "scene": {
+        "arrival": [
+          {
+            "kind": "chapter",
+            "title": {
+              "de": "Das Signal"
+            },
+            "text": {
+              "de": "Letztes Kapitel"
+            }
+          },
+          {
+            "kind": "radio",
+            "speaker": "zentrale",
+            "text": {
+              "de": "Ihr seid am Funkgerät. Setzt den Zugangscode zusammen. Wir hören zu."
+            }
+          }
+        ]
+      },
+      "sound": {
+        "approach": {
+          "near": "donner",
+          "here": "funk-knacken"
+        }
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "versteck-freischalten",
+      "when": [
+        {
+          "station_solved": "schloss"
+        }
+      ],
+      "then": [
+        {
+          "reveal_station": "versteck"
+        },
+        {
+          "message": {
+            "from": "hq",
+            "text": {
+              "de": "Neue Spur! Auf eurer Karte ist ein Versteck aufgetaucht."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "safety": {
+    "emergency": {
+      "gameMasterPhone": "+49 170 0000000"
+    },
+    "heartbeat": {
+      "enabled": true,
+      "interval": 900,
+      "grace": 300
+    },
+    "sos": {
+      "smsFallback": "+49 170 0000000",
+      "lora": false
+    },
+    "requireSupervisor": true,
+    "requiredGear": [
+      {
+        "de": "Lampe"
+      },
+      {
+        "de": "Warnweste"
+      }
+    ]
+  },
+  "presentation": {
+    "device": {
+      "de": "Peilempfänger"
+    },
+    "caseFile": {
+      "de": "Einsatzprotokoll"
+    },
+    "stamp": {
+      "de": "AUFTRAG ERFÜLLT"
+    }
+  },
+  "characters": [
+    {
+      "id": "zentrale",
+      "kind": "hq",
+      "name": {
+        "de": "Zentrale Nachtfalke"
+      },
+      "callSign": {
+        "de": "Nachtfalke an Team"
+      }
+    },
+    {
+      "id": "brandt",
+      "kind": "npc",
+      "name": {
+        "de": "Försterin Brandt"
+      },
+      "description": {
+        "de": "Kennt jeden Baum am Ahrenbach. War heute Abend als Letzte an der Funkstation."
+      }
+    },
+    {
+      "id": "erzaehler",
+      "kind": "narrator",
+      "name": {
+        "de": "Erzähler"
+      }
+    }
+  ],
+  "sound": {
+    "ambience": {
+      "audio": "wind",
+      "volume": 0.35
+    },
+    "ui": {
+      "radio": "funk-knacken"
+    }
+  },
+  "media": [
+    {
+      "id": "wind",
+      "type": "audio",
+      "src": "media/lib/wind.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Wind in den Bäumen"
+      }
+    },
+    {
+      "id": "sturm",
+      "type": "audio",
+      "src": "media/lib/sturm.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Sturm mit Regen und fernem Donner"
+      }
+    },
+    {
+      "id": "wald-nacht",
+      "type": "audio",
+      "src": "media/lib/wald-nacht.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Wald bei Nacht mit Grillen"
+      }
+    },
+    {
+      "id": "bach",
+      "type": "audio",
+      "src": "media/lib/bach.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Bach"
+      }
+    },
+    {
+      "id": "eule",
+      "type": "audio",
+      "src": "media/lib/eule.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Ruf einer Eule"
+      }
+    },
+    {
+      "id": "ast-knackt",
+      "type": "audio",
+      "src": "media/lib/ast-knackt.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Ein Ast knackt"
+      }
+    },
+    {
+      "id": "kiste-auf",
+      "type": "audio",
+      "src": "media/lib/kiste-auf.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Holzkiste springt auf"
+      }
+    },
+    {
+      "id": "funk-knacken",
+      "type": "audio",
+      "src": "media/lib/funk-knacken.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Funkgerät knackt und rauscht"
+      }
+    },
+    {
+      "id": "donner",
+      "type": "audio",
+      "src": "media/lib/donner.ogg",
+      "credit": {
+        "de": "Lykora-Klangbibliothek, CC0"
+      },
+      "alt": {
+        "de": "Donnergrollen"
+      }
+    }
+  ]
+}

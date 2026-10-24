@@ -1,0 +1,5 @@
+/* Einstieg für Spiele-Liste, Assistent und Veröffentlichen: Reihenfolge der Dateien = Kaskade. */
+@import "./checklist.css";
+@import "./signs.css";
+@import "./wizard.css";
+@import "./games.css";

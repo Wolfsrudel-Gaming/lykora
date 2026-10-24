@@ -1,0 +1,96 @@
+/* Schilder und Blatt */
+
+.pub-signs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+.pub-sign {
+  padding: 20px;
+  border: 6px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+/* Inhalt in eigenem Kasten: Das Schild selbst bleibt ein Block, nur dann gilt @page schild. */
+.pub-sign-body {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pub-sign p {
+  margin: 0;
+}
+
+.pub-sign-number {
+  font: 700 64px/1 var(--font-head);
+}
+
+.pub-sign-name {
+  font: 600 22px/1.2 var(--font-ui);
+}
+
+.pub-sign .qr {
+  width: min(280px, 100%);
+}
+
+.pub-sign-code strong {
+  white-space: nowrap;
+}
+
+.pub-sign-brand {
+  font: 600 14px/1 var(--font-brand);
+  color: var(--muted);
+}
+
+.pub-sheet .solution {
+  margin-top: 4px;
+}
+
+@page schild {
+  size: A5 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  .pub-signs {
+    display: block;
+  }
+
+  .pub-sign {
+    page: schild;
+    break-after: page;
+    break-inside: avoid;
+    box-sizing: border-box;
+    width: 100%;
+    height: 180mm;
+    padding: 8mm;
+    border-width: 4mm;
+  }
+
+  .pub-sign-body {
+    height: 100%;
+    align-content: center;
+  }
+
+  .pub-sign .qr {
+    width: 90mm;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .pub-sign-number {
+    font-size: 48pt;
+  }
+
+  /* kein leeres Blatt nach dem letzten Schild */
+  .pub-sign:last-child {
+    break-after: auto;
+  }
+}
+
