@@ -30,6 +30,8 @@ export const ROUTES = {
   account: "/konto",
   settings: "/einstellungen",
   join: "/join/:code",
+  // Entwurfsseite: alle Bausteine in allen Zuständen; ohne Anmeldung, nicht in der Navigation
+  design: "/_design",
 } as const;
 
 export type RouteName = keyof typeof ROUTES;

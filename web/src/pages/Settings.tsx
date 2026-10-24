@@ -56,6 +56,7 @@ export function SettingsPage() {
 const THEMES: { value: Theme; label: string; hint: string }[] = [
   { value: "night", label: "Nacht", hint: "Dunkel, der Standard: blendet nicht im Gelände und am Leitstand." },
   { value: "day", label: "Tag", hint: "Hell, für Büro und Tageslicht." },
+  { value: "system", label: "System", hint: "Folgt der Einstellung deines Geräts." },
 ];
 
 function Appearance() {

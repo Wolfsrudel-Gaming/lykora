@@ -4,6 +4,7 @@ import { Api, ApiError } from "./api.ts";
 import { base } from "./base.ts";
 import { href, location, navigate } from "./router.ts";
 import { load, save } from "./storage.ts";
+import { parseTheme, prefersLight, resolveTheme, themeColor, watchSystemTheme, type ResolvedTheme, type Theme } from "./theme.ts";
 import { createStore } from "./store.ts";
 import type { OrgMembership, Role, User } from "./types.ts";
 import { resetUpdateHint } from "./update.ts";
@@ -109,16 +110,41 @@ export function currentOrg(): OrgMembership | undefined {
 
 // Thema
 
-export type Theme = "night" | "day";
+export type { Theme } from "./theme.ts";
 
-export const theme = createStore<{ value: Theme }>({ value: load("theme") === "day" ? "day" : "night" });
+export const theme = createStore<{ value: Theme; resolved: ResolvedTheme }>(initialTheme());
+
+function initialTheme(): { value: Theme; resolved: ResolvedTheme } {
+  const value = parseTheme(load("theme"));
+  return { value, resolved: resolveTheme(value, prefersLight()) };
+}
+
+/** Thema an die Seite hängen: data-theme (auch „system“, das CSS folgt dem Gerät) und die Farbe der Browserleiste. */
+function applyTheme(value: Theme, resolved: ResolvedTheme): void {
+  document.documentElement.dataset.theme = value;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor(resolved));
+}
 
 export function setTheme(value: Theme): void {
   save("theme", value);
-  document.documentElement.dataset.theme = value;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", value === "day" ? "#F3EEE4" : "#0B0C0E");
-  theme.set({ value });
+  const resolved = resolveTheme(value, prefersLight());
+  applyTheme(value, resolved);
+  theme.set({ value, resolved });
 }
+
+// Das Vorab-Skript in index.html setzt das Thema schon vor dem ersten Zeichnen; fehlt es (alte Seite im Cache), holt das hier nach.
+if (typeof document !== "undefined" && document.documentElement?.dataset && document.documentElement.dataset.theme !== theme.get().value) {
+  applyTheme(theme.get().value, theme.get().resolved);
+}
+
+// Bei „System“ folgt die Seite einem Wechsel des Geräts, ohne neu zu laden.
+watchSystemTheme((light) => {
+  const { value } = theme.get();
+  if (value !== "system") return;
+  const resolved = resolveTheme(value, light);
+  applyTheme(value, resolved);
+  theme.set({ resolved });
+});
 
 // Meldungen am Bildschirmrand
 
@@ -126,20 +152,63 @@ export interface Toast {
   id: number;
   text: string;
   kind: "info" | "ok" | "warn" | "error";
+  /** Fett davor, optional */
+  title?: string;
+  /** Eine Aktion rechts, z. B. „Rückgängig“; schließt die Meldung danach */
+  action?: { label: string; onClick: () => void };
+  /** Anzeigedauer in ms; null bleibt, bis die Meldung geschlossen wird (Fehler) */
+  duration: number | null;
+}
+
+export interface NotifyOptions {
+  title?: string;
+  action?: Toast["action"];
+  /** ms; null = bleibt stehen. Standard: 4 s Info/Erfolg, 8 s Warnung, Fehler bleiben. */
+  duration?: number | null;
 }
 
 export const toasts = createStore<{ list: Toast[] }>({ list: [] });
 let toastId = 0;
+const timers = new Map<number, { handle: ReturnType<typeof setTimeout> | null; left: number; since: number }>();
 
-export function notify(text: string, kind: Toast["kind"] = "info"): void {
+export function toastDuration(kind: Toast["kind"]): number | null {
+  return kind === "error" ? null : kind === "warn" ? 8000 : 4000;
+}
+
+export function notify(text: string, kind: Toast["kind"] = "info", options: NotifyOptions = {}): void {
   const id = ++toastId;
+  const duration = options.duration === undefined ? toastDuration(kind) : options.duration;
   // Höchstens drei Meldungen gleichzeitig, damit sie den Leitstand nicht zudecken.
-  toasts.set((s) => ({ list: [...s.list.slice(-2), { id, text, kind }] }));
-  setTimeout(() => dismiss(id), kind === "error" || kind === "warn" ? 8000 : 3500);
+  toasts.set((s) => ({ list: [...s.list.slice(-2), { id, text, kind, title: options.title, action: options.action, duration }] }));
+  if (duration !== null) startToastTimer(id, duration);
+}
+
+function startToastTimer(id: number, ms: number): void {
+  const t = { handle: setTimeout(() => dismiss(id), ms) as ReturnType<typeof setTimeout> | null, left: ms, since: Date.now() };
+  timers.set(id, t);
+}
+
+/** Beim Überfahren oder Fokussieren: Restzeit anhalten. */
+export function pauseToast(id: number): void {
+  const t = timers.get(id);
+  if (!t || t.handle === null) return;
+  clearTimeout(t.handle);
+  t.handle = null;
+  t.left = Math.max(0, t.left - (Date.now() - t.since));
+}
+
+export function resumeToast(id: number): void {
+  const t = timers.get(id);
+  if (!t || t.handle !== null) return;
+  t.since = Date.now();
+  t.handle = setTimeout(() => dismiss(id), t.left);
 }
 
 export function dismiss(id: number): void {
-  toasts.set((s) => ({ list: s.list.filter((t) => t.id !== id) }));
+  const t = timers.get(id);
+  if (t?.handle) clearTimeout(t.handle);
+  timers.delete(id);
+  toasts.set((s) => ({ list: s.list.filter((x) => x.id !== id) }));
 }
 
 /** Fehler als Meldung zeigen; liefert die Meldung für Formulare. */

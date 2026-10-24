@@ -598,7 +598,7 @@ async function main() {
     const published = page.getByRole("dialog", { name: "Version 1 ist veröffentlicht" });
     await published.waitFor();
     await shot(page, "baukasten-veroeffentlichen");
-    await published.getByRole("button", { name: "Schließen" }).click();
+    await published.getByRole("button", { name: "Schließen", exact: true }).click();
     const v1 = await api("GET", `/games/${agentId}`, undefined, admin.token);
     check("Version 1 veröffentlicht, Entwurf ohne Änderungen", v1.latest_version === 1 && v1.draft?.changed === false);
     const v1content = (await api("GET", `/games/${agentId}/versions/1`, undefined, admin.token)).content;
@@ -617,8 +617,8 @@ async function main() {
     await codes.locator(".qr img").first().waitFor();
     // 7 Stationen; „Toter Briefkasten“ hat keinen QR-Code (nur GPS und Notfall-Code).
     check("Stations-Codes: 7 Stationen mit 6 QR-Codes", (await codes.locator(".pub-code").count()) === 7 && (await codes.locator(".qr img").count()) === 6);
-    await codes.getByRole("button", { name: "Schließen" }).click();
-    await testRun.getByRole("button", { name: "Schließen" }).last().click();
+    await codes.getByRole("button", { name: "Schließen", exact: true }).click();
+    await testRun.getByRole("button", { name: "Schließen", exact: true }).last().click();
     const orgEvents = await api("GET", `/orgs/${org.id}/events`, undefined, admin.token);
     check("Probelauf als Test-Event", orgEvents.some((e) => e.test && e.join.code === testCode));
 
@@ -794,7 +794,7 @@ async function main() {
   await page.getByText("Muss erledigt sein (0)").waitFor();
   await page.getByLabel("Kommentar zur Version").fill("Klänge zugeordnet");
   await page.getByRole("button", { name: "Als Version 2 veröffentlichen" }).click();
-  await page.getByRole("dialog", { name: "Version 2 ist veröffentlicht" }).getByRole("button", { name: "Schließen" }).click();
+  await page.getByRole("dialog", { name: "Version 2 ist veröffentlicht" }).getByRole("button", { name: "Schließen", exact: true }).click();
   const afterSound = await api("GET", `/games/${gameId}`, undefined, admin.token);
   check("Klänge als Version 2 veröffentlicht", afterSound.latest_version === 2);
   const bs = afterSound.content.stations.find((s) => s.id === "briefing").sound;
@@ -1158,6 +1158,132 @@ async function main() {
   await restart.page.getByRole("button", { name: "Erneut versuchen" }).click();
   await restart.page.locator(".team-row", { hasText: "Füchse" }).waitFor();
   check("Nach erneutem Versuch geht es ohne neue Anmeldung weiter", true);
+
+  // 19. Entwurfsseite /_design: ohne Anmeldung, Bausteine per Tastatur, Themen
+  const ds = await newPage({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
+  const dp = ds.page;
+  await dp.goto(`${APP}/_design?thema=night`);
+  await dp.locator(".ds-section").first().waitFor();
+  check("Entwurfsseite: zehn Abschnitte, ohne Anmeldung erreichbar", (await dp.locator(".ds-section").count()) === 10 && dp.url().includes("/_design"));
+  check("Entwurfsseite erscheint nicht in der Navigation", (await page.getByRole("link", { name: /Entwurf/ }).count()) === 0);
+  await dp.locator('html[data-theme="night"]').waitFor();
+  await shot(dp, "entwurf-nacht", { fullPage: true });
+  const bodyBg = () => dp.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  check("Thema Nacht: Seitengrund #0b0c0e", (await bodyBg()) === "rgb(11, 12, 14)");
+  await dp.getByRole("radio", { name: "Tag", exact: true }).click();
+  await dp.locator('html[data-theme="day"]').waitFor();
+  check("Thema Tag: Seitengrund #f3eee4", (await bodyBg()) === "rgb(243, 238, 228)");
+  check("Thema Tag: Primärknopf bleibt Laternen-Amber mit dunkler Schrift", await dp.evaluate(() => {
+    const b = document.querySelector(".btn--primary");
+    const c = getComputedStyle(b);
+    return c.backgroundColor === "rgb(242, 163, 58)" && c.color === "rgb(26, 17, 4)";
+  }));
+  await shot(dp, "entwurf-tag", { fullPage: true });
+  await dp.getByRole("radio", { name: "System", exact: true }).click();
+  await dp.locator('html[data-theme="system"]').waitFor();
+  check("Thema System folgt dem Gerät (dunkel)", (await bodyBg()) === "rgb(11, 12, 14)");
+  await dp.emulateMedia({ colorScheme: "light" });
+  await dp.waitForFunction(() => getComputedStyle(document.body).backgroundColor === "rgb(243, 238, 228)");
+  check("Thema System folgt dem Gerät (hell)", true);
+  check("Thema System wird gespeichert", (await dp.evaluate(() => localStorage.getItem("lykora.theme"))) === "system");
+  await dp.getByRole("radio", { name: "Nacht", exact: true }).click();
+  await dp.emulateMedia({ colorScheme: "dark" });
+
+  // Reiter: Pfeile, Home, Ende, gesperrte werden übersprungen, ein Tabstopp
+  const tab = (name) => dp.getByRole("tab", { name, exact: false });
+  await tab(/^Teams/).focus();
+  await dp.keyboard.press("ArrowRight");
+  check("Reiter: Pfeil rechts wählt den nächsten", (await tab(/^Funk/).getAttribute("aria-selected")) === "true");
+  await dp.keyboard.press("End");
+  check("Reiter: Ende wählt den letzten", (await tab(/^Und noch einer/).getAttribute("aria-selected")) === "true");
+  await dp.keyboard.press("Home");
+  check("Reiter: Home wählt den ersten", (await tab(/^Teams/).getAttribute("aria-selected")) === "true");
+  await tab(/^Logbuch/).click();
+  await dp.keyboard.press("ArrowRight");
+  check("Reiter: gesperrter Reiter wird übersprungen", (await tab(/^Noch ein Reiter/).getAttribute("aria-selected")) === "true");
+  check("Reiter: genau ein Tabstopp", (await dp.locator('[role="tab"][tabindex="0"]').count()) === 1);
+
+  // Menü: Pfeil öffnet, Pfeile wandern (Gesperrtes überspringen), Tippsuche, Escape gibt den Fokus zurück
+  const menuBtn = dp.getByRole("button", { name: "Weitere Aktionen" });
+  await menuBtn.focus();
+  await dp.keyboard.press("ArrowDown");
+  const menu = dp.getByRole("menu", { name: "Weitere Aktionen" });
+  await menu.waitFor();
+  check("Menü: Pfeil unten öffnet und fokussiert den ersten Eintrag", await dp.evaluate(() => document.activeElement?.textContent?.includes("Bearbeiten") === true));
+  await dp.keyboard.press("ArrowDown");
+  await dp.keyboard.press("ArrowDown");
+  check("Menü: gesperrter Eintrag wird übersprungen", await dp.evaluate(() => document.activeElement?.textContent?.includes("Löschen") === true));
+  await dp.keyboard.type("d");
+  check("Menü: Tippsuche springt zum Eintrag", await dp.evaluate(() => document.activeElement?.textContent?.includes("Duplizieren") === true));
+  await dp.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached" });
+  check("Menü: Escape schließt und gibt den Fokus an den Knopf zurück", await dp.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Weitere Aktionen"));
+  await menuBtn.click();
+  await dp.getByRole("menuitem", { name: "Duplizieren" }).click();
+  await toast(dp, "Dupliziert");
+  check("Menü: Wählen löst die Aktion aus und schließt", (await dp.getByRole("menu").count()) === 0);
+
+  // Dialog: erstes Feld hat den Fokus, Tab bleibt im Dialog, Escape schließt, Fokus kehrt zurück
+  const dlgBtn = dp.getByRole("button", { name: "Dialog", exact: true });
+  await dlgBtn.focus();
+  await dp.keyboard.press("Enter");
+  const dlg = dp.getByRole("dialog", { name: "Spiel umbenennen" });
+  await dlg.waitFor();
+  check("Dialog: der Fokus liegt im ersten Feld, nicht auf dem Schließen-Knopf", await dp.evaluate(() => document.activeElement?.tagName === "INPUT" && !!document.activeElement.closest("dialog")));
+  let inside = true;
+  for (let i = 0; i < 6; i++) {
+    await dp.keyboard.press("Tab");
+    inside &&= await dp.evaluate(() => !!document.activeElement?.closest("dialog"));
+  }
+  check("Dialog: Tab bleibt im Dialog", inside);
+  await dp.keyboard.press("Escape");
+  await dlg.waitFor({ state: "hidden" });
+  check("Dialog: Escape schließt, der Fokus kehrt zum Auslöser zurück", await dp.evaluate(() => document.activeElement?.textContent?.trim() === "Dialog"));
+  await dlgBtn.click();
+  await dlg.getByRole("button", { name: "Dialog schließen" }).click();
+  await dlg.waitFor({ state: "hidden" });
+  check("Dialog: Schließen-Knopf mit Namen", true);
+
+  // Feld: Beschriftung, Fehler verbunden, Passwort-Auge, Radiogruppe per Pfeil
+  const pw = dp.getByLabel("Passwort", { exact: true });
+  check("Feld: Beschriftung führt zum Eingabefeld", (await pw.count()) === 1);
+  check("Feld: Fehler macht das Feld ungültig und ist als Beschreibung verbunden", await pw.evaluate((el) => {
+    const id = el.getAttribute("aria-describedby");
+    return el.getAttribute("aria-invalid") === "true" && !!id && document.getElementById(id.split(" ").pop()).textContent.includes("zu kurz");
+  }));
+  const eye = dp.getByLabel("Passwort mit Auge", { exact: true });
+  const eyeGroup = dp.locator(".input-group").filter({ has: eye });
+  await eyeGroup.getByRole("button", { name: "Passwort anzeigen" }).click();
+  check("Passwort-Auge zeigt die Eingabe", (await eye.getAttribute("type")) === "text");
+  await eyeGroup.getByRole("button", { name: "Passwort verbergen" }).click();
+  check("Passwort-Auge verbirgt sie wieder", (await eye.getAttribute("type")) === "password");
+  await dp.getByRole("radio", { name: /^Versteckt/ }).focus();
+  await dp.keyboard.press("ArrowDown");
+  check("Radiogruppe: Pfeil unten springt über den gesperrten Eintrag zum ersten", await dp.getByRole("radio", { name: /^Immer sichtbar/ }).isChecked());
+
+  // Tooltip: Hover nach 400 ms, Escape blendet aus; Fokus per Tastatur zeigt sofort
+  await dp.getByRole("button", { name: "Mit Tooltip" }).hover();
+  await dp.getByRole("tooltip").waitFor({ timeout: 3000 });
+  check("Tooltip erscheint beim Überfahren", (await dp.getByRole("tooltip").innerText()) === "Speichert den Entwurf");
+  await dp.keyboard.press("Escape");
+  await dp.getByRole("tooltip").waitFor({ state: "detached" });
+  await dp.mouse.move(5, 5);
+
+  // Meldung: Restzeit hält bei Hover an
+  await dp.getByRole("button", { name: "Info", exact: true }).click();
+  const t = dp.locator(".toast", { hasText: "Meldung gesendet." });
+  await t.waitFor();
+  await t.hover();
+  await dp.waitForTimeout(4600);
+  check("Meldung bleibt bei Hover stehen", (await t.count()) === 1);
+  await dp.mouse.move(5, 5);
+  await t.waitFor({ state: "detached", timeout: 8000 });
+  check("Meldung verschwindet nach dem Wegnehmen der Maus", true);
+
+  // Handy: nichts läuft über, Tabelle wird zur Karte
+  await dp.setViewportSize({ width: 390, height: 844 });
+  await shot(dp, "entwurf-handy", { fullPage: true });
+  check("Tabelle schmal als Karten (Container-Query)", await dp.evaluate(() => getComputedStyle(document.querySelector(".table--cards thead")).display === "none"));
 
   check("Keine Fehler in der Browser-Konsole", errors.length === 0, errors.join(" | "));
   await browser.close();

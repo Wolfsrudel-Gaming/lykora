@@ -1,0 +1,114 @@
+/* Kleinteile: Icon, Kbd, Trenner, Brotkrumen, Seitenkopf */
+
+.icon {
+  flex: none;
+  vertical-align: middle;
+}
+
+.kbd,
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--sunken);
+  color: var(--muted);
+  font: var(--type-mono);
+  font-size: var(--fs-11);
+  line-height: 18px;
+  text-align: center;
+}
+
+.divider {
+  flex: none;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--line);
+}
+
+.divider--vertical {
+  width: 1px;
+  height: auto;
+  align-self: stretch;
+}
+
+.breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-caption);
+  color: var(--muted);
+}
+
+.breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.breadcrumb a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.breadcrumb [aria-current="page"] {
+  color: var(--text);
+}
+
+.breadcrumb svg {
+  color: var(--subtle);
+}
+
+/* Seitenkopf: Eyebrow, Titel mit Status, Meta, Aktionen rechts (Primär ganz rechts) */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.page-header__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.page-header__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.page-header__title h1 {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.page-header__desc {
+  max-width: 72ch;
+  color: var(--muted);
+  font: var(--type-dense);
+}
+
+.page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}

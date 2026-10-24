@@ -1,8 +1,20 @@
 /*
- * Design-Tokens des Dashboards nach dem „Laternenprinzip“ der App:
- * Nacht ist Standard, nur was zählt leuchtet. Sicherheitsrot gehört allein SOS,
- * Rückruf und Sperrzonen; das Absperrband markiert Sicherheitsflächen.
+ * Design-Tokens des Dashboards („Laterne 2“): Rollen statt Rohwerten.
+ * Nacht ist Standard, nur was zählt leuchtet. Sicherheitsrot gehört allein SOS, Rückruf und
+ * Sperrzonen; das Absperrband markiert Sicherheitsflächen. Rettungsgrün nur für Rettungspunkte.
+ *
+ * Aufbau
+ *   1. Schriften (@font-face)
+ *   2. Themenunabhängig: Typo, Abstand, Radius, Maße, Bewegung, Ebenen, Fokus
+ *   3. Thema Nacht (Standard), Thema Tag, Thema System (= Tag, wenn das Gerät hell ist)
+ *   4. Dichte (data-density) und Legacy-Aliase (alte Namen, bis die Seiten umgestellt sind)
+ *
+ * Die Farbwerte stehen für Tag zweimal (Thema Tag und System bei hellem Gerät). Ein Test
+ * (test/design-tokens.test.ts) schlägt an, wenn beide Blöcke auseinanderlaufen, und prüft alle
+ * Kontrastpaare (Text 4,5:1, Steuerelemente 3:1). Kontrastwerte: styles/README.md.
  */
+
+/* 1. Schriften ---------------------------------------------------------------------------- */
 
 @font-face {
   font-family: "Atkinson Next";
@@ -53,74 +65,460 @@
   font-display: swap;
 }
 
+/*
+ * Ersatzschriften mit angepassten Maßen: Der Text springt beim Laden der Webschrift kaum.
+ * Breiten aus den Glyphen der Dateien gegen Arial gemessen, Höhen aus hhea (siehe styles/README.md).
+ */
+@font-face {
+  font-family: "Atkinson Next Fallback";
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 98.6%;
+  ascent-override: 99.8%;
+  descent-override: 32%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Barlow Condensed Fallback";
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 80%;
+  ascent-override: 125%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
+/* 2. Themenunabhängig --------------------------------------------------------------------- */
+
 :root {
-  --font-ui: "Atkinson Next", system-ui, sans-serif;
-  --font-mono: "Atkinson Mono", ui-monospace, monospace;
+  /* Schriften */
+  --font-ui: "Atkinson Next", "Atkinson Next Fallback", system-ui, sans-serif;
+  --font-mono: "Atkinson Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-brand: "Fraunces", Georgia, serif;
-  --font-head: "Barlow Condensed", "Atkinson Next", sans-serif;
+  --font-head: "Barlow Condensed", "Barlow Condensed Fallback", "Atkinson Next", sans-serif;
 
-  /* Nacht */
-  --ground: #0b0c0e;
-  --surface: #16181c;
-  --raised: #20232a;
-  --line: #2e323a;
-  --text: #ede6d8;
-  --muted: #bdb5a6;
-  --edge: #8a8f99;
-  --accent: #f2a33a;
-  --accent-bright: #f7c37f;
-  --on-accent: #1a1104;
-  --accent-soft: rgba(242, 163, 58, 0.14);
-  --safety: #c8201a;
-  --on-safety: #ffffff;
-  --safety-soft: rgba(200, 32, 26, 0.16);
-  --tape-a: #c8201a;
-  --tape-b: #ffffff;
-  /* Grün der Rettungszeichen, nur für Sammel- und Rettungspunkte */
-  --rescue: #00843d;
-  --shade: rgba(0, 0, 0, 0.6);
-  --map-filter: brightness(0.62) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.25) brightness(0.72);
+  /* Schriftgrößen: genau diese zehn plus --type-display */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-17: 17px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+  --fs-40: 40px;
+  --lh-tight: 1.1;
+  --lh-head: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.5;
+  --track-head: 0.02em;
+  --track-caps: 0.08em;
+  --track-badge: 0.06em;
 
-  --radius: 8px;
-  --radius-small: 5px;
-  --gap: 12px;
+  /* Typo-Rollen als font-Kurzschrift: font: var(--type-body) */
+  --type-display: 700 clamp(40px, 9vw, 72px) / 1 var(--font-mono);
+  --type-clock: 700 28px / 1 var(--font-mono);
+  --type-stat: 700 24px / 1.1 var(--font-mono);
+  --type-title: 700 30px / 1.1 var(--font-head);
+  --type-heading: 700 24px / 1.15 var(--font-head);
+  --type-subhead: 600 20px / 1.2 var(--font-head);
+  --type-lead: 400 17px / 1.45 var(--font-ui);
+  --type-body: 400 15px / 1.5 var(--font-ui);
+  --type-body-strong: 600 15px / 1.5 var(--font-ui);
+  --type-dense: 400 14px / 1.4 var(--font-ui);
+  --type-label: 600 13px / 1.3 var(--font-ui);
+  --type-caption: 400 12px / 1.35 var(--font-ui);
+  --type-mono: 500 13px / 1.45 var(--font-mono);
+  --type-eyebrow: 500 11px / 1.3 var(--font-mono);
+  --type-badge: 700 11px / 1 var(--font-mono);
+
+  /* Abstand (4-px-Raster; 2 px nur für Haarlinien-Versatz) */
+  --space-px: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
   --gutter: 16px;
-  --tap: 40px;
-  --tick: 120ms;
-  --enter: 240ms;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --gap: var(--space-3);
 
-  color-scheme: dark;
+  /* Layout (Breakpoints stehen in lib/breakpoints.ts: sm 640, md 960, lg 1280, xl 1600) */
+  --w-narrow: 640px;
+  --w-page: 1120px;
+  --w-wide: 1440px;
+  --bar-h: 56px;
+  --event-bar-h: 48px;
+
+  /* Radien */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Steuerelemente (Mindesthöhen) */
+  --control-sm: 32px;
+  --control-md: 40px;
+  --control-lg: 48px;
+  --tap: var(--control-md);
+
+  /* Icons */
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-stroke: 1.75;
+
+  /* Bewegung (nie `transition: all`) */
+  --dur-press: 80ms;
+  --dur-hover: 120ms;
+  --dur-pop: 180ms;
+  --dur-panel: 280ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  --tick: var(--dur-hover);
+  --enter: var(--dur-panel);
+  --ease: var(--ease-out);
+
+  /* Ebenen (Leaflet-Karten sind isoliert, siehe base.css) */
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-dropdown: 30;
+  --z-scrim: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+  --z-skip: 80;
+
+  /* Fokus */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* Dichte: Regular ist Standard, [data-density="compact"] siehe unten */
+  --row-h: 44px;
+  --card-pad: var(--space-4);
+  --cell-pad: var(--space-3);
 }
 
-:root[data-theme="day"] {
-  --ground: #f3eee4;
-  --surface: #ffffff;
-  --raised: #ece5d8;
-  --line: #d9d0c0;
-  --text: #1c1a16;
-  --muted: #5c564c;
-  --edge: #5c564c;
-  --accent: #8f4e00;
-  --accent-bright: #8f4e00;
-  --on-accent: #ffffff;
-  --accent-soft: rgba(143, 78, 0, 0.1);
-  --safety-soft: rgba(200, 32, 26, 0.1);
-  --shade: rgba(28, 26, 22, 0.45);
-  --map-filter: none;
-  color-scheme: light;
+@media (min-width: 960px) {
+  :root {
+    --gutter: 24px;
+  }
 }
 
-/* Finger statt Maus: größere Flächen */
+/* Finger statt Maus: nur die Zielgröße wächst, Schrift und Abstände bleiben */
 @media (pointer: coarse) {
   :root {
-    --tap: 48px;
+    --control-sm: 44px;
+    --control-md: 48px;
+    --control-lg: 56px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --tick: 0ms;
-    --enter: 0ms;
+    --dur-press: 0ms;
+    --dur-hover: 0ms;
+    --dur-pop: 0ms;
+    --dur-panel: 0ms;
   }
+}
+
+/* 3. Themen ------------------------------------------------------------------------------- */
+
+/* Nacht (Standard) */
+:root,
+:root[data-theme="night"] {
+  color-scheme: dark;
+
+  /* Flächen: ground, surface, raised, overlay; dazu field (Eingabe) und sunken (Vertiefung) */
+  --ground: #0b0c0e;
+  --surface: #16181c;
+  --raised: #20232a;
+  --overlay: #272b33;
+  --field: #0f1013;
+  --sunken: #101215;
+
+  /* Ränder */
+  --line: #2e323a;
+  --line-strong: #6b717c;
+
+  /* Text */
+  --text: #ede6d8;
+  --muted: #bdb5a6;
+  --subtle: #9a9387;
+  --text-disabled: #6e6c68;
+
+  /* Marke und Aktion: --accent ist die Fläche, --accent-text die Schrift darauf und daneben */
+  --accent: #f2a33a;
+  --accent-hover: #f7b457;
+  --accent-press: #dd8f27;
+  --accent-text: #f7c37f;
+  --accent-graphic: #f2a33a;
+  --accent-soft: rgba(242, 163, 58, 0.14);
+  --accent-line: rgba(242, 163, 58, 0.55);
+  --on-accent: #1a1104;
+  --focus: #f7c37f;
+
+  /* Status (immer mit Icon und Text): Schrift/Icon, Fläche, Schrift auf Fläche, weicher Grund, Linie */
+  --ok: #5fcf94;
+  --ok-fill: #2fae6e;
+  --on-ok: #04180d;
+  --ok-soft: rgba(63, 191, 127, 0.14);
+  --ok-line: rgba(95, 207, 148, 0.5);
+  --warn: #e8c04a;
+  --warn-fill: #e8b730;
+  --on-warn: #1d1500;
+  --warn-soft: rgba(232, 183, 48, 0.14);
+  --warn-line: rgba(232, 192, 74, 0.5);
+  --danger: #ff7b6e;
+  --danger-fill: #d9382c;
+  --on-danger: #ffffff;
+  --danger-soft: rgba(217, 56, 44, 0.16);
+  --danger-line: rgba(255, 123, 110, 0.5);
+  --info: #8db6ee;
+  --info-fill: #3d72bb;
+  --on-info: #ffffff;
+  --info-soft: rgba(141, 182, 238, 0.12);
+  --info-line: rgba(141, 182, 238, 0.45);
+
+  /* Sicherheit: exklusiv SOS, Rückruf, Sperrzonen */
+  --safety: #c8201a;
+  --on-safety: #ffffff;
+  --safety-soft: rgba(200, 32, 26, 0.16);
+  --tape-a: #c8201a;
+  --tape-b: #ffffff;
+  --rescue: #00843d;
+
+  /* Zustände als Überlagerung auf jeder Fläche */
+  --hover: rgba(255, 255, 255, 0.05);
+  --press: rgba(255, 255, 255, 0.09);
+  --select: var(--accent-soft);
+  --scrim: rgba(5, 6, 8, 0.66);
+  --shade: var(--scrim);
+
+  /* Erhöhung: Nacht = Helligkeit plus Haarlinie, Tag = Schatten */
+  --elev-1: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --elev-2: 0 0 0 1px var(--line), 0 8px 24px -6px rgba(0, 0, 0, 0.6);
+  --elev-3: 0 0 0 1px var(--line), 0 24px 64px -12px rgba(0, 0, 0, 0.75);
+  --ring-input: 0 0 0 3px rgba(242, 163, 58, 0.28);
+
+  /* Teamfarben (Punkt immer mit Ring) */
+  --team-red: #e5533d;
+  --team-blue: #4a90e2;
+  --team-green: #3fa66b;
+  --team-yellow: #f2c94c;
+  --team-purple: #9b6bd3;
+  --team-orange: #f2994a;
+  --team-teal: #5bc0be;
+  --team-pink: #d98cb3;
+  --team-olive: #a0a86b;
+
+  /* Auswahl, Bildlaufleiste, Pfeil im Auswahlfeld (Farbe fest eingebaut) */
+  --selection: rgba(242, 163, 58, 0.38);
+  --scroll-thumb: #3a3f48;
+  --scroll-thumb-hover: #4d535e;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23bdb5a6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+
+  --map-filter: brightness(0.62) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.25) brightness(0.72);
+}
+
+/* Tag */
+:root[data-theme="day"] {
+  color-scheme: light;
+
+  --ground: #f3eee4;
+  --surface: #ffffff;
+  --raised: #f6f2ea;
+  --overlay: #ffffff;
+  --field: #fffdfa;
+  --sunken: #ece5d8;
+
+  --line: #ddd4c4;
+  --line-strong: #8c8576;
+
+  --text: #1c1a16;
+  --muted: #5c564c;
+  --subtle: #6a6356;
+  --text-disabled: #a39b8c;
+
+  --accent: #f2a33a;
+  --accent-hover: #f7b457;
+  --accent-press: #dd8f27;
+  --accent-text: #8a4a00;
+  --accent-graphic: #c06a00;
+  --accent-soft: rgba(176, 98, 0, 0.1);
+  --accent-line: rgba(138, 74, 0, 0.5);
+  --on-accent: #1a1104;
+  --focus: #8a4a00;
+
+  --ok: #176f43;
+  --ok-fill: #176f43;
+  --on-ok: #ffffff;
+  --ok-soft: rgba(27, 122, 75, 0.1);
+  --ok-line: rgba(27, 122, 75, 0.4);
+  --warn: #7a5600;
+  --warn-fill: #e8b730;
+  --on-warn: #1d1500;
+  --warn-soft: rgba(184, 134, 11, 0.12);
+  --warn-line: rgba(122, 86, 0, 0.45);
+  --danger: #b3261e;
+  --danger-fill: #b3261e;
+  --on-danger: #ffffff;
+  --danger-soft: rgba(179, 38, 30, 0.08);
+  --danger-line: rgba(179, 38, 30, 0.4);
+  --info: #245c9e;
+  --info-fill: #245c9e;
+  --on-info: #ffffff;
+  --info-soft: rgba(36, 92, 158, 0.08);
+  --info-line: rgba(36, 92, 158, 0.4);
+
+  --safety: #c8201a;
+  --on-safety: #ffffff;
+  --safety-soft: rgba(200, 32, 26, 0.1);
+  --tape-a: #c8201a;
+  --tape-b: #ffffff;
+  --rescue: #00843d;
+
+  --hover: rgba(28, 26, 22, 0.05);
+  --press: rgba(28, 26, 22, 0.09);
+  --select: var(--accent-soft);
+  --scrim: rgba(28, 26, 22, 0.45);
+  --shade: var(--scrim);
+
+  --elev-1: 0 0 0 1px var(--line), 0 1px 2px rgba(60, 40, 10, 0.06);
+  --elev-2: 0 0 0 1px var(--line), 0 8px 24px -6px rgba(60, 40, 10, 0.22);
+  --elev-3: 0 0 0 1px var(--line), 0 24px 64px -12px rgba(60, 40, 10, 0.35);
+  --ring-input: 0 0 0 3px rgba(242, 163, 58, 0.35);
+
+  --team-red: #c93a25;
+  --team-blue: #2f6db8;
+  --team-green: #2a8452;
+  --team-yellow: #a6800f;
+  --team-purple: #7b4db5;
+  --team-orange: #c0620f;
+  --team-teal: #1f7f7d;
+  --team-pink: #b04f86;
+  --team-olive: #6f7636;
+
+  --selection: rgba(242, 163, 58, 0.45);
+  --scroll-thumb: #c9bfae;
+  --scroll-thumb-hover: #b0a591;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c564c' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+
+  --map-filter: none;
+
+  color-scheme: light;
+}
+
+/* System: folgt dem Gerät. Nacht ist der Block oben; bei hellem Gerät gilt dieselbe Tag-Palette. */
+:root[data-theme="system"] {
+  color-scheme: dark light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    --ground: #f3eee4;
+    --surface: #ffffff;
+    --raised: #f6f2ea;
+    --overlay: #ffffff;
+    --field: #fffdfa;
+    --sunken: #ece5d8;
+
+    --line: #ddd4c4;
+    --line-strong: #8c8576;
+
+    --text: #1c1a16;
+    --muted: #5c564c;
+    --subtle: #6a6356;
+    --text-disabled: #a39b8c;
+
+    --accent: #f2a33a;
+    --accent-hover: #f7b457;
+    --accent-press: #dd8f27;
+    --accent-text: #8a4a00;
+    --accent-graphic: #c06a00;
+    --accent-soft: rgba(176, 98, 0, 0.1);
+    --accent-line: rgba(138, 74, 0, 0.5);
+    --on-accent: #1a1104;
+    --focus: #8a4a00;
+
+    --ok: #176f43;
+    --ok-fill: #176f43;
+    --on-ok: #ffffff;
+    --ok-soft: rgba(27, 122, 75, 0.1);
+    --ok-line: rgba(27, 122, 75, 0.4);
+    --warn: #7a5600;
+    --warn-fill: #e8b730;
+    --on-warn: #1d1500;
+    --warn-soft: rgba(184, 134, 11, 0.12);
+    --warn-line: rgba(122, 86, 0, 0.45);
+    --danger: #b3261e;
+    --danger-fill: #b3261e;
+    --on-danger: #ffffff;
+    --danger-soft: rgba(179, 38, 30, 0.08);
+    --danger-line: rgba(179, 38, 30, 0.4);
+    --info: #245c9e;
+    --info-fill: #245c9e;
+    --on-info: #ffffff;
+    --info-soft: rgba(36, 92, 158, 0.08);
+    --info-line: rgba(36, 92, 158, 0.4);
+
+    --safety: #c8201a;
+    --on-safety: #ffffff;
+    --safety-soft: rgba(200, 32, 26, 0.1);
+    --tape-a: #c8201a;
+    --tape-b: #ffffff;
+    --rescue: #00843d;
+
+    --hover: rgba(28, 26, 22, 0.05);
+    --press: rgba(28, 26, 22, 0.09);
+    --select: var(--accent-soft);
+    --scrim: rgba(28, 26, 22, 0.45);
+    --shade: var(--scrim);
+
+    --elev-1: 0 0 0 1px var(--line), 0 1px 2px rgba(60, 40, 10, 0.06);
+    --elev-2: 0 0 0 1px var(--line), 0 8px 24px -6px rgba(60, 40, 10, 0.22);
+    --elev-3: 0 0 0 1px var(--line), 0 24px 64px -12px rgba(60, 40, 10, 0.35);
+    --ring-input: 0 0 0 3px rgba(242, 163, 58, 0.35);
+
+    --team-red: #c93a25;
+    --team-blue: #2f6db8;
+    --team-green: #2a8452;
+    --team-yellow: #a6800f;
+    --team-purple: #7b4db5;
+    --team-orange: #c0620f;
+    --team-teal: #1f7f7d;
+    --team-pink: #b04f86;
+    --team-olive: #6f7636;
+
+    --selection: rgba(242, 163, 58, 0.45);
+    --scroll-thumb: #c9bfae;
+    --scroll-thumb-hover: #b0a591;
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c564c' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+
+    --map-filter: none;
+  }
+}
+
+/* 4. Dichte ------------------------------------------------------------------------------- */
+
+/* Leitstand und Tabellen laufen compact, Formulare regular; gesetzt wird das Attribut an der Seite. */
+[data-density="compact"] {
+  --row-h: 36px;
+  --card-pad: var(--space-3);
+  --cell-pad: var(--space-2);
+}
+
+/* 5. Legacy-Aliase: alte Namen, bis die Seiten auf die neuen umgestellt sind (Paket 1b entfernt sie) */
+
+:root {
+  --edge: var(--line-strong);
+  --accent-bright: var(--accent-text);
+  --radius: var(--radius-md);
+  --radius-small: var(--radius-sm);
 }

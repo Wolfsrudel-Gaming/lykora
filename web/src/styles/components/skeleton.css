@@ -1,0 +1,75 @@
+/* Skeleton: Platzhalter in den Maßen der echten Inhalte (kein Sprung beim Nachladen); bei Reduced-Motion statisch */
+
+.skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--hover), transparent);
+  transform: translateX(-100%);
+  animation: skeleton 1.4s linear infinite;
+}
+
+.skeleton--line {
+  height: 1em;
+  width: 100%;
+}
+
+.skeleton--title {
+  height: var(--space-6);
+  width: 40%;
+}
+
+.skeleton--block {
+  height: 96px;
+  width: 100%;
+  border-radius: var(--radius-md);
+}
+
+.skeleton--circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--row-h);
+  border-bottom: 1px solid var(--line);
+}
+
+.skeleton-row > .skeleton--line {
+  flex: 1;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--card-pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+@keyframes skeleton {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    display: none;
+  }
+}

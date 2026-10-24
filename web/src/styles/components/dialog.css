@@ -1,17 +1,41 @@
-/* Dialog im Seitendesign statt window.confirm */
+/*
+ * Dialog (<dialog>, modal) und Sheet. Größen sm 440, md 560 (Standard), lg 760. Kopf mit Titel und Schließen-X,
+ * scrollender Körper, Fuß mit Aktionen. Auf dem Handy unten verankert mit Griff; Sheet am Rand ab sm.
+ * Animation nur Deckkraft und Skalierung (--dur-pop), Scrim blendet auf.
+ */
 
 dialog.dialog {
-  width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
+  --dlg-w: 560px;
+  width: min(var(--dlg-w), calc(100vw - 2 * var(--space-4)));
+  max-width: none;
+  max-height: calc(100dvh - 2 * var(--space-4));
   padding: 0;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--overlay);
   color: var(--text);
+  box-shadow: var(--elev-3);
+  overflow: hidden;
+}
+
+dialog.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: dialog-in var(--dur-pop) var(--ease-out);
+}
+
+dialog.dialog--sm {
+  --dlg-w: 440px;
+}
+
+dialog.dialog--lg {
+  --dlg-w: 760px;
 }
 
 dialog.dialog::backdrop {
-  background: var(--shade);
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+  animation: scrim-in var(--dur-pop) var(--ease-out);
 }
 
 dialog.dialog.safety {
@@ -21,13 +45,126 @@ dialog.dialog.safety {
 dialog.dialog.safety::before {
   content: "";
   display: block;
+  flex: none;
   height: 10px;
   background: repeating-linear-gradient(-45deg, var(--tape-a) 0 12px, var(--tape-b) 12px 24px);
 }
 
 .dialog-body {
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  min-height: 0;
+  flex: 1;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-2) var(--space-5);
+}
+
+.dialog-head h2 {
+  padding-top: var(--space-1);
+}
+
+.dialog-desc {
+  padding: 0 var(--space-5);
+  color: var(--muted);
+  font: var(--type-dense);
+}
+
+.dialog-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-5) var(--space-5);
+}
+
+.dialog-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* Sheet: am Rand statt in der Mitte */
+@media (min-width: 640px) {
+  dialog.dialog--sheet {
+    --dlg-w: 440px;
+    margin: 0 0 0 auto;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+
+  dialog.dialog--sheet[open] {
+    animation-name: sheet-in;
+  }
+}
+
+/* Handy: unten verankert, volle Breite, mit Griff */
+@media (max-width: 639px) {
+  dialog.dialog {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    max-height: 92dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  dialog.dialog[open] {
+    animation-name: sheet-up;
+  }
+
+  dialog.dialog:not(.safety) .dialog-head::before {
+    content: "";
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    width: var(--space-10);
+    height: var(--space-1);
+    margin-left: calc(var(--space-5) * -1);
+    border-radius: var(--radius-pill);
+    background: var(--line-strong);
+  }
+
+  .dialog-head {
+    position: relative;
+    padding-top: var(--space-5);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--space-6));
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-6));
+  }
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
 }

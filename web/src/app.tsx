@@ -22,6 +22,7 @@ import { NotFound } from "./pages/NotFound.tsx";
 // Leitstand (mit Karte) und Spiele-Werkzeuge kommen als eigene Chunks.
 const ControlPage = lazyPage(() => import("./pages/control/Control.tsx").then((m) => m.ControlPage));
 const SupervisorPage = lazyPage(() => import("./pages/control/Supervisor.tsx").then((m) => m.SupervisorPage));
+const DesignPage = lazyPage(() => import("./pages/design/Design.tsx").then((m) => m.DesignPage));
 const GamesPage = lazyPage(() => import("./pages/games/Games.tsx").then((m) => m.GamesPage));
 const GamePage = lazyPage(() => import("./pages/games/Game.tsx").then((m) => m.GamePage));
 const MediaPage = lazyPage(() => import("./pages/games/Media.tsx").then((m) => m.MediaPage));
@@ -211,7 +212,7 @@ export function App() {
   }, [signedIn]);
 
   useEffect(() => {
-    if (!s.ready || match?.name === "join") return;
+    if (!s.ready || match?.name === "join" || match?.name === "design") return;
     if (!signedIn && match?.name !== "login") {
       const back = loc.path !== "/" ? loc.path + (loc.query.toString() ? `?${loc.query}` : "") : undefined;
       navigate(href("login", {}, { weiter: back }), { replace: true });
@@ -237,6 +238,8 @@ export function App() {
 
   // Die Spieler-Landeseite braucht keine Anmeldung.
   if (match?.name === "join") return <JoinPage code={match.params.code!} />;
+  // Entwurfsseite: nur über die Adresse /_design, ohne Anmeldung, nicht in der Navigation.
+  if (match?.name === "design") return <DesignPage />;
   if (!s.ready && s.offline) {
     return (
       <main class="page narrow stack">

@@ -4,16 +4,18 @@
   background: repeating-linear-gradient(-45deg, var(--tape-a) 0 14px, var(--tape-b) 14px 28px);
 }
 
-.safety-box {
+.safety-box,
+.card--safety {
   position: relative;
   border: 2px solid var(--safety);
   background: var(--safety-soft);
-  border-radius: var(--radius);
-  padding: 16px 14px 10px;
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-4) var(--space-3);
   overflow: hidden;
 }
 
-.safety-box::before {
+.safety-box::before,
+.card--safety::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
@@ -22,7 +24,7 @@
 }
 
 .safety-title {
-  font: 700 18px/1.1 var(--font-head);
-  letter-spacing: 0.04em;
+  font: 700 var(--fs-17) / 1.1 var(--font-head);
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
 }

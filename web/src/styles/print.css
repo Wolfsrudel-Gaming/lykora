@@ -1,43 +1,17 @@
-/* Druckansichten */
+/*
+ * Druck (muss zuletzt importiert werden). Grundlage für alle Ausdrucke: A4, 16 mm Rand, Schwarz auf Weiß,
+ * keine Flächenfarben, Tabellen mit wiederholtem Kopf, Haken als leerer Rahmen, QR schwarz auf Weiß (mindestens 30 mm).
+ * Seitenspezifische Regeln (Schilder: @page schild) stehen bei den jeweiligen Seiten.
+ */
 
-@media print {
-  :root,
-  :root[data-theme="day"] {
-    --ground: #fff;
-    --surface: #fff;
-    --raised: #f2f2f2;
-    --line: #bbb;
-    --text: #000;
-    --muted: #333;
-    --edge: #555;
-    --accent: #000;
-  }
+@page {
+  size: A4;
+  margin: 16mm;
+}
 
-  .topbar,
-  .version-band,
-  .no-print,
-  .toasts {
-    display: none !important;
-  }
-
-  .page {
-    padding: 0;
-    max-width: none;
-  }
-
-  .card {
-    border: 0;
-    padding: 0;
-  }
-
-  .print-break {
-    break-before: page;
-  }
-
-  a {
-    color: #000;
-    text-decoration: none;
-  }
+/* Kopfzeile der Ausdrucke (Baustein PrintHeader); auf dem Bildschirm unsichtbar */
+.print-head {
+  display: none;
 }
 
 .print-only {
@@ -45,7 +19,252 @@
 }
 
 @media print {
+  /* Alle Themen drucken als Tag in Schwarz auf Weiß; Status ohne Farbfläche */
+  :root,
+  :root[data-theme="night"],
+  :root[data-theme="day"],
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --ground: #fff;
+    --surface: #fff;
+    --raised: #f2f2f2;
+    --overlay: #fff;
+    --field: #fff;
+    --sunken: #f2f2f2;
+    --line: #999;
+    --line-strong: #555;
+    --text: #000;
+    --muted: #333;
+    --subtle: #555;
+    --text-disabled: #777;
+    --accent: #000;
+    --accent-hover: #000;
+    --accent-press: #000;
+    --accent-text: #000;
+    --accent-graphic: #000;
+    --accent-soft: transparent;
+    --accent-line: #000;
+    --on-accent: #fff;
+    --focus: #000;
+    --ok: #000;
+    --warn: #000;
+    --danger: #000;
+    --info: #000;
+    --ok-soft: transparent;
+    --warn-soft: transparent;
+    --danger-soft: transparent;
+    --info-soft: transparent;
+    --ok-line: #555;
+    --warn-line: #555;
+    --danger-line: #555;
+    --info-line: #555;
+    --safety: #000;
+    --on-safety: #fff;
+    --safety-soft: transparent;
+    --tape-a: #000;
+    --tape-b: #fff;
+    --hover: transparent;
+    --press: transparent;
+    --edge: #555;
+  }
+
+  html,
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+    overflow: visible;
+  }
+
+  * {
+    box-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .topbar,
+  .version-band,
+  .no-print,
+  .toasts,
+  .tooltip,
+  .menu-panel,
+  .popover,
+  .tabs,
+  .btn {
+    display: none !important;
+  }
+
   .print-only {
     display: block;
+  }
+
+  .print-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8mm;
+    margin-bottom: 8mm;
+    padding-bottom: 3mm;
+    border-bottom: 0.4mm solid #000;
+    break-after: avoid;
+  }
+
+  .print-head__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 2mm;
+    font: 600 14pt / 1 var(--font-brand);
+  }
+
+  .print-head__brand svg {
+    width: 8mm;
+    height: 8mm;
+  }
+
+  .print-head__meta {
+    text-align: right;
+    font-size: 9pt;
+  }
+
+  .page,
+  .main {
+    padding: 0;
+    max-width: none;
+  }
+
+  .card {
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .print-break {
+    break-before: page;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  /* Abzeichen einfarbig: Umriss statt Fläche */
+  .badge,
+  .count {
+    background: none !important;
+    color: #000 !important;
+    border: 0.3mm solid #000;
+  }
+
+  .badge::before {
+    background: none !important;
+  }
+
+  .notice,
+  .card--raised,
+  .stat {
+    background: none;
+    border: 0.3mm solid #999;
+  }
+
+  /* Tabellen: Kopf auf jeder Seite, Zeilen nicht mitten durchschneiden, Wörter nur an Lücken brechen */
+  .table {
+    table-layout: auto;
+  }
+
+  .table thead {
+    display: table-header-group;
+  }
+
+  .table tr {
+    break-inside: avoid;
+  }
+
+  .table th {
+    background: none;
+    border-bottom: 0.4mm solid #000;
+    color: #000;
+    position: static;
+  }
+
+  .table td {
+    height: auto;
+    overflow-wrap: break-word;
+    border-bottom-color: #999;
+  }
+
+  /* Haken: leerer Rahmen von 4 mm, ein gesetzter Haken bleibt als Strich sichtbar */
+  input[type="checkbox"],
+  input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 4mm;
+    height: 4mm;
+    border: 0.3mm solid #000;
+    border-radius: 0;
+    background: #fff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  input[type="radio"] {
+    border-radius: 50%;
+  }
+
+  input[type="checkbox"]:checked {
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E");
+    border-color: #000;
+  }
+
+  input[type="radio"]:checked {
+    background-color: #fff;
+    background-image: radial-gradient(circle, #000 0 35%, transparent 40%);
+    border-color: #000;
+  }
+
+  input,
+  select,
+  textarea {
+    border-color: #555;
+    background: #fff;
+  }
+
+  select {
+    background-image: none;
+    padding-right: 0;
+  }
+
+  /* QR: immer schwarz auf Weiß, mindestens 30 mm */
+  .qr {
+    background: #fff;
+    min-width: 30mm;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .qr img,
+  .qr canvas {
+    min-width: 30mm;
+    filter: none;
+  }
+
+  /* Sicherheitsflächen: Absperrband in Schwarz-Weiß */
+  .safety-box,
+  .card--safety {
+    border: 0.6mm solid #000;
+    background: none;
+  }
+
+  .safety-box::before,
+  .card--safety::before {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }

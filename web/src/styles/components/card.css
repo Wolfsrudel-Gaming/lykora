@@ -1,21 +1,31 @@
-/* Flächen */
+/*
+ * Flächen: Karte, Panel, Abschnittskopf, Schlüssel-Wert-Liste.
+ * Regel: höchstens zwei sichtbare Rahmenebenen; innen gliedern Fläche (--raised) und Abstand.
+ */
 
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--card-pad);
   min-width: 0;
 }
 
 .card > h2,
 .card > h3,
 .card > header {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
-.card.flat {
+.card.flat,
+.card--flat {
   padding: 0;
+}
+
+/* Unterkarte in einer Karte: Fläche statt Rahmen */
+.card--raised {
+  background: var(--raised);
+  border-color: transparent;
 }
 
 .card-link {
@@ -25,53 +35,119 @@
 }
 
 .card-link:hover {
-  border-color: var(--accent);
+  border-color: var(--line-strong);
 }
 
-.notice {
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--edge);
-  background: var(--surface);
-  padding: 10px 14px;
-  border-radius: var(--radius-small);
+/* Ganze Fläche klickbar (Link oder Button) */
+.card--interactive {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-hover) var(--ease-out),
+    transform var(--dur-press) var(--ease-out);
 }
 
-.notice.error {
-  border-left-color: var(--accent);
-  font-weight: 600;
+.card--interactive:hover,
+.card--interactive.is-hover {
+  border-color: var(--line-strong);
+  background-image: linear-gradient(var(--hover), var(--hover));
 }
 
-.notice.ok {
-  border-left-color: var(--rescue);
+.card--interactive:active {
+  background-image: linear-gradient(var(--press), var(--press));
+  transform: translateY(0.5px);
 }
 
-.notice ul {
-  margin: 6px 0 0;
-  padding-left: 18px;
+.card--selected,
+.card--selected:hover {
+  position: relative;
+  border-color: var(--accent-line);
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
 }
 
-.empty {
+.card__check {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--accent-text);
+}
+
+/* Kopf: Titel links, Aktionen rechts */
+.card-head,
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}
+
+.card-head > :first-child,
+.section-head > :first-child {
+  min-width: 0;
+}
+
+.section-head p {
+  margin-top: var(--space-1);
   color: var(--muted);
-  padding: 24px 8px;
-  text-align: center;
+  font: var(--type-dense);
+}
+
+/* Panel (ui-panel): fester Kopf, scrollender Körper; Container für Container-Queries */
+.ui-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  container-type: inline-size;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ui-panel__head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--card-pad);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.ui-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--card-pad);
 }
 
 .kv {
   display: grid;
   grid-template-columns: minmax(110px, max-content) 1fr;
-  gap: 6px 16px;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
   margin: 0;
 }
 
 .kv dt {
-  font: 500 12px/1.9 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: var(--type-label);
   color: var(--muted);
 }
 
 .kv dd {
   margin: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }

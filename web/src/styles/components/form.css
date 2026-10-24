@@ -1,4 +1,8 @@
-/* Formulare */
+/*
+ * Formulare: Eingaben, Auswahl, Haken, Radio, Schalter, Feld mit Beschriftung.
+ * Zustände: default, hover, focus-visible, invalid (aria-invalid), disabled, readonly, success.
+ * Die Elemente (input, select, textarea) sind selbst gestaltet, damit auch Seiten ohne Bausteine passen.
+ */
 
 fieldset {
   border: 0;
@@ -7,102 +11,473 @@ fieldset {
   min-width: 0;
 }
 
+legend {
+  padding: 0;
+  font: var(--type-label);
+}
+
 details > summary {
   cursor: pointer;
-  min-height: var(--tap);
+  min-height: var(--control-md);
   display: flex;
   align-items: center;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
 }
+
+/* Feld: Beschriftung oben, Hilfetext darunter; ein Fehler ersetzt den Hilfetext */
 
 .field {
   display: grid;
-  gap: 6px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-.field > label:first-child {
-  font: 500 12px/1.3 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.field > label:first-child,
+.field-label {
+  font: var(--type-label);
+  color: var(--text);
+}
+
+.field > label:first-child .field-optional,
+.field-optional {
+  margin-left: var(--space-1);
+  font-weight: 400;
+  color: var(--subtle);
+}
+
+.field small,
+.field-hint {
+  font: var(--type-caption);
   color: var(--muted);
 }
 
-.field small {
-  color: var(--muted);
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font: var(--type-caption);
+  color: var(--danger);
 }
+
+.field-error svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* Eingaben */
 
 input,
 select,
 textarea {
   font: inherit;
   color: var(--text);
-  background: var(--raised);
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-small);
-  min-height: var(--tap);
-  padding: 6px 10px;
+  background-color: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
   width: 100%;
   min-width: 0;
+  transition:
+    border-color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-hover) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out);
+}
+
+textarea {
+  padding: var(--space-2) var(--space-3);
+  min-height: 96px;
+  resize: vertical;
+  line-height: var(--lh-body);
+}
+
+textarea.code {
+  font: var(--type-mono);
+  min-height: 240px;
+}
+
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus),
+.input.is-hover {
+  border-color: var(--muted);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--focus);
 }
 
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 0;
+textarea:focus-visible,
+.input.is-focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--ring-input);
 }
 
-textarea {
-  min-height: 96px;
-  resize: vertical;
-  line-height: 1.4;
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
-textarea.code {
-  font: 500 13px/1.45 var(--font-mono);
-  min-height: 240px;
+input[aria-invalid="true"]:focus-visible,
+select[aria-invalid="true"]:focus-visible,
+textarea[aria-invalid="true"]:focus-visible {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
 }
 
-input[type="checkbox"],
-input[type="radio"] {
-  width: 20px;
-  height: 20px;
-  min-height: 0;
-  padding: 0;
-  accent-color: var(--accent);
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--sunken);
+  border-color: var(--line);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+input[readonly],
+textarea[readonly] {
+  background-color: var(--sunken);
+  border-color: var(--line);
+}
+
+/* Größen */
+.input--sm {
+  min-height: var(--control-sm);
+  font-size: var(--fs-14);
+}
+
+.input--lg {
+  min-height: var(--control-lg);
+  font-size: var(--fs-17);
+}
+
+/* Zahlenpfeile weg: Zahlen tippt man */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  filter: grayscale(1);
 }
 
 input[type="range"] {
   padding: 0;
   border: 0;
   background: transparent;
-  accent-color: var(--accent);
+  min-height: var(--control-md);
+  accent-color: var(--accent-graphic);
 }
 
 input[type="file"] {
-  padding: 8px;
+  padding: var(--space-2);
+  height: auto;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: var(--space-3);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  color: var(--text);
+  font: var(--type-label);
+  cursor: pointer;
+}
+
+/* Auswahl: natives select (Touch-Wähler bleibt), eigener Pfeil */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-10);
+  background-image: var(--chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: var(--icon-sm) var(--icon-sm);
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+select[multiple],
+select[size]:not([size="1"]) {
+  background-image: none;
+  padding: var(--space-1);
+}
+
+select:disabled {
+  cursor: not-allowed;
+}
+
+.select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+/* Haken und Radio */
+
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  background-color: var(--field);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 14px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+input[type="checkbox"] {
+  border-radius: var(--radius-xs);
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--accent-graphic);
+  background-color: var(--accent-graphic);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a1104' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E");
+}
+
+input[type="checkbox"]:indeterminate {
+  border-color: var(--accent-graphic);
+  background-color: var(--accent-graphic);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a1104' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+
+input[type="radio"]:checked {
+  border-color: var(--accent-graphic);
+  background-color: var(--accent-graphic);
+  background-image: radial-gradient(circle, var(--on-accent) 0 3.5px, transparent 4px);
+  background-size: 100% 100%;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  background-color: var(--sunken);
+  border-color: var(--line);
+  cursor: not-allowed;
+}
+
+input[type="checkbox"]:disabled:checked,
+input[type="radio"]:disabled:checked {
+  background-color: var(--line-strong);
+  border-color: var(--line-strong);
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+  box-shadow: none;
+}
+
+@media (pointer: coarse) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .check {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: var(--tap);
+  gap: var(--space-3);
+  min-height: var(--control-md);
   cursor: pointer;
+}
+
+/* Schalter: für sofort wirksame Einstellungen; Formulare mit „Speichern“ nehmen Haken */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-md);
+  cursor: pointer;
+}
+
+input[type="checkbox"][role="switch"] {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--sunken);
+  background-image: none;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  transition:
+    background-color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-hover) var(--ease-out);
+}
+
+input[type="checkbox"][role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform var(--dur-pop) var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out);
+}
+
+input[type="checkbox"][role="switch"]:checked {
+  background-color: var(--accent-graphic);
+  background-image: none;
+  box-shadow: none;
+}
+
+input[type="checkbox"][role="switch"]:checked::after {
+  transform: translateX(16px);
+  background: var(--on-accent);
+}
+
+input[type="checkbox"][role="switch"]:disabled {
+  background-color: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+input[type="checkbox"][role="switch"]:disabled::after {
+  background: var(--text-disabled);
+}
+
+input[type="checkbox"][role="switch"]:disabled:checked {
+  background-color: var(--line-strong);
+}
+
+input[type="checkbox"][role="switch"]:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+
+@media (pointer: coarse) {
+  input[type="checkbox"][role="switch"] {
+    width: 44px;
+    height: 24px;
+  }
+
+  input[type="checkbox"][role="switch"]::after {
+    width: 20px;
+    height: 20px;
+  }
+
+  input[type="checkbox"][role="switch"]:checked::after {
+    transform: translateX(20px);
+  }
+}
+
+/* Eingabegruppe: Vorsilbe, Einheit, Passwort-Auge im Feld */
+.input-group {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--control-md);
+  min-width: 0;
+  background-color: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-hover) var(--ease-out);
+}
+
+.input-group:hover:not(:focus-within):not(.is-disabled) {
+  border-color: var(--muted);
+}
+
+.input-group:focus-within,
+.input-group.is-focus {
+  border-color: var(--focus);
+  box-shadow: var(--ring-input);
+}
+
+.input-group.is-invalid {
+  border-color: var(--danger);
+}
+
+.input-group.is-invalid:focus-within {
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.input-group.is-ok {
+  border-color: var(--ok);
+}
+
+.input-group.is-disabled {
+  background-color: var(--sunken);
+  border-color: var(--line);
+  color: var(--text-disabled);
+}
+
+.input-group > input,
+.input-group > input:hover,
+.input-group > input:focus,
+.input-group > input:focus-visible {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.input-affix {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-3);
+  color: var(--subtle);
+  font: var(--type-mono);
+  white-space: nowrap;
+}
+
+.input-affix--start {
+  padding-right: 0;
+}
+
+.input-affix--end {
+  padding-left: 0;
+}
+
+.input-affix .btn {
+  margin-right: calc(var(--space-2) * -1);
+}
+
+.input-affix--ok {
+  color: var(--ok);
 }
 
 .form-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: flex-end;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }

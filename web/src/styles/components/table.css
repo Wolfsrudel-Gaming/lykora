@@ -1,4 +1,15 @@
-/* Tabellen; auf dem Handy werden Zeilen zu Karten */
+/*
+ * Tabellen: Kopf in Satzschreibung (sticky mit .table--sticky), Zeilen --row-h (Dichte über data-density),
+ * Zahlen rechts, Zeilenhover, Auswahl mit Balken. Schmal wird die Zeile zur Karte:
+ *   - .table-wrap (Baustein Table): nach der Breite des Behälters (Container-Query, 560 px)
+ *   - .table.cards (alt): nach der Breite des Fensters (640 px)
+ */
+
+.table-wrap {
+  container: table / inline-size;
+  min-width: 0;
+  overflow-x: auto;
+}
 
 .table {
   width: 100%;
@@ -7,28 +18,145 @@
 
 .table th {
   text-align: left;
-  font: 500 12px/1.3 var(--font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: var(--type-label);
   color: var(--muted);
-  padding: 8px;
+  padding: var(--space-2);
+  background: var(--raised);
   border-bottom: 1px solid var(--line);
 }
 
+/* Der Baustein (DataTable) gibt den Zellen die Dichte; alte Tabellen behalten 8 px, damit schmale Panels passen */
+.table-wrap .table th,
+.table-wrap .table td {
+  padding-inline: var(--cell-pad);
+}
+
+.table-wrap .table th {
+  white-space: nowrap;
+}
+
 .table td {
-  padding: 8px;
+  height: var(--row-h);
+  padding: var(--space-2);
   border-bottom: 1px solid var(--line);
-  vertical-align: top;
-  overflow-wrap: anywhere;
+  vertical-align: middle;
+  font: var(--type-dense);
+  /* break-word statt anywhere: Namen schrumpfen nie auf einen Buchstaben je Zeile */
+  overflow-wrap: break-word;
+}
+
+/* Namen in schmalen Spalten brechen an Wortgrenzen, nie mitten im Wort (sonst steht ein Buchstabe pro Zeile) */
+.table .wrap-anywhere {
+  overflow-wrap: break-word;
 }
 
 .table td.num,
 .table th.num {
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table td.top {
+  vertical-align: top;
+}
+
+.table--sticky th {
+  position: sticky;
+  top: var(--sticky-top, 0);
+  z-index: var(--z-sticky);
+}
+
+.table tbody tr {
+  transition: background-color var(--dur-hover) var(--ease-out);
+}
+
+.table tbody tr:hover td {
+  background-image: linear-gradient(var(--hover), var(--hover));
 }
 
 .table tr.selected td {
-  background: var(--accent-soft);
+  background-color: var(--select);
+}
+
+.table tr.selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent-graphic);
+}
+
+/* Sortierbare Spalte */
+.table th[aria-sort] {
+  cursor: pointer;
+}
+
+.table th .th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.table th[aria-sort="ascending"],
+.table th[aria-sort="descending"] {
+  color: var(--text);
+}
+
+.table td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Aktionen erscheinen bei Hover und Fokus; auf Touch immer */
+@media (hover: hover) {
+  .table td.actions .btn {
+    opacity: 0;
+  }
+
+  .table tr:hover td.actions .btn,
+  .table tr:focus-within td.actions .btn {
+    opacity: 1;
+  }
+}
+
+/* Kartenform nach Behälterbreite */
+@container table (max-width: 560px) {
+  .table--cards thead {
+    display: none;
+  }
+
+  .table--cards,
+  .table--cards tbody,
+  .table--cards tr,
+  .table--cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .table--cards tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .table--cards td {
+    height: auto;
+    border: 0;
+    padding: var(--space-1) 0;
+    text-align: left;
+  }
+
+  .table--cards td.num {
+    text-align: left;
+  }
+
+  .table--cards td[data-label]::before {
+    content: attr(data-label) " ";
+    margin-right: var(--space-2);
+    color: var(--muted);
+    font: var(--type-caption);
+  }
 }
 
 @media (max-width: 640px) {
@@ -46,21 +174,20 @@
 
   .table.cards tr {
     border-bottom: 1px solid var(--line);
-    padding: 8px 0;
+    padding: var(--space-2) 0;
   }
 
   .table.cards td {
+    height: auto;
     border: 0;
-    padding: 3px 0;
+    padding: var(--space-1) 0;
     text-align: left;
   }
 
   .table.cards td[data-label]::before {
     content: attr(data-label) " ";
-    font: 500 11px/1.3 var(--font-mono);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    margin-right: var(--space-2);
     color: var(--muted);
-    margin-right: 6px;
+    font: var(--type-caption);
   }
 }
